@@ -1,6 +1,6 @@
 # Hello, world!
 #
-# This is an example function named 'hello' 
+# This is an example function named 'hello'
 # which prints 'Hello, world!'.
 #
 # You can learn more about package authoring with RStudio at:
@@ -13,6 +13,20 @@
 #   Check Package:             'Cmd + Shift + E'
 #   Test Package:              'Cmd + Shift + T'
 
-hello <- function() {
+
+
+
+#' hello_comment
+#' testing out the comments
+#'
+#' @return
+#' @export
+#'
+#' @examples
+hello_comment <- function() {
   print("Hello, world!")
+}
+
+a_new_function <- function() {
+  print("new_function!!")
 }
