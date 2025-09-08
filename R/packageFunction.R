@@ -1,11 +1,7 @@
 
-library(SpatialExperiment)
-
-
-
 #' Extract Gene Expression Values for Shared Pixels Between Two SpatialExperiments
 #'
-#' This function creates a data frame containing gene expression values for a 
+#' This function creates a data frame containing gene expression values for a
 #' specified gene across shared spatial pixels in two SpatialExperiment objects.
 #'
 #' @param x A SpatialExperiment object representing the first dataset.
@@ -15,34 +11,28 @@ library(SpatialExperiment)
 #'
 #' @return A data frame with three columns:
 #' \item{pixel}{Character vector of shared pixel IDs between both experiments.}
-#' \item{y}{Numeric vector of gene expression values from `y` (second SpatialExperiment).}
 #' \item{x}{Numeric vector of gene expression values from `x` (first SpatialExperiment).}
+#' \item{y}{Numeric vector of gene expression values from `y` (second SpatialExperiment).}
 #'
 #' @export
 #'
 #' @examples
 #' getGenePixelDF(spatialExp1, spatialExp2, "Aqp4", 'pixelval')
 getGenePixelDF <- function (x, y, gene, assayName = assayName) {
-  
-  # pixels that are in both SpatialExperiments 
+
+  # pixels that are in both SpatialExperiments
   pixels <- intersect(colnames(x), colnames(y))
 
-  # data frame of pixel values for only given gene 
+  # data frame of pixel values for only given gene
   geneDF <- data.frame(
-    pixel = pixels, 
-    # y = as.vector(assay(y)[gene, pixels]), 
-    # x = as.vector(assay(x)[gene, pixels])
-    
-    # x <- as.vector(assay(x, "pixelval")[gene, pixels, drop = TRUE]),
-    # y <- as.vector(assay(y, "pixelval")[gene, pixels, drop = TRUE])
-    
-    x = as.vector(as.matrix(SummarizedExperiment::assay(x, assayName))[gene, pixels, drop = TRUE]), 
+    pixel = pixels,
+    x = as.vector(as.matrix(SummarizedExperiment::assay(x, assayName))[gene, pixels, drop = TRUE]),
     y = as.vector(as.matrix(SummarizedExperiment::assay(y, assayName))[gene, pixels, drop = TRUE])
-    
-  )  
-  
+
+  )
+
   return(geneDF)
-  
+
 }
 
 #' Threshold and preprocess gene expression data
@@ -65,31 +55,31 @@ getGenePixelDF <- function (x, y, gene, assayName = assayName) {
 #'         - Zero values are approximated to 0.001 to avoid numerical instability.
 #'
 #' @export
-#' 
+#'
 #' @examples
 threshold <- function (genePixelDF, t1, t2) {
-  
-  
-  # remove NA value 
+
+
+  # remove NA value
   df <- na.omit(genePixelDF)
 
-  # threshold 
-  #df <- df[!(df$y < t1 & df$x <t2), ] 
-  #df <- df[!(df$y < t1 | df$x <t2), ] 
-  #df <- df[(df$y > t1 & df$x > t2), ] 
-  df <- df[(df$x > t1 | df$y > t2), ] 
-  
-  # list of pixels inside of   
+  # threshold
+  #df <- df[!(df$y < t1 & df$x <t2), ]
+  #df <- df[!(df$y < t1 | df$x <t2), ]
+  #df <- df[(df$y > t1 & df$x > t2), ]
+  df <- df[(df$x > t1 | df$y > t2), ]
+
+  # list of pixels inside of
   pixInThresh <- df$pixel
-  
-  # list of pixels outside of threshold 
-  # pixels that are in genePixelDF, but not in df  
+
+  # list of pixels outside of threshold
+  # pixels that are in genePixelDF, but not in df
   pixOutThresh <- setdiff(genePixelDF$pixel, df$pixel)
-  
-  # approximate 0s to 0.0001 
+
+  # approximate 0s to 0.0001
   df$x[df$x == 0] <- 0.0001
   df$y[df$y == 0] <- 0.0001
-  
+
   output <- data.frame(
     pixel = I(list(df$pixel)),
     x = I(list(df$x)),
@@ -99,7 +89,7 @@ threshold <- function (genePixelDF, t1, t2) {
   )
 
   return(output)
-  
+
 }
 
 #' Computes spatial similarity of gene expression between two
@@ -159,140 +149,140 @@ threshold <- function (genePixelDF, t1, t2) {
 #' @examples
 
 spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, foldChange = 1, assayName = NULL) {
-  
-  # TODO: check that the input is well formatted 
-  
-  # TODO: error: if input is one SpatialExperiment 
-  
+
+  # TODO: check that the input is well formatted
+
+  # TODO: error: if input is one SpatialExperiment
+
   # if (!all(sapply(input, function(x) inherits(x, "SpatialExperiment")))) {
   #   stop("Error: Both elements of 'input' must be of class 'SpatialExperiment'.")
   # }
-  
+
   # if (!is.list(input) || length(input) != 2) {
   #   stop("Error: 'input' must be a list containing two SpatialExperiments.")
   # }
-  
+
   # if (!is.list(input) || length(input) != 2) {
   #   stop("Error: 'input' must be a list containing two SpatialExperiments.")
   # }
-  
+
   ## if name of assay to use in the SpatialExperiment object is not provided, use the first assay as a default
   if (is.null(assayName)) {
     assayName <- 1
   }
 
   output <- data.frame(
-    gene = character(), 
+    gene = character(),
     percentSimilarity = numeric(),
-    similarPixelID = I(list()), 
+    similarPixelID = I(list()),
     dissimilarPixelIDX = I(list()),
     dissimilarPixelIDY = I(list()),
     numPixelInThresh = numeric(),
     pixelIDInThresh = I(list()),
-    numPixelOutThresh = numeric(), 
+    numPixelOutThresh = numeric(),
     pixelIDOutThresh = I(list()),
     t1 = numeric(),
     t2 = numeric()
   )
-  
+
   logTransGenes <- data.frame(
-    gene = character(), 
+    gene = character(),
     log = I(list())
   )
-  
+
   x = input[[1]]
   y = input[[2]]
-  
+
   shared_genes <- intersect(rownames(x), rownames(y))
-  
+
   for (gene in shared_genes) {
-    
-    # gene to pixel matrix 
-    genePixel <- getGenePixelDF(x = x, y = y, gene = gene, assayName = assayName); 
-    
-    # threshold the gene to pixel matrix and 
-    # and remove NA values and make approximations for 0 numbers 
-    
+
+    # gene to pixel matrix
+    genePixel <- getGenePixelDF(x = x, y = y, gene = gene, assayName = assayName);
+
+    # threshold the gene to pixel matrix and
+    # and remove NA values and make approximations for 0 numbers
+
     if (is.null(t1)) {
       t1 <- quantile(genePixel$x, minQuantile)
     }
     if (is.null(t2)) {
       t2 <- quantile(genePixel$y, minQuantile)
-    }   
-    
+    }
+
     thresh <- threshold(genePixel, t1, t2)
     threshDF <- data.frame(
-      pixel = thresh$pixel[[1]], 
-      x = thresh$x[[1]], 
+      pixel = thresh$pixel[[1]],
+      x = thresh$x[[1]],
       y = thresh$y[[1]]
     )
-    
-    # skip gene if less than 10% of all pixels pass the threshold 
+
+    # skip gene if less than 10% of all pixels pass the threshold
     if(dim(threshDF)[1] < (0.1 * dim(genePixel)[1])) {
-      
+
       output <- rbind(output, data.frame(
-        gene = gene, 
+        gene = gene,
         percentSimilarity = NA,
         similarPixelID = NA,
         dissimilarPixelIDX = NA,
         dissimilarPixelIDY = NA,
-        numPixelInThresh = dim(thresh)[1], 
+        numPixelInThresh = dim(thresh)[1],
         pixelIDInThresh = NA,
-        numPixelOutThresh = thresh$numPixelOutThresh[[1]], 
+        numPixelOutThresh = thresh$numPixelOutThresh[[1]],
         pixelIDOutThresh = thresh$pixelIDOutThresh,
         t1 = t1,
         t2 = t2
       ))
-      next 
+      next
     }
-    
+
     # calculate the slope for each pixel
     threshDF$slope <- threshDF$y / threshDF$x
-    
-    # log transformation 
+
+    # log transformation
     logTrans <- data.frame(
-      pixel = threshDF$pixel, 
+      pixel = threshDF$pixel,
       log = log2(threshDF$slope)
     )
-    
-    # calculate similarity for gene based on fold change 
+
+    # calculate similarity for gene based on fold change
     similarPixels <- logTrans[logTrans$log >= -foldChange & logTrans$log <= foldChange, ]
     geneSimilarity <- dim(similarPixels)[1] / dim(logTrans)[1]
-    
+
     dissimilarPixelsX <- logTrans[logTrans$log < -foldChange, ]
     dissimilarPixelsY <- logTrans[logTrans$log > foldChange, ]
-    
+
     output <- rbind(output, data.frame(
-      gene = gene, 
-      percentSimilarity = geneSimilarity, 
+      gene = gene,
+      percentSimilarity = geneSimilarity,
       similarPixelID = I(list(similarPixels$pixel)),
       dissimilarPixelIDX = I(list(dissimilarPixelsX$pixel)),
       dissimilarPixelIDY = I(list(dissimilarPixelsY$pixel)),
-      numPixelInThresh = dim(logTrans)[1], 
+      numPixelInThresh = dim(logTrans)[1],
       pixelIDInThresh = thresh$pixel,
-      numPixelOutThresh = thresh$numPixelOutThresh[[1]], 
+      numPixelOutThresh = thresh$numPixelOutThresh[[1]],
       pixelIDOutThresh = thresh$pixelIDOutThresh,
       t1 = t1,
       t2 = t2
     ))
-    
+
     logTransGenes <- rbind(logTransGenes, data.frame(
-      gene = gene, 
+      gene = gene,
       log = I(list(logTrans$log))
     ))
-    
+
   }
-  
+
   return(list(
-    similarityTable = output, 
-    pixelLogTransformation = logTransGenes, 
+    similarityTable = output,
+    pixelLogTransformation = logTransGenes,
     parameters = list(
       #t1 = t1, #should move this to inside output if changes for each gene?
       #t2 = t2,
-      foldChange = foldChange, 
+      foldChange = foldChange,
       input = input
       )
     ))
-  
+
 }
 
