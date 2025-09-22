@@ -1,4 +1,3 @@
-
 #' Extract Gene Expression Values for Shared Pixels Between Two SpatialExperiments
 #'
 #' This function creates a data frame containing gene expression values for a
@@ -11,13 +10,10 @@
 #'
 #' @return A data frame with three columns:
 #' \item{pixel}{Character vector of shared pixel IDs between both experiments.}
-#' \item{x}{Numeric vector of gene expression values from `x` (first SpatialExperiment).}
 #' \item{y}{Numeric vector of gene expression values from `y` (second SpatialExperiment).}
+#' \item{x}{Numeric vector of gene expression values from `x` (first SpatialExperiment).}
 #'
-#' @export
 #'
-#' @examples
-#' getGenePixelDF(spatialExp1, spatialExp2, "Aqp4", 'pixelval')
 getGenePixelDF <- function (x, y, gene, assayName = assayName) {
 
   # pixels that are in both SpatialExperiments
@@ -54,9 +50,6 @@ getGenePixelDF <- function (x, y, gene, assayName = assayName) {
 #'         - Pixels with both x and y values below their respective thresholds are excluded,
 #'         - Zero values are approximated to 0.001 to avoid numerical instability.
 #'
-#' @export
-#'
-#' @examples
 threshold <- function (genePixelDF, t1, t2) {
 
 
@@ -64,9 +57,6 @@ threshold <- function (genePixelDF, t1, t2) {
   df <- na.omit(genePixelDF)
 
   # threshold
-  #df <- df[!(df$y < t1 & df$x <t2), ]
-  #df <- df[!(df$y < t1 | df$x <t2), ]
-  #df <- df[(df$y > t1 & df$x > t2), ]
   df <- df[(df$x > t1 | df$y > t2), ]
 
   # list of pixels inside of
@@ -147,26 +137,15 @@ threshold <- function (genePixelDF, t1, t2) {
 #' @export
 #'
 #' @examples
+#' ##### Rasterize to get pixels at matched spatial locations #####
+#' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
+#'                assay_name = 'counts', resolution = 0.2, fun = "mean",
+#'                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+#'
+#' s <- spatialSimilarity(list(rastKidney$A, rastKidney$C))
 
 spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, foldChange = 1, assayName = NULL) {
 
-  # TODO: check that the input is well formatted
-
-  # TODO: error: if input is one SpatialExperiment
-
-  # if (!all(sapply(input, function(x) inherits(x, "SpatialExperiment")))) {
-  #   stop("Error: Both elements of 'input' must be of class 'SpatialExperiment'.")
-  # }
-
-  # if (!is.list(input) || length(input) != 2) {
-  #   stop("Error: 'input' must be a list containing two SpatialExperiments.")
-  # }
-
-  # if (!is.list(input) || length(input) != 2) {
-  #   stop("Error: 'input' must be a list containing two SpatialExperiments.")
-  # }
-
-  ## if name of assay to use in the SpatialExperiment object is not provided, use the first assay as a default
   if (is.null(assayName)) {
     assayName <- 1
   }

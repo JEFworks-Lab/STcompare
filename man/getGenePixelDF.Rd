@@ -18,11 +18,11 @@ getGenePixelDF(x, y, gene, assayName = assayName)
 \value{
 A data frame with three columns:
 \item{pixel}{Character vector of shared pixel IDs between both experiments.}
-\item{x}{Numeric vector of gene expression values from `x` (first SpatialExperiment).}
 \item{y}{Numeric vector of gene expression values from `y` (second SpatialExperiment).}
+\item{x}{Numeric vector of gene expression values from `x` (first SpatialExperiment).}
 }
 \description{
-This function creates a data frame containing gene expression values for a
+This function creates a data frame containing gene expression values for a 
 specified gene across shared spatial pixels in two SpatialExperiment objects.
 }
 \examples{
