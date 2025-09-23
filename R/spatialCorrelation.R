@@ -41,8 +41,8 @@
 #'   the variogram of X}
 #'   }
 #'
-#' @references 
-#' adapted from: 
+#' @references
+#' adapted from:
 #' Viladomat, Júlia et al. “Assessing the significance of global and
 #'   local correlations under spatial autocorrelation: a nonparametric
 #'   approach.” Biometrics vol. 70,2 (2014): 409-18. doi:10.1111/biom.12139
@@ -73,8 +73,8 @@
 #' prctile <- quantile(dists, probs = 0.25)
 #'
 #' # variogram of variable X that will be used as target when doing the matching:
-#' target_variog <- geoR::variog(data = X, coords = cbind(long, lat), 
-#'                               max.dist = prctile, option = "bin", 
+#' target_variog <- geoR::variog(data = X, coords = cbind(long, lat),
+#'                               max.dist = prctile, option = "bin",
 #'                               messages = FALSE)
 #'
 #' # create B random permutations of the values of X across locations:
@@ -82,47 +82,47 @@
 #'    sample(X, size = length(X), replace = FALSE)
 #' })
 #'
-#' # create B permutations of the values of X with variograms that match the 
+#' # create B permutations of the values of X with variograms that match the
 #' #target variogram of X:
 #' output <- lapply(1:B, function(i) {
-#'   output <- matchingVariograms(X.randomized[[i]], long, lat, 
+#'   output <- matchingVariograms(X.randomized[[i]], long, lat,
 #'                                delta, target_variog, prctile, ids, i)
 #' })
 #'
 #' output
-#' 
-matchingVariograms <- function( X.randomized, long, lat, delta, target_variog, 
+#'
+matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
                                 prctile, ids, i ) {
-  
+
   #initialize vectors for fitting variograms for each delta
   variog.X.delta <- vector(mode = "list", length = length(delta))
   linear.fit <- variog.X.delta
   hat.X.delta <- variog.X.delta
   resid.sum.squares <- rep(0, length(delta))
-  
-  for (k in 1:length(delta)) { 
+
+  for (k in 1:length(delta)) {
     # smooth X.randomized using locfit:
-    fit <- locfit::locfit(X.randomized ~ locfit::lp(long, lat, nn = delta[k], 
-                                                    deg = 0), 
+    fit <- locfit::locfit(X.randomized ~ locfit::lp(long, lat, nn = delta[k],
+                                                    deg = 0),
                           kern = "gauss", maxk = 300)
-    X.delta <- fitted(fit) 
+    X.delta <- fitted(fit)
     # variogram of X.delta:
-    variog.X.delta[[k]] <- geoR::variog(data = X.delta[ids], 
-                                        coords = cbind(long[ids],lat[ids]), 
-                                        option = "bin", max.dist = prctile, 
+    variog.X.delta[[k]] <- geoR::variog(data = X.delta[ids],
+                                        coords = cbind(long[ids],lat[ids]),
+                                        option = "bin", max.dist = prctile,
                                         messages = FALSE)
-    
+
     # linear regression between the target and X.delta variograms:
-    linear.fit[[k]] <- lm(target_variog$v ~ 1 + variog.X.delta[[k]]$v)  
+    linear.fit[[k]] <- lm(target_variog$v ~ 1 + variog.X.delta[[k]]$v)
     # least square estimates:
     bet.hat <- as.numeric(linear.fit[[k]]$coefficients)
     # transformed X.delta:
     hat.X.delta[[k]] <- X.delta * sqrt(abs(bet.hat[2])) + rnorm(length(X.delta)) * sqrt(abs(bet.hat[1]))
-    variog.hat.X.delta <- geoR::variog(data = hat.X.delta[[k]][ids], 
-                                       coords = cbind(long[ids],lat[ids]), 
-                                       option = "bin", max.dist = prctile, 
+    variog.hat.X.delta <- geoR::variog(data = hat.X.delta[[k]][ids],
+                                       coords = cbind(long[ids],lat[ids]),
+                                       option = "bin", max.dist = prctile,
                                        messages = FALSE)
-    
+
     # sum of squares of the residuals:
     resid.sum.squares[k] <- sum((variog.hat.X.delta$v-target_variog$v) ^ 2)
   }
@@ -130,8 +130,8 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
   delta.star.id <- which.min(resid.sum.squares)
   # permutation for which its variogram matches the variogram of X:
   hat.X.delta.star <- hat.X.delta[[delta.star.id]]
-  return(list(residus = resid.sum.squares, 
-              delta.star.id = delta.star.id, 
+  return(list(residus = resid.sum.squares,
+              delta.star.id = delta.star.id,
               hat.X.delta.star = hat.X.delta.star ))
 }
 
@@ -224,22 +224,22 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #' nPermutations <- 3
 #'
 #' resultsPermuteX <- viladomatCorrelation(data, delta, maxDistPrctile, nPermutations)
-#' 
-viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations, 
+#'
+viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
                                  nThreads = 1, BPPARAM = NULL) {
-  
+
   ## Set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
     BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
   }
-  
+
   # load the data X, Y and the coordinates of the N data locations:
   X <- data[,1]
   Y <- data[,2]
   lat <- data[,3]
   long <- data[,4]
   N <- length(X)
-  
+
   # If N is too big, we take a subsample of size N_s every time we calculate a
   # variogram:
   N_s <- 1000
@@ -254,38 +254,38 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
     lat_s <- lat
     ids <- 1:N
   }
-  
-  # maximum distance for the variogram set at the 25% percentile of 
+
+  # maximum distance for the variogram set at the 25% percentile of
   # the distribution of pairs of distances:
   dists <- dist(cbind(lat_s, long_s))
   prctile <- quantile(dists, probs = maxDistPrctile)
-  
+
   # variogram of variable X that will be used as target when doing the matching:
-  target_variog <- geoR::variog(data = X_s, coords = cbind(long_s,lat_s), 
-                                max.dist = prctile, 
+  target_variog <- geoR::variog(data = X_s, coords = cbind(long_s,lat_s),
+                                max.dist = prctile,
                                 option = "bin", messages = FALSE)
-  
+
   # ALGORITHM:
-  # It returns B random fields with the same autocorrelation 
+  # It returns B random fields with the same autocorrelation
   # as X but independent of Y, stored in permutations. The basis
   # to calculate B realizations of the null we are interested in.
-  
+
   B <- nPermutations
   permutations <- vector(mode = "list", length = B)
-  
-  
+
+
   # random permutation of the values of X across locations:
   X.randomized <- lapply(1:B, function(i) {
     sample(X, size = length(X), replace = FALSE)
   })
-  
+
   output <- BiocParallel::bplapply(1:B, function(i) {
     # smoothing and scaling step to match the target variogram:
-    output <- matchingVariograms(X.randomized[[i]], long, lat, 
-                                 delta, target_variog, prctile, ids, i) 
+    output <- matchingVariograms(X.randomized[[i]], long, lat,
+                                 delta, target_variog, prctile, ids, i)
   }, BPPARAM=BPPARAM)
-  
-  
+
+
   permutations <- do.call(cbind, BiocParallel::bplapply(1:B, function(i) {
     # store permutations after smoothing and scaling to match the target
     # variogram
@@ -293,31 +293,31 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
     c(hat.X.delta.star)
   }, BPPARAM=BPPARAM)
   )
-  
+
   delta.star <- do.call(cbind, BiocParallel::bplapply(1:B, function(i) {
-    # index of delta that minimizes the residual sum of squares between between 
+    # index of delta that minimizes the residual sum of squares between between
     # the target and X.delta variograms for each permutation
     delta.star.id <- output[[i]]$delta.star.id
     # evaluate the delta at that index
     c(delta[delta.star.id])
   }, BPPARAM=BPPARAM)
   )
-  
+
   # store median of the delta stars to return
   delta.star.median<- median(delta.star)
-  
+
   # ASSESSING THE SINGLE PEARSON'S CORRELATION COEFFICIENT (GLOBAL CORRELATION):
   # observed global correlation:
   cor.global.obs <- as.vector(cor(X,Y))
-  
+
   # null distribution for the global correlation:
   cor.global <- cor(permutations,Y)
-  
+
   # p-value:
   extreme <- sum(abs(cor.global) > abs(cor.global.obs))
   p.value.global <- extreme / B
-  
-  return(list(deltaStarMedian = delta.star.median, 
+
+  return(list(deltaStarMedian = delta.star.median,
               deltaStar = c(delta.star),
               pValueGlobal = p.value.global,
               nullCorGlobal = cor.global,
@@ -401,7 +401,7 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
 #'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
 #'   observations}
-#'   \item{\code{pValuePermuteX}}{the p-value when creating an empirical null 
+#'   \item{\code{pValuePermuteX}}{the p-value when creating an empirical null
 #'   from permutations of observations in X}
 #'   \item{\code{pValuePermuteY}}{the p-value when creating an empirical null from
 #'   permutations of observations in Y}
@@ -411,15 +411,15 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
 #'   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
 #'   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-#'   \item{\code{nullCorrelationsX}}{correlation coefficients for pairing Y and 
+#'   \item{\code{nullCorrelationsX}}{correlation coefficients for pairing Y and
 #'   all permutations of X}
-#'   \item{\code{nullCorrelationsY}}{correlation coefficients for pairing X and 
+#'   \item{\code{nullCorrelationsY}}{correlation coefficients for pairing X and
 #'   all permutations of Y}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the 
-#'   length of X and B is `nPermutations`. Each column is the resulting values 
+#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
+#'   length of X and B is `nPermutations`. Each column is the resulting values
 #'   of a permutation of X}
-#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the 
-#'   length of Y and B is `nPermutations`. Each column is the resulting values 
+#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the
+#'   length of Y and B is `nPermutations`. Each column is the resulting values
 #'   of a permutation of Y}
 #'   }
 #'
@@ -463,76 +463,76 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'
 #' #visualizations of the spatial data to verify negative correlation
 #' library(ggplot2)
-#' p1 <- ggplot2::ggplot(quakes_data, 
+#' p1 <- ggplot2::ggplot(quakes_data,
 #'                       ggplot2::aes(x = long, y = lat, color = depth)) +
-#' ggplot2::geom_point(size = 2) + 
-#'   ggplot2::scale_color_gradient(low = "lightblue", high = "blue") + 
-#'   ggplot2::labs(title = "Locations of Earthquakes off Fiji", 
-#'                 x = "Longitude", y = "Latitude", 
-#'                 color = "Depth (km)") +
-#'   ggplot2::theme_minimal() + 
-#'   ggplot2::coord_map() 
-#'
-#' p2 <- ggplot2::ggplot(quakes_data, 
-#'                       ggplot2::aes(x = long, y = lat, color = mag)) +
-#' ggplot2::geom_point(size = 2) + 
-#'   ggplot2::scale_color_gradient(low = "lightblue", high = "blue") + 
+#' ggplot2::geom_point(size = 2) +
+#'   ggplot2::scale_color_gradient(low = "lightblue", high = "blue") +
 #'   ggplot2::labs(title = "Locations of Earthquakes off Fiji",
-#'                 x = "Longitude", y = "Latitude", 
+#'                 x = "Longitude", y = "Latitude",
+#'                 color = "Depth (km)") +
+#'   ggplot2::theme_minimal() +
+#'   ggplot2::coord_map()
+#'
+#' p2 <- ggplot2::ggplot(quakes_data,
+#'                       ggplot2::aes(x = long, y = lat, color = mag)) +
+#' ggplot2::geom_point(size = 2) +
+#'   ggplot2::scale_color_gradient(low = "lightblue", high = "blue") +
+#'   ggplot2::labs(title = "Locations of Earthquakes off Fiji",
+#'                 x = "Longitude", y = "Latitude",
 #'                 color = "Richter Magnitude") +
-#'   ggplot2::theme_minimal() + 
-#'   ggplot2::coord_map() 
+#'   ggplot2::theme_minimal() +
+#'   ggplot2::coord_map()
 #'
 #' p1
-#' p2  
-spatialCorrelation <- function(X, Y, pos, nPermutations = 100, 
-                               deltaX = NULL, deltaY = NULL, 
-                               maxDistPrctile = 0.25, 
-                               returnPermutations = FALSE, 
+#' p2
+spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
+                               deltaX = NULL, deltaY = NULL,
+                               maxDistPrctile = 0.25,
+                               returnPermutations = FALSE,
                                nThreads = 1, BPPARAM = NULL){
-  
+
   ## Set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
     BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
   }
-  
+
   ## Organize data into dataframes
-  dataForward <- data.frame(X = X, 
+  dataForward <- data.frame(X = X,
                             Y = Y,
                             x = pos[,1],
                             y = pos[,2])
-  
-  dataReverse <- data.frame(X = dataForward$Y, 
-                            Y = dataForward$X, 
+
+  dataReverse <- data.frame(X = dataForward$Y,
+                            Y = dataForward$X,
                             x = dataForward$x,
                             y = dataForward$y)
-  
-  ## If deltas to test are not supplied, try 0.1 to 0.9 for each dataset 
+
+  ## If deltas to test are not supplied, try 0.1 to 0.9 for each dataset
   if (is.null(deltaX)){
     deltaX = seq(0.1,0.9,0.1)
   }
-  
+
   if (is.null(deltaY)){
     deltaY = seq(0.1,0.9,0.1)
   }
-  
+
   tryCatch({
     ## Calculate Pearson's correlation and return data frame with correlation
     #estimate and naive p-value assuming independence
     corDF <- cor.test(dataForward$X, dataForward$Y)
-    
+
     ## Calculate corrected p-value for Pearson's correlation
-    resultsPermuteX <- viladomatCorrelation(dataForward, delta = deltaX, 
-                                            maxDistPrctile = maxDistPrctile, 
-                                            nPermutations = nPermutations, 
-                                            nThreads = nThreads, 
+    resultsPermuteX <- viladomatCorrelation(dataForward, delta = deltaX,
+                                            maxDistPrctile = maxDistPrctile,
+                                            nPermutations = nPermutations,
+                                            nThreads = nThreads,
                                             BPPARAM = BPPARAM)
-    resultsPermuteY <- viladomatCorrelation(dataReverse, delta = deltaY, 
-                                            maxDistPrctile = maxDistPrctile, 
-                                            nPermutations = nPermutations, 
-                                            nThreads = nThreads, 
+    resultsPermuteY <- viladomatCorrelation(dataReverse, delta = deltaY,
+                                            maxDistPrctile = maxDistPrctile,
+                                            nPermutations = nPermutations,
+                                            nThreads = nThreads,
                                             BPPARAM = BPPARAM)
-    
+
     ## Store correlation value, naive p-value, and corrected p-value for
     #permuting either source and target as dataframe with 1 row
     if(returnPermutations == TRUE){
@@ -561,18 +561,18 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
                            nullCorrelationsX = I(list(resultsPermuteX[["nullCorGlobal"]])),
                            nullCorrelationsY = I(list(resultsPermuteY[["nullCorGlobal"]]))
       )
-    } 
-    
+    }
+
     return(output)
-    
+
   }
   ,
-  
+
   error = function(cond) {
     print(cond)
     #if get error in the main correction function return NA for corrected
     #p-values (permuting source or permuting target) as dataframe with 1 row
-    
+
     if(returnPermutations == TRUE){
       output <- data.frame(correlationCoef = corDF$estimate,
                            pValueNaive = corDF$p.value,
@@ -586,7 +586,7 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
                            nullCorrelationsY = NA,
                            permutationsX = NA,
                            permutationsY = NA)
-    } 
+    }
     else {
       output <- data.frame(correlationCoef = corDF$estimate,
                            pValueNaive = corDF$p.value,
@@ -599,12 +599,12 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
                            nullCorrelationsX = NA,
                            nullCorrelationsY = NA)
     }
-    
+
     return(output)
-    
+
   }
   )
-  
+
 }
 
 #' spatialCorrelationGeneExp
@@ -712,9 +712,9 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
 #'   \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all permuations of X}
 #'   \item{\code{nullCorrelationsY}}{correlation coefficients for X and all permuations of Y}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`. 
+#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
 #'   Each column is the resulting values of a permutation of X}
-#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the length of Y and B is `nPermutations`. 
+#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the length of Y and B is `nPermutations`.
 #'   Each column is the resulting values of a permutation of Y}
 #'   }
 #'
@@ -722,10 +722,10 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'
 #' @examples
 #'
-#' data(speKidney) 
+#' data(speKidney)
 #'
 #' ##### Rasterize to get pixels at matched spatial locations #####
-#' rastKidney <- SEraster::rasterizeGeneExpression(speKidney, 
+#' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
 #'                assay_name = 'counts', resolution = 0.2, fun = "mean",
 #'                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
 #'
@@ -739,19 +739,19 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #' negCorrelation
 #' posCorrelation
 
-spatialCorrelationGeneExp <- function(input, nPermutations = 100, 
-                                      deltaX = NULL, deltaY = NULL,  
-                                      maxDistPrctile = 0.25, 
-                                      returnPermutations = FALSE, 
+spatialCorrelationGeneExp <- function(input, nPermutations = 100,
+                                      deltaX = NULL, deltaY = NULL,
+                                      maxDistPrctile = 0.25,
+                                      returnPermutations = FALSE,
                                       assayName = NULL,
                                       nThreads = 1, BPPARAM = NULL,
                                       verbose = TRUE){
-  
+
   ## set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
     BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
   }
-  
+
   #Determine the positions of shared pixels between two rasterized spatial
   #experiments
   source <- input[[1]]
@@ -759,57 +759,57 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
   shared_pixels <- intersect(rownames(SpatialExperiment::spatialCoords(source)),
                              rownames(SpatialExperiment::spatialCoords(target)))
   pos <- SpatialExperiment::spatialCoords(source)[shared_pixels,]
-  
+
   #If lists of deltas to test are not supplied, try 0.1 to 0.9 for both datasets
   #for each gene
   if (is.null(deltaX)){
     deltaX <- rep(list(seq(0.1,0.9,0.1), length(rownames(source))))
   }
-  
+
   if (is.null(deltaY)){
     deltaY <- rep(list(seq(0.1,0.9,0.1), length(rownames(source))))
   }
-  
+
   ## if name of assay to use in the SpatialExperiment object is not provided,
   ## use the first assay as a default
   if (is.null(assayName)) {
     assayName <- 1
   }
-  
+
   #calculate Pearson's correlation of expression between shared pixels in
   #datasets for each gene, naive p-value assuming independence and corrected
   #p-value using empirical null from permutations
-  correctedCorrelation <- do.call(rbind, 
-                                  lapply(1:length(rownames(source)), 
+  correctedCorrelation <- do.call(rbind,
+                                  lapply(1:length(rownames(source)),
                                          function(i) {
-    
+
     #store name of gene
     g <- rownames(source)[i]
-    
+
     #print number of iteration and name of gene
     if (verbose) {
       message(paste0(i, ': ', g))
     }
-    
-    #store gene expression matrices from SpatialExperiments for gene "g" 
+
+    #store gene expression matrices from SpatialExperiments for gene "g"
     X <- SummarizedExperiment::assays(source)[[assayName]][g, shared_pixels]
     Y <- SummarizedExperiment::assays(target)[[assayName]][g, shared_pixels]
-    
+
     #calculate correlation, naive p-value, corrected p-value using empirical
     #null from permutations
-    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations, 
-                                 deltaX = deltaX[[i]], deltaY = deltaY[[i]],  
-                                 maxDistPrctile = maxDistPrctile, 
-                                 returnPermutations = returnPermutations, 
+    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations,
+                                 deltaX = deltaX[[i]], deltaY = deltaY[[i]],
+                                 maxDistPrctile = maxDistPrctile,
+                                 returnPermutations = returnPermutations,
                                  nThreads = nThreads, BPPARAM = NULL)
-    
+
     #name row of dataframe with gene name
     row.names(output) <- g
-    
+
     return(output)
-    
+
   }))
-  
+
   return(correctedCorrelation)
 }
 
@@ -910,7 +910,7 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
 #'   \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all permuations of X}
 #'   \item{\code{nullCorrelationsY}}{correlation coefficients for X and all permuations of Y}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`. 
+#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
 #'   Each column is the resulting values of a permutation of X}
 #'   \item{\code{first}}{the name of the first row in the pair}
 #'   \item{\code{second}}{the name of the second row in the pair}
@@ -919,72 +919,85 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #' @export
 #'
 #' @examples
-#' 
-spatialCorrelationGeneExpWithinSample <- function(input, 
-                                                  nPermutations = 100, 
-                                                  delta = NULL, 
-                                                  returnPermutations = FALSE, 
-                                                  assayName = NULL, 
-                                                  nThreads = 1, 
-                                                  BPPARAM = NULL, 
+#'
+#' data(speKidney)
+#'
+#' ##### Rasterize to get pixels at matched spatial locations #####
+#' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
+#'                assay_name = 'counts', resolution = 0.2, fun = "mean",
+#'                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+#'
+#' sc_within_sample <- spatialCorrelationGeneExpWithinSample(
+#'                       input = rastKidney,
+#'                       assayName = "A"
+#'                       )
+#'sc_within_sample
+#'
+spatialCorrelationGeneExpWithinSample <- function(input,
+                                                  nPermutations = 100,
+                                                  delta = NULL,
+                                                  returnPermutations = FALSE,
+                                                  assayName = NULL,
+                                                  nThreads = 1,
+                                                  BPPARAM = NULL,
                                                   verbose = TRUE){
-  
+
   ## set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
     BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
   }
-  
+
   #Store positions of pixels in the rasterized spatial experiment
   pos <- SpatialExperiment::spatialCoords(input)
-  
+
   #If lists of deltas to test are not supplied, try 0.1 to 0.9 for each gene
   if (is.null(delta)){
     delta <- rep(list(seq(0.1,0.9,0.1)), length(rownames(input)))
   }
   names(delta) <- rownames(input)
-  
+
   ## if name of assay to use in the SpatialExperiment object is not provided,
   ## use the first assay as a default
   if (is.null(assayName)) {
     assayName <- 1
   }
-  
+
   #identify all unique combinations of pairs of genes
   genePairs <- combn(rownames(input), 2)
   #store number of pairs of genes
   n <- dim(genePairs)[2]
-  
+
   correctedCorrelation <- do.call(rbind, lapply(1:n, function(i) {
-    
+
     #store names of genes in the ith pair
     g <- genePairs[1,i]
     g2 <- genePairs[2,i]
-      
+
     #print number of iteration and names of genes in the pair
     if (verbose) {
       message(paste0(i, ': ', g, ' and ', g2))
     }
-    
+
     #store gene expression matrices for genes in the pair
     X <- SummarizedExperiment::assay(input, assayName)[g, ]
     Y <- SummarizedExperiment::assay(input, assayName)[g2, ]
 
     #calculate correlation, naive p-value, corrected p-value using empirical
     #null from permutations
-    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations, 
-                                 deltaX = delta[[g]], deltaY = delta[[g2]], 
-                                 returnPermutations = returnPermutations, 
-                                 nThreads = nThreads, 
+    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations,
+                                 deltaX = delta[[g]], deltaY = delta[[g2]],
+                                 returnPermutations = returnPermutations,
+                                 nThreads = nThreads,
                                  BPPARAM = BPPARAM)
-      
+
     #add columns with gene names from the pair
     output$first <- g
     output$second <- g2
-      
-      
+
+
     return(output)
     }))
-  
+
   return(correctedCorrelation)
 }
 
@@ -1048,17 +1061,17 @@ spatialCorrelationGeneExpWithinSample <- function(input,
 #'
 #' expAB
 #' expAC
-plotCorrelationGeneExp <- function(speList, 
-                                   spatialCorrelation, 
-                                   geneName, 
+plotCorrelationGeneExp <- function(speList,
+                                   spatialCorrelation,
+                                   geneName,
                                    assayName = NULL){
-  
-  ## if name of assay to use in the SpatialExperiment object is not provided, 
+
+  ## if name of assay to use in the SpatialExperiment object is not provided,
   # use the first assay as a default
   if (is.null(assayName)) {
     assayName <- 1
   }
-  
+
   #store names for labeling axes and title
   nameList <- names(speList)
   if (is.character(assayName)) {
@@ -1067,24 +1080,24 @@ plotCorrelationGeneExp <- function(speList,
   else{
     assayNameChar <- SummarizedExperiment::assayNames(speList[[1]])[assayName]
   }
-  
+
   # pick the greater of the two p-values as the empirical p-value to add to plot
-  correlationEmpirical <- dplyr::mutate(spatialCorrelation, 
+  correlationEmpirical <- dplyr::mutate(spatialCorrelation,
                                         pValueEmpirical = dplyr::case_when(
                                           pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
                                                      .default = pValuePermuteX))
-  
+
   #Determine the positions of shared pixels between two rasterized spatial
   #experiments
   Y <- speList[[2]]
   X <- speList[[1]]
   sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(Y)),
                             rownames(SpatialExperiment::spatialCoords(X)))
-  
-  rastDf <- data.frame(YGexp = SummarizedExperiment::assay(Y, assayName)[geneName, sharedPixels], 
+
+  rastDf <- data.frame(YGexp = SummarizedExperiment::assay(Y, assayName)[geneName, sharedPixels],
                        XGexp = SummarizedExperiment::assay(X, assayName)[geneName, sharedPixels])
-  
-  pltGexp <- ggplot2::ggplot(data = rastDf, mapping=ggplot2::aes(x=XGexp,y=YGexp)) + 
+
+  pltGexp <- ggplot2::ggplot(data = rastDf, mapping=ggplot2::aes(x=XGexp,y=YGexp)) +
     ggplot2::geom_point(alpha = 0.5, size=1) +
     ggplot2::ylim(0, max(rastDf$YGexp, rastDf$XGexp)) +
     ggplot2::xlim(0, max(rastDf$YGexp, rastDf$XGexp)) +
@@ -1093,12 +1106,12 @@ plotCorrelationGeneExp <- function(speList,
       override.aes = list(linetype = c(0, 0, 0, 0),
                           shape = c(16, 16, 16, 16),
                           alpha = c(1,1,1,1)) )) +
-    ggplot2::labs(x = paste0(assayNameChar, " in ", nameList[1]), 
+    ggplot2::labs(x = paste0(assayNameChar, " in ", nameList[1]),
                   y = paste0(assayNameChar, " in ", nameList[2]),
-                  title = paste(geneName, " r = ", 
+                  title = paste(geneName, " r = ",
                                 round(correlationEmpirical[geneName,"correlationCoef"],3),
-                                " p_E = ", 
+                                " p_E = ",
                                 correlationEmpirical[geneName, "pValueEmpirical"]),
-                  fill = "Data") 
+                  fill = "Data")
   pltGexp
 }
