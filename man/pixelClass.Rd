@@ -34,3 +34,13 @@ similarity by classifying pixels into three categories: below threshold,
 similar, and not similar. The plot is generated using spatial geometry from
 the SpatialExperiment object.
 }
+\examples{
+data(speKidney)
+##### Rasterize to get pixels at matched spatial locations #####
+rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
+                assay_name = 'counts', resolution = 0.2, fun = "mean",
+                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+s <- spatialSimilarity(list(rastKidney$A, rastKidney$B))
+pixelClass(s, "Gene")
+
+}

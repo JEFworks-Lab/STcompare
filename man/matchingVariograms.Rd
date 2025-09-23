@@ -78,13 +78,13 @@ B <- 3
 delta <- seq(0.1,0.9,0.1)
 
 # maximum distance for the variogram set at the 25\% percentile of
-the distribution of pairs of distances:
+# the distribution of pairs of distances:
 dists <- dist(cbind(lat, long))
 prctile <- quantile(dists, probs = 0.25)
 
 # variogram of variable X that will be used as target when doing the matching:
-target_variog <- geoR::variog(data = X, coords = cbind(long, lat), 
-                              max.dist = prctile, option = "bin", 
+target_variog <- geoR::variog(data = X, coords = cbind(long, lat),
+                              max.dist = prctile, option = "bin",
                               messages = FALSE)
 
 # create B random permutations of the values of X across locations:
@@ -92,10 +92,10 @@ X.randomized <- lapply(1:B, function(i) {
    sample(X, size = length(X), replace = FALSE)
 })
 
-# create B permutations of the values of X with variograms that match the 
+# create B permutations of the values of X with variograms that match the
 #target variogram of X:
 output <- lapply(1:B, function(i) {
-  output <- matchingVariograms(X.randomized[[i]], long, lat, 
+  output <- matchingVariograms(X.randomized[[i]], long, lat,
                                delta, target_variog, prctile, ids, i)
 })
 
@@ -103,7 +103,7 @@ output
 
 }
 \references{
-adapted from: 
+adapted from:
 Viladomat, Júlia et al. “Assessing the significance of global and
   local correlations under spatial autocorrelation: a nonparametric
   approach.” Biometrics vol. 70,2 (2014): 409-18. doi:10.1111/biom.12139

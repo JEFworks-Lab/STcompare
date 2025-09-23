@@ -22,9 +22,6 @@ A data frame with three columns:
 \item{x}{Numeric vector of gene expression values from `x` (first SpatialExperiment).}
 }
 \description{
-This function creates a data frame containing gene expression values for a 
+This function creates a data frame containing gene expression values for a
 specified gene across shared spatial pixels in two SpatialExperiment objects.
-}
-\examples{
-getGenePixelDF(spatialExp1, spatialExp2, "Aqp4", 'pixelval')
 }

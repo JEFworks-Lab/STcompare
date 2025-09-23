@@ -31,6 +31,7 @@
 #' @export
 #'
 #' @examples
+#' data(speKidney)
 #' ##### Rasterize to get pixels at matched spatial locations #####
 #' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
 #'                assay_name = 'counts', resolution = 0.2, fun = "mean",
@@ -146,6 +147,7 @@ linearRegression <- function (input, gene, assayName = NULL) {
 #' @export
 #'
 #' @examples
+#' data(speKidney)
 #' ##### Rasterize to get pixels at matched spatial locations #####
 #' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
 #'                 assay_name = 'counts', resolution = 0.2, fun = "mean",
@@ -334,6 +336,7 @@ assignFill <- function (input, gene, df) {
 #' @export
 #'
 #' @examples
+#' data(speKidney)
 #' #' ##### Rasterize to get pixels at matched spatial locations #####
 #' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
 #'                 assay_name = 'counts', resolution = 0.2, fun = "mean",

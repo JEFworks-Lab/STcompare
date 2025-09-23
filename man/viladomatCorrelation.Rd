@@ -89,7 +89,7 @@ data <- cbind(quakes_data$depth,
 delta <- seq(0.1,0.9,0.1)
 
 # maximum distance for the variogram set at the 25\% percentile of
-the distribution of pairs of distances:
+# the distribution of pairs of distances:
 maxDistPrctile <- 0.25
 
 #number of permutations

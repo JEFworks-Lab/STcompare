@@ -15,10 +15,10 @@ savePlots(
 \arguments{
 \item{geneNames}{Character vector. Names of genes to visualize and save.}
 
-\item{spatialSimilarity}{A list. Results from `spatialSimilarity()` containing 
+\item{spatialSimilarity}{A list. Results from `spatialSimilarity()` containing
 similarity tables and analysis parameters.}
 
-\item{rastGexp}{A list of two SpatialExperiment objects. Rasterized gene expression 
+\item{rastGexp}{A list of two SpatialExperiment objects. Rasterized gene expression
 data from the spatial experiments being compared.}
 
 \item{assayName}{A character string or numeric specifying the assay in the
@@ -28,7 +28,7 @@ for \code{assayName}, then the first assay is used as a default}
 \item{filePath}{Character. Directory path where PDF files will be saved.}
 }
 \value{
-A list containing the arranged plot objects for each gene, with gene names 
+A list containing the arranged plot objects for each gene, with gene names
 as list element names. Each plot object is a four-panel arrangement showing:
 \itemize{
   \item{\strong{Panel 1:}}{Spatial expression plot for the first experiment.}
@@ -38,12 +38,22 @@ as list element names. Each plot object is a four-panel arrangement showing:
 }
 }
 \description{
-This function creates a multi-panel plot for each gene showing spatial expression 
-patterns, pixel classifications, and correlation analysis. Each gene generates 
+This function creates a multi-panel plot for each gene showing spatial expression
+patterns, pixel classifications, and correlation analysis. Each gene generates
 a four-panel figure that is saved as a PDF file.
 }
 \details{
-The function saves each gene's visualization as a PDF file named 
-"{gene_name}.pdf" in the specified directory. Plot dimensions are set to 
+The function saves each gene's visualization as a PDF file named
+"{gene_name}.pdf" in the specified directory. Plot dimensions are set to
 17 inches wide by 5 inches tall at 300 DPI resolution.
+}
+\examples{
+data(speKidney)
+#' ##### Rasterize to get pixels at matched spatial locations #####
+rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
+                assay_name = 'counts', resolution = 0.2, fun = "mean",
+                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+s <- spatialSimilarity(list(rastKidney$A, rastKidney$B))
+plts <- savePlots("Gene", s, rastKidney)
+plts
 }

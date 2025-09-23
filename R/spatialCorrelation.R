@@ -68,7 +68,7 @@
 #' delta <- seq(0.1,0.9,0.1)
 #'
 #' # maximum distance for the variogram set at the 25% percentile of
-#' the distribution of pairs of distances:
+#' # the distribution of pairs of distances:
 #' dists <- dist(cbind(lat, long))
 #' prctile <- quantile(dists, probs = 0.25)
 #'
@@ -217,7 +217,7 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #' delta <- seq(0.1,0.9,0.1)
 #'
 #' # maximum distance for the variogram set at the 25% percentile of
-#' the distribution of pairs of distances:
+#' # the distribution of pairs of distances:
 #' maxDistPrctile <- 0.25
 #'
 #' #number of permutations
@@ -437,9 +437,9 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'                           pos = cbind(quakes_data$lat, quakes_data$long))
 #' cor
 #'
-#' #plot the delta star (the delta which minimizes the difference between the
-#' variogram of the permutation and the variogram of observations) for all
-#' permutations to see if clear peak found in the range inputted
+#' # plot the delta star (the delta which minimizes the difference between the
+#' # variogram of the permutation and the variogram of observations) for all
+#' # permutations to see if clear peak found in the range inputted
 #' hist(cor$deltaStarX[[1]])
 #' hist(cor$deltaStarY[[1]])
 #'

@@ -115,9 +115,9 @@ The output is returned as a \code{data.frame}. The rownames are the
   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
   \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all permuations of X}
   \item{\code{nullCorrelationsY}}{correlation coefficients for X and all permuations of Y}
-  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`. 
+  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
   Each column is the resulting values of a permutation of X}
-  \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the length of Y and B is `nPermutations`. 
+  \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the length of Y and B is `nPermutations`.
   Each column is the resulting values of a permutation of Y}
   }
 }
@@ -131,10 +131,10 @@ Function to calculate Pearson's correlation between assays from
 }
 \examples{
 
-data(speKidney) 
+data(speKidney)
 
 ##### Rasterize to get pixels at matched spatial locations #####
-rastKidney <- SEraster::rasterizeGeneExpression(speKidney, 
+rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
                assay_name = 'counts', resolution = 0.2, fun = "mean",
                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
 

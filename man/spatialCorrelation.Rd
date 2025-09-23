@@ -86,7 +86,7 @@ The output is returned as a \code{data.frame} containing the columns:
   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
   observations}
-  \item{\code{pValuePermuteX}}{the p-value when creating an empirical null 
+  \item{\code{pValuePermuteX}}{the p-value when creating an empirical null
   from permutations of observations in X}
   \item{\code{pValuePermuteY}}{the p-value when creating an empirical null from
   permutations of observations in Y}
@@ -96,15 +96,15 @@ The output is returned as a \code{data.frame} containing the columns:
   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-  \item{\code{nullCorrelationsX}}{correlation coefficients for pairing Y and 
+  \item{\code{nullCorrelationsX}}{correlation coefficients for pairing Y and
   all permutations of X}
-  \item{\code{nullCorrelationsY}}{correlation coefficients for pairing X and 
+  \item{\code{nullCorrelationsY}}{correlation coefficients for pairing X and
   all permutations of Y}
-  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the 
-  length of X and B is `nPermutations`. Each column is the resulting values 
+  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
+  length of X and B is `nPermutations`. Each column is the resulting values
   of a permutation of X}
-  \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the 
-  length of Y and B is `nPermutations`. Each column is the resulting values 
+  \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the
+  length of Y and B is `nPermutations`. Each column is the resulting values
   of a permutation of Y}
   }
 }
@@ -128,9 +128,9 @@ cor <- spatialCorrelation(X = quakes_data$depth,
                           pos = cbind(quakes_data$lat, quakes_data$long))
 cor
 
-#plot the delta star (the delta which minimizes the difference between the
-variogram of the permutation and the variogram of observations) for all
-permutations to see if clear peak found in the range inputted
+# plot the delta star (the delta which minimizes the difference between the
+# variogram of the permutation and the variogram of observations) for all
+# permutations to see if clear peak found in the range inputted
 hist(cor$deltaStarX[[1]])
 hist(cor$deltaStarY[[1]])
 
@@ -154,26 +154,26 @@ hist(cor2$nullCorrelationsY[[1]])
 
 #visualizations of the spatial data to verify negative correlation
 library(ggplot2)
-p1 <- ggplot2::ggplot(quakes_data, 
+p1 <- ggplot2::ggplot(quakes_data,
                       ggplot2::aes(x = long, y = lat, color = depth)) +
-ggplot2::geom_point(size = 2) + 
-  ggplot2::scale_color_gradient(low = "lightblue", high = "blue") + 
-  ggplot2::labs(title = "Locations of Earthquakes off Fiji", 
-                x = "Longitude", y = "Latitude", 
-                color = "Depth (km)") +
-  ggplot2::theme_minimal() + 
-  ggplot2::coord_map() 
-
-p2 <- ggplot2::ggplot(quakes_data, 
-                      ggplot2::aes(x = long, y = lat, color = mag)) +
-ggplot2::geom_point(size = 2) + 
-  ggplot2::scale_color_gradient(low = "lightblue", high = "blue") + 
+ggplot2::geom_point(size = 2) +
+  ggplot2::scale_color_gradient(low = "lightblue", high = "blue") +
   ggplot2::labs(title = "Locations of Earthquakes off Fiji",
-                x = "Longitude", y = "Latitude", 
+                x = "Longitude", y = "Latitude",
+                color = "Depth (km)") +
+  ggplot2::theme_minimal() +
+  ggplot2::coord_map()
+
+p2 <- ggplot2::ggplot(quakes_data,
+                      ggplot2::aes(x = long, y = lat, color = mag)) +
+ggplot2::geom_point(size = 2) +
+  ggplot2::scale_color_gradient(low = "lightblue", high = "blue") +
+  ggplot2::labs(title = "Locations of Earthquakes off Fiji",
+                x = "Longitude", y = "Latitude",
                 color = "Richter Magnitude") +
-  ggplot2::theme_minimal() + 
-  ggplot2::coord_map() 
+  ggplot2::theme_minimal() +
+  ggplot2::coord_map()
 
 p1
-p2  
+p2
 }

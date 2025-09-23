@@ -137,6 +137,7 @@ threshold <- function (genePixelDF, t1, t2) {
 #' @export
 #'
 #' @examples
+#' data(speKidney)
 #' ##### Rasterize to get pixels at matched spatial locations #####
 #' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
 #'                assay_name = 'counts', resolution = 0.2, fun = "mean",

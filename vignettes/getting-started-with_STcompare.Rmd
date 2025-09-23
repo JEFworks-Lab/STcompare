@@ -1,0 +1,100 @@
+---
+title: "getting-started-with_STcompare"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{getting-started-with_STcompare}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+# Introducton 
+
+
+# Installation 
+
+
+# Dataset 
+```{r}
+
+data("speKidney")
+
+
+
+```
+
+
+# Tutorial 
+
+## Load Libraries 
+
+```{r setup, message=FALSE, warning=FALSE}
+library(STcompare)
+library(SpatialExperiment)
+library(SEraster)
+```
+
+
+## (header)
+```{r}
+rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
+                assay_name = 'counts', resolution = 0.2,
+                square = FALSE)
+
+pA <- plotRaster(rastKidney$A, plotTitle = "Simulated Kidney A")
+pB <- plotRaster(rastKidney$B, plotTitle = "Simulated Kidney B")
+pC <- plotRaster(rastKidney$C, plotTitle = "Simulated Kidney C")
+
+pA 
+pB
+pC
+
+```
+
+TODO: plot the data -> cannot use grid extra? -- wouldn't stretch?  
+TODO: some statements about the data thats in the dataset 
+
+
+## comparing the mean expression level is not representitive of the data 
+
+## Using STcompare 
+
+### How the input should be formatted 
+
+```{r}
+
+# compare kidney A and B 
+sAB <- spatialSimilarity(
+  list(rastKidney$A, rastKidney$B)
+)
+  
+# compare kidney A and C 
+sAC <- spatialSimilarity(
+  list(rastKidney$A, rastKidney$C)
+)
+  
+# compare kidney B and C 
+sBC <- spatialSimilarity(
+  list(rastKidney$B, rastKidney$C)
+)
+
+```
+
+TODO: talk about the resulting plots 
+
+
+
+
+
+
+
+
+
+

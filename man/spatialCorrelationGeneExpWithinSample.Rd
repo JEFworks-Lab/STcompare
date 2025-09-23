@@ -105,7 +105,7 @@ The output is returned as a \code{data.frame}. The rownames are
   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
   \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all permuations of X}
   \item{\code{nullCorrelationsY}}{correlation coefficients for X and all permuations of Y}
-  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`. 
+  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
   Each column is the resulting values of a permutation of X}
   \item{\code{first}}{the name of the first row in the pair}
   \item{\code{second}}{the name of the second row in the pair}
@@ -118,4 +118,20 @@ Function to calculate Pearson's correlation between rows from
   it calculates empirical p-values from empirical null distributions
   generated from permuting the data and then smoothing to maintain the
   original degree of autocorrelation
+}
+\examples{
+
+data(speKidney)
+
+##### Rasterize to get pixels at matched spatial locations #####
+rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
+               assay_name = 'counts', resolution = 0.2, fun = "mean",
+               BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+
+sc_within_sample <- spatialCorrelationGeneExpWithinSample(
+                      input = rastKidney,
+                      assayName = "A"
+                      )
+sc_within_sample
+
 }

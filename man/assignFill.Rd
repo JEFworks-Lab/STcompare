@@ -7,7 +7,7 @@
 assignFill(input, gene, df)
 }
 \arguments{
-\item{input}{A list. Results from `spatialSimilarity()`. 
+\item{input}{A list. Results from `spatialSimilarity()`.
 This includes the similarity table and classified pixel IDs.}
 
 \item{gene}{Character. The name of the gene for which pixel classification is performed.}
@@ -15,7 +15,7 @@ This includes the similarity table and classified pixel IDs.}
 \item{df}{Data frame containing pixel-level gene expression data.}
 }
 \value{
-The input data frame with an additional column, `fill`, which assigns 
+The input data frame with an additional column, `fill`, which assigns
 classification labels to pixels:
 \itemize{
   \item{\strong{1}}{Pixels classified as similar (within the fold-change threshold).}
@@ -25,7 +25,7 @@ classification labels to pixels:
 }
 }
 \description{
-This function categorizes pixels into four groups based on their similarity 
-in gene expression between two spatial experiments. The assigned classification 
+This function categorizes pixels into four groups based on their similarity
+in gene expression between two spatial experiments. The assigned classification
 is stored in a new column, `fill`, within the input data frame.
 }

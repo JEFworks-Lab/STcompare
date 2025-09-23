@@ -18,3 +18,10 @@ Imports:
     SpatialExperiment,
     SummarizedExperiment,
     viridis
+Depends: 
+    R (>= 2.10)
+Suggests: 
+    class,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

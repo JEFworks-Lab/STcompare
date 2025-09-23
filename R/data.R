@@ -22,8 +22,10 @@
 #'   \item \code{C}: 1 gene × 1297 cells
 #' }
 #'
-#' @usage data(simulatedKidneySpeData)
+#' @usage data(speKidney)
 #'
 #' @source Simulated for demonstration purposes.
 #'
-"simulatedKidneySpeData"
+#' @docType data
+#'
+"speKidney"

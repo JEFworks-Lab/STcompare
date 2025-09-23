@@ -70,3 +70,12 @@ between two SpatialExperiment objects based on thresholding and fold-change
 criteria. Similarity is defined as the proportion of pixels where the fold
 change in gene expression falls within a specified range.
 }
+\examples{
+data(speKidney)
+##### Rasterize to get pixels at matched spatial locations #####
+rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
+               assay_name = 'counts', resolution = 0.2, fun = "mean",
+               BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+
+s <- spatialSimilarity(list(rastKidney$A, rastKidney$C))
+}

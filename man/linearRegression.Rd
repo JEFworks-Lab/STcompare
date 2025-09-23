@@ -32,7 +32,18 @@ The plot includes:
 }
 }
 \description{
-This function creates a scatter plot comparing gene expression levels between 
-two spatial experiments for a specified gene. It colors data points based on 
+This function creates a scatter plot comparing gene expression levels between
+two spatial experiments for a specified gene. It colors data points based on
 similarity classification and overlays fold-change threshold lines.
+}
+\examples{
+data(speKidney)
+##### Rasterize to get pixels at matched spatial locations #####
+rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
+               assay_name = 'counts', resolution = 0.2, fun = "mean",
+               BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+
+s <- spatialSimilarity(list(rastKidney$A, rastKidney$C))
+linearRegression(s, "Gene")
+
 }
