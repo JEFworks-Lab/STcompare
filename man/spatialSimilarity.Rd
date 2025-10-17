@@ -50,6 +50,8 @@ A list containing: \item{similarityTable}{A data frame with the
   \itemize{
     \item{\strong{gene}}{Gene name.}
     \item{\strong{percentSimilarity}}{Percentage of similar pixels for the gene.}
+    \item{\strong{percentDissimilarityX}}{Percentage of pixels for which log2(y/x) < -foldChange.}
+    \item{\strong{percentDissimilarityY}}{Percentage of pixels for which log2(y/x) > foldChange.} 
     \item{\strong{similarPixelID}}{List of pixel IDs classified as similar.}
     \item{\strong{dissimilarPixelIDX}}{List of pixel IDs for log2(y/x) < -foldChange.}
     \item{\strong{dissimilarPixelIDY}}{List of pixel IDs for log2(y/x) > foldChange.}

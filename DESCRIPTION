@@ -23,5 +23,6 @@ Depends:
 Suggests: 
     class,
     knitr,
-    rmarkdown
+    rmarkdown, 
+    reshape2
 VignetteBuilder: knitr
