@@ -1,6 +1,7 @@
 ---
-title: "getting-started-with_STcompare"
+title: "Getting Started with STcompare"
 output: rmarkdown::html_vignette
+author: "Vivien Jiang" 
 vignette: >
   %\VignetteIndexEntry{getting-started-with_STcompare}
   %\VignetteEngine{knitr::rmarkdown}
@@ -27,7 +28,6 @@ knitr::opts_chunk$set(
 data("speKidney")
 
 
-
 ```
 
 
@@ -39,27 +39,73 @@ data("speKidney")
 library(STcompare)
 library(SpatialExperiment)
 library(SEraster)
+library(ggplot2)
+
 ```
 
 
 ## (header)
-```{r}
+```{r,  message=FALSE, warning=FALSE}
 rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
                 assay_name = 'counts', resolution = 0.2,
                 square = FALSE)
 
 pA <- plotRaster(rastKidney$A, plotTitle = "Simulated Kidney A")
-pB <- plotRaster(rastKidney$B, plotTitle = "Simulated Kidney B")
-pC <- plotRaster(rastKidney$C, plotTitle = "Simulated Kidney C")
+pA
 
-pA 
+pB <- plotRaster(rastKidney$B, plotTitle = "Simulated Kidney B")
 pB
+
+pC <- plotRaster(rastKidney$C, plotTitle = "Simulated Kidney C")
 pC
+
 
 ```
 
-TODO: plot the data -> cannot use grid extra? -- wouldn't stretch?  
+
+
 TODO: some statements about the data thats in the dataset 
+visually 
+A and B are opposite patterns
+A has high expression on the outer circle and low expression on the inner circle while B has the opposite 
+A and C has similar expression pattern but they have different expression magnitudes 
+
+traditionally, these datasets would be compared using the average of the mean expression 
+that would allow us to differentiate between A and C since the expression magnitudes different 
+
+A and C still have similar spatial expression patterns, which is not captured by comparing the mean 
+
+
+```{r,  message=FALSE, warning=FALSE}
+
+
+df <- data.frame(
+  value = c(
+    as.numeric(assay(rastKidney$A, "pixelval")), 
+    as.numeric(assay(rastKidney$B, "pixelval")), 
+    as.numeric(assay(rastKidney$C, "pixelval"))
+  ),
+  sample = factor(rep(c("A", "B", "C"),
+                      times = c(
+                        length(as.numeric(assay(rastKidney$A, "pixelval"))), 
+                        length(as.numeric(assay(rastKidney$B, "pixelval"))), 
+                        length(as.numeric(assay(rastKidney$C, "pixelval")))
+                      )
+                  ))
+)
+
+compare_box_plot <- ggplot(df, aes(x = sample, y = value, fill = sample)) +
+  geom_boxplot(outlier.shape = 16, outlier.size = 1.5, alpha = 0.7) +
+  labs(x = "Sample", y = "Pixel Intensity", title = "Expression Magnitude Across Samples") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+compare_box_plot
+
+
+```
+
+
+
 
 
 ## comparing the mean expression level is not representitive of the data 
@@ -68,7 +114,7 @@ TODO: some statements about the data thats in the dataset
 
 ### How the input should be formatted 
 
-```{r}
+```{r,  message=FALSE, warning=FALSE}
 
 # compare kidney A and B 
 sAB <- spatialSimilarity(
@@ -85,9 +131,108 @@ sBC <- spatialSimilarity(
   list(rastKidney$B, rastKidney$C)
 )
 
+
+# linear regression plots 
+
+lrAB <- linearRegression(input=sAB, gene = "Gene")
+lrAB
+
+lrAC <- linearRegression(input=sAC, gene = "Gene")
+lrAC
+
+lrBC <- linearRegression(input=sBC, gene = "Gene")
+lrBC
+
+
+
+
 ```
 
-TODO: talk about the resulting plots 
+TODO: talk about the take aways from the plots 
+
+
+TODO: visualize the parts that are different 
+pixelClass
+
+```{r,  message=FALSE, warning=FALSE}
+
+pcAB <- pixelClass(input=sAB, gene="Gene")
+pcAB
+
+pcAC <- pixelClass(input=sAC, gene="Gene")
+pcAC
+
+pcBC <- pixelClass(input=sBC, gene="Gene")
+pcBC
+
+
+```
+
+TODO: the simulated p-value gives us more information than the boxplot 
+here we find that it's not correlated 
+
+
+```{r,  message=FALSE, warning=FALSE}
+
+
+pixel_intersect_AB <- intersect(names(assays(rastKidney$A)$pixelval[1, ]), 
+                                names(assays(rastKidney$B)$pixelval[1, ]))
+
+scAB <- spatialCorrelation(
+  X = assays(rastKidney$A)$pixelval[1, pixel_intersect_AB], 
+  Y = assays(rastKidney$B)$pixelval[1, pixel_intersect_AB], 
+  pos = spatialCoords(rastKidney$A)[pixel_intersect_AB, ]
+)
+
+
+scAB
+
+rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
+expAB <- plotCorrelationGeneExp(rastGexpListAB, scAB, "Gene")
+expAB
+
+
+
+
+
+pixel_intersect_AC <- intersect(names(assays(rastKidney$A)$pixelval[1, ]), 
+                                names(assays(rastKidney$C)$pixelval[1, ]))
+
+scAC <- spatialCorrelation(
+  X = assays(rastKidney$A)$pixelval[1, pixel_intersect_AC], 
+  Y = assays(rastKidney$C)$pixelval[1, pixel_intersect_AC], 
+  pos = spatialCoords(rastKidney$A)[pixel_intersect_AC, ]
+)
+
+
+scAC
+
+rastGexpListAC <- list(A = rastKidney$A, C = rastKidney$C)
+expAC <- plotCorrelationGeneExp(rastGexpListAC, scAC, "Gene")
+expAC
+
+
+
+pixel_intersect_BC <- intersect(names(assays(rastKidney$B)$pixelval[1, ]), 
+                                names(assays(rastKidney$C)$pixelval[1, ]))
+
+scBC <- spatialCorrelation(
+  X = assays(rastKidney$B)$pixelval[1, pixel_intersect_BC], 
+  Y = assays(rastKidney$C)$pixelval[1, pixel_intersect_BC], 
+  pos = spatialCoords(rastKidney$B)[pixel_intersect_BC, ]
+)
+
+
+scBC
+
+rastGexpListBC <- list(B = rastKidney$B, C = rastKidney$C)
+expBC <- plotCorrelationGeneExp(rastGexpListBC, scBC, "Gene")
+expBC
+
+
+```
+
+
 
 
 
