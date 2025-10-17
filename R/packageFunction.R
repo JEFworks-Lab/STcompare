@@ -120,6 +120,8 @@ threshold <- function (genePixelDF, t1, t2) {
 #'   \itemize{
 #'     \item{\strong{gene}}{Gene name.}
 #'     \item{\strong{percentSimilarity}}{Percentage of similar pixels for the gene.}
+#'     \item{\strong{percentDissimilarityX}}{Percentage of pixels for which log2(y/x) < -foldChange.}
+#'     \item{\strong{percentDissimilarityY}}{Percentage of pixels for which log2(y/x) > foldChange.} 
 #'     \item{\strong{similarPixelID}}{List of pixel IDs classified as similar.}
 #'     \item{\strong{dissimilarPixelIDX}}{List of pixel IDs for log2(y/x) < -foldChange.}
 #'     \item{\strong{dissimilarPixelIDY}}{List of pixel IDs for log2(y/x) > foldChange.}
@@ -154,6 +156,8 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
   output <- data.frame(
     gene = character(),
     percentSimilarity = numeric(),
+    percentDissimilarityX = numeric(),
+    percentDissimilarityY = numeric(), 
     similarPixelID = I(list()),
     dissimilarPixelIDX = I(list()),
     dissimilarPixelIDY = I(list()),
@@ -203,6 +207,8 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
       output <- rbind(output, data.frame(
         gene = gene,
         percentSimilarity = NA,
+        percentDissimilarityX = NA,
+        percentDissimilarityY = NA, 
         similarPixelID = NA,
         dissimilarPixelIDX = NA,
         dissimilarPixelIDY = NA,
@@ -232,9 +238,14 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
     dissimilarPixelsX <- logTrans[logTrans$log < -foldChange, ]
     dissimilarPixelsY <- logTrans[logTrans$log > foldChange, ]
 
+    dissimilarityX <- dim(dissimilarPixelsX)[1] / dim(logTrans)[1]
+    dissimilarityY <- dim(dissimilarPixelsY)[1] / dim(logTrans)[1] 
+
     output <- rbind(output, data.frame(
       gene = gene,
       percentSimilarity = geneSimilarity,
+      percentDissimilarityX = dissimilarityX,
+      percentDissimilarityY = dissimilarityY, 
       similarPixelID = I(list(similarPixels$pixel)),
       dissimilarPixelIDX = I(list(dissimilarPixelsX$pixel)),
       dissimilarPixelIDY = I(list(dissimilarPixelsY$pixel)),
