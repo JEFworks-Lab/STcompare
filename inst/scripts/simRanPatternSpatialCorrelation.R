@@ -5,9 +5,10 @@ t <- Sys.time()
 pvalueCorrected <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(i) {
   sapply(1:length(simRanPatternRasts), function(j) {
 
+    print(paste0(i,":", j))
     # shared pixels between rasters i and j
-    vi <- intersect(rownames(spatialCoords(simRanPatternRasts[[i]])),
-                    rownames(spatialCoords(simRanPatternRasts[[j]])))
+    vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
+                    rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
 
     g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
     g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
@@ -21,6 +22,7 @@ pvalueCorrected <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(
         rastGexpListAB,
         nPermutations = 100,
         nThreads = 5,
+        verbose = FALSE,
         BPPARAM = BiocParallel::MulticoreParam()
       )
       return(results$pValuePermuteX)
@@ -39,8 +41,8 @@ corspv <- cors
 
 for (i in 1:length(simRanPatternRasts)) {
   for (j in 1:length(simRanPatternRasts)) {
-    vi <- intersect(rownames(spatialCoords(simRanPatternRasts[[i]])),
-                    rownames(spatialCoords(simRanPatternRasts[[j]])))
+    vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
+                    rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
 
     g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
     g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
