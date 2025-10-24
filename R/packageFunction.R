@@ -97,18 +97,22 @@ threshold <- function (genePixelDF, t1, t2) {
 #'   as default
 #'
 #' @param t1 \code{numeric}: Gene expression threshold for the first spatial
-#'   experiment (`x`). Only pixels with values greater than t1 and t2 are used
+#'   experiment (`x`). Only pixels with values greater than t1 or t2 are used
 #'   to calculate similarity score. Default is \code{NULL}. If no value is
 #'   supplied for \code{t1}, then each gene will have a threshold set as by
 #'   \code{minQuantile}.
 #' @param t2 \code{numeric}: Gene expression threshold for the second spatial
-#'   experiment (`y`). Only pixels with values greater than t1 and t2 are used
+#'   experiment (`y`). Only pixels with values greater than t1 or t2 are used
 #'   to calculate similarity score. Default is \code{NULL}. If no value is
 #'   supplied for \code{t2}, then each gene will have a threshold set as by
 #'   \code{minQuantile}.
 #' @param minQuantile \code{numeric}: Gene expression minimum quantile threshold
 #'   to use if \code{t1} and \code{t2} are not supplied.  Default is
 #'   \code{0.05}.
+#' @param minPixels \code{numeric}: Pixels minimum threshold. If less than this
+#'   percentage of pixels meet the gene expression minimum threshold, then a
+#'   spatial similarity score is not calculated for this gene and the function
+#'   returns `NA`. Default is \code{0.1}.
 #' @param foldChange \code{numeric}: Fold-change threshold defining similarity
 #'   in gene expression across spatial locations. Default is \code{1}.
 #' @param assayName A character string or numeric specifying the assay in the
@@ -147,7 +151,7 @@ threshold <- function (genePixelDF, t1, t2) {
 #'
 #' s <- spatialSimilarity(list(rastKidney$A, rastKidney$C))
 
-spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, foldChange = 1, assayName = NULL) {
+spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, minPixels = 0.1, foldChange = 1, assayName = NULL) {
 
   if (is.null(assayName)) {
     assayName <- 1
@@ -202,7 +206,7 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
     )
 
     # skip gene if less than 10% of all pixels pass the threshold
-    if(dim(threshDF)[1] < (0.1 * dim(genePixel)[1])) {
+    if(dim(threshDF)[1] < (minPixels * dim(genePixel)[1])) {
 
       output <- rbind(output, data.frame(
         gene = gene,
@@ -268,9 +272,8 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
     similarityTable = output,
     pixelLogTransformation = logTransGenes,
     parameters = list(
-      #t1 = t1, #should move this to inside output if changes for each gene?
-      #t2 = t2,
       foldChange = foldChange,
+      minPixels = minPixels,
       input = input
       )
     ))
