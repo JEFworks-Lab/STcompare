@@ -10,6 +10,8 @@ STcompare enables differential spatial comparison tests orthogonal to traditiona
 
 [paper figure 1 place holder] 
 
+<img scr= " " >
+
 
 
 `STcompare` enables two differential spatial comparison tests: 
