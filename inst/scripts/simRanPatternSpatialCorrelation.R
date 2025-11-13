@@ -67,41 +67,33 @@ cors_df <- data.frame(cors.df,
 cors_df$corspv_corrected[cors_df$corspv_corrected == 0] <- 0.01
 
 
+# TODO: remove below
 
-corrected <- ggplot(cors_df) +
-  geom_point(aes(x = cors, y = -log10(corspv)),
-             alpha = 0.1, size = 0.5, color = "blue") +
-  geom_point(aes(x = cors, y = -log10(corspv_corrected)),
-             alpha = 0.1, size = 0.5, color = "green") +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
-  theme_classic() +
-  labs(x = "Correlation", y = "-log10(p-value)",
-       title = "Naïve vs Spatially Corrected p-values") +
-  ylim(min(-log10(cors_df$corspv), na.rm = TRUE),
-       max(-log10(cors_df$corspv), na.rm = TRUE))
-corrected
+# corrected <- ggplot(cors_df) +
+#   geom_point(aes(x = cors, y = -log10(corspv)),
+#              alpha = 0.1, size = 0.5, color = "blue") +
+#   geom_point(aes(x = cors, y = -log10(corspv_corrected)),
+#              alpha = 0.1, size = 0.5, color = "green") +
+#   geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+#   theme_classic() +
+#   labs(x = "Correlation", y = "-log10(p-value)",
+#        title = "Naïve vs Spatially Corrected p-values") +
+#   ylim(min(-log10(cors_df$corspv), na.rm = TRUE),
+#        max(-log10(cors_df$corspv), na.rm = TRUE))
+# corrected
+
 
 
 test_df <- na.omit(cors_df)
-range(test_df$corspv)
 
 corrected <- ggplot(test_df) +
   geom_point(aes(x =cors, y = -log10(corspv)), alpha = 0.1, size = 0.5, color = "blue") +
   geom_point(aes(x =cors, y = -log10(corspv_corrected)), alpha = 0.1, size = 0.5, color = "green") +
   theme_classic() +
+  labs(x = "Correlation", y = "-log10(p-value)",
+       title = "Naïve vs Spatially Corrected p-values") +
   geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  +
   ylim(min(-log10(test_df$corspv), na.rm = TRUE), max(-log10(test_df$corspv), na.rm = TRUE)) +
-  labs(x = "Correlation" , y = "-log10(p-value)")
-corrected
-
-# TODO: add title
-
-corrected <- ggplot(cors_df) +
-  geom_point(aes(x =cors, y = -log10(corspv)), alpha = 0.1, size = 0.5, color = "blue") +
-  geom_point(aes(x =cors, y = -log10(corspv_corrected)), alpha = 0.1, size = 0.5, color = "green") +
-  theme_classic() +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  +
-  ylim(min(-log10(cors_df$corspv), na.rm = TRUE), max(-log10(cors_df$corspv), na.rm = TRUE)) +
   labs(x = "Correlation" , y = "-log10(p-value)")
 corrected
 

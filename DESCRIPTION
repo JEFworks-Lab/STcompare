@@ -2,11 +2,16 @@ Package: STcompare
 Type: Package
 Title: Framework for Spatial Transcriptomic Data Comparision 
 Version: 0.1.0
-Author: 
-
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Authors@R: 
+    c(person("Kalen", "Clifton", email = "kclifto2@jh.edu", 
+    role = c("aut", "cre"), 
+    comment = c(ORCID = "0000-0002-4095-8104")), 
+    person("Vivien", "Jiang", email = "vjiang1@jhu.edu",
+    role = c("aut"),
+    person("Jean", "Fan", email = "jeanfan@jhu.edu", 
+    role = c("aut", "rev"), 
+    comment = c(ORCID = "0000-0002-0212-5451")))
+Description: STcompare is an R package for comparing spatial gene expression patterns across spatial transcriptomics (ST) datasets. 
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
