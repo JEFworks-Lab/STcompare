@@ -1,5 +1,5 @@
 
-# STcopmare  
+# STcompare
 
 `STcompare` is an R package for comparing spatial gene expression patterns across spatial transcriptomics (ST) datasets, addressing cases where traditional non-spatial differential expression methods fail to capture spatially distinct variation. This is the `STcompare` R documentation website.  	
 
@@ -24,11 +24,15 @@ To make comparisons, `STcompare` relies on matched spatial locations in the ST d
 
 ```r
 require(remotes)
-remotes::install_github('place holder')
+remotes::install_github('JEFworks-Lab/STcompare')
 ```
 
 ## Tutorials 
 
+1. Getting started with STcompare 
 
+[TODO: where should the hyperlink go to?]
 
 ## Citation 
+
+[place holder: manuscript in progress]
