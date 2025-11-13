@@ -117,17 +117,17 @@ Using mean comparison is not sufficient to differentiate between gene expression
 
 # compare kidney A and B 
 sAB <- spatialSimilarity(
-  list(rastKidney$A, rastKidney$B)
+  list(A = rastKidney$A, B = rastKidney$B)
 )
   
 # compare kidney A and C 
 sAC <- spatialSimilarity(
-  list(rastKidney$A, rastKidney$C)
+  list(A = rastKidney$A, C = rastKidney$C)
 )
   
 # compare kidney B and C 
 sBC <- spatialSimilarity(
-  list(rastKidney$B, rastKidney$C)
+  list(B = rastKidney$B, C = rastKidney$C)
 )
 
 ```
