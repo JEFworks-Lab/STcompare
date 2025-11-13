@@ -9,7 +9,7 @@
 STcompare enables differential spatial comparison tests orthogonal to traditional differential gene (DGE) analysis. With DGE methods, simulated spatially distinct gene expression patterns A and B are identified as not differentially expressed because they have the same mean gene expression.  Conversely, highly spatially similar gene expression patterns A and C are differentially expressed because they have very different mean gene expression. 
 
 
-<img src= "https://github.com/JEFworks-Lab/STcompare/blob/main/images/overview_figure1.png?raw=true" width="300"> / 
+<img src= "https://github.com/JEFworks-Lab/STcompare/blob/main/images/overview_figure1.png?raw=true" width="600"> 
 
 `STcompare` enables two differential spatial comparison tests: 
 
