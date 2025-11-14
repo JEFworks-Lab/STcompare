@@ -30,9 +30,7 @@ remotes::install_github('JEFworks-Lab/STcompare')
 
 ## Tutorials 
 
-1. Getting started with STcompare 
-
-[TODO: where should the hyperlink go to?]
+1. [Getting started with `STcompare`](https://github.com/JEFworks-Lab/STcompare/blob/main/vignettes/getting-started-with_STcompare.Rmd)
 
 ## Citation 
 
