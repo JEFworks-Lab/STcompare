@@ -3,7 +3,7 @@ title: "Getting Started with STcompare"
 output: rmarkdown::html_vignette
 author: "Vivien Jiang" 
 vignette: >
-  %\VignetteIndexEntry{getting-started-with_STcompare}
+  %\VignetteIndexEntry{Getting Started with STcompare}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
