@@ -763,11 +763,11 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
   #If lists of deltas to test are not supplied, try 0.1 to 0.9 for both datasets
   #for each gene
   if (is.null(deltaX)){
-    deltaX <- rep(list(seq(0.1,0.9,0.1), length(rownames(source))))
+    deltaX <- rep(list(seq(0.1,0.9,0.1)), length(rownames(source))))
   }
 
   if (is.null(deltaY)){
-    deltaY <- rep(list(seq(0.1,0.9,0.1), length(rownames(source))))
+    deltaY <- rep(list(seq(0.1,0.9,0.1)), length(rownames(source))))
   }
 
   ## if name of assay to use in the SpatialExperiment object is not provided,
