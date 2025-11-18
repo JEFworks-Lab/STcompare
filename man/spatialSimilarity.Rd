@@ -10,6 +10,7 @@ spatialSimilarity(
   t1 = NULL,
   t2 = NULL,
   minQuantile = 0.05,
+  minPixels = 0.1,
   foldChange = 1,
   assayName = NULL
 )
@@ -22,13 +23,13 @@ of pixels satisfying: `-b <= log2(y/x) <= b` for each gene, where `b = 1`
 as default}
 
 \item{t1}{\code{numeric}: Gene expression threshold for the first spatial
-experiment (`x`). Only pixels with values greater than t1 and t2 are used
+experiment (`x`). Only pixels with values greater than t1 or t2 are used
 to calculate similarity score. Default is \code{NULL}. If no value is
 supplied for \code{t1}, then each gene will have a threshold set as by
 \code{minQuantile}.}
 
 \item{t2}{\code{numeric}: Gene expression threshold for the second spatial
-experiment (`y`). Only pixels with values greater than t1 and t2 are used
+experiment (`y`). Only pixels with values greater than t1 or t2 are used
 to calculate similarity score. Default is \code{NULL}. If no value is
 supplied for \code{t2}, then each gene will have a threshold set as by
 \code{minQuantile}.}
@@ -36,6 +37,11 @@ supplied for \code{t2}, then each gene will have a threshold set as by
 \item{minQuantile}{\code{numeric}: Gene expression minimum quantile threshold
 to use if \code{t1} and \code{t2} are not supplied.  Default is
 \code{0.05}.}
+
+\item{minPixels}{\code{numeric}: Pixels minimum threshold. If less than this
+percentage of pixels meet the gene expression minimum threshold, then a
+spatial similarity score is not calculated for this gene and the function
+returns `NA`. Default is \code{0.1}.}
 
 \item{foldChange}{\code{numeric}: Fold-change threshold defining similarity
 in gene expression across spatial locations. Default is \code{1}.}

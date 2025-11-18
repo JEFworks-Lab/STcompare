@@ -195,6 +195,18 @@ Now, we will use `spatialCorrelation` to understand correlation of expression ac
 
 Gene expression at matched pixel locations are negatively correlated in A and B. 
 
+```{r spatialCorrelationA}
+
+rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
+scAB <- spatialCorrelationGeneExp(rastGexpListAB)
+scAB
+
+rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
+expAB <- plotCorrelationGeneExp(rastGexpListAB, scAB, "Gene")
+expAB
+```
+
+
 ```{r spatialCorrelationAB,  message=FALSE, warning=FALSE}
 
 rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)

@@ -20,7 +20,9 @@ RoxygenNote: 7.3.2
 Imports: 
     BiocParallel,
     dplyr,
+    geoR,
     ggplot2,
+    locfit,
     SEraster,
     SpatialExperiment,
     SummarizedExperiment,

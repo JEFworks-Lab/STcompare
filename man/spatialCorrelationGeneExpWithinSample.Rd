@@ -8,6 +8,7 @@ spatialCorrelationGeneExpWithinSample(
   input,
   nPermutations = 100,
   delta = NULL,
+  maxDistPrctile = 0.25,
   returnPermutations = FALSE,
   assayName = NULL,
   nThreads = 1,
@@ -24,6 +25,14 @@ one assay.}
 to generate to build the empirical null distribution. This number will
 determine the precision of the p-value. Default is \code{100}, such that
 the smallest p-value is 0.01}
+
+\item{maxDistPrctile}{\code{numeric}: percentile of distances between pixels
+to use as max distance in when calculating variograms. Default = 0.25. At
+greater distances the variogram is less precise because there are fewer
+pairs of points with that distance between them. Therefore, since the goal
+is to minimize the difference between the variogram of X and those of its
+permutations, the variogram should be subsetted to the percentile that is
+more robust.}
 
 \item{returnPermutations}{\code{logical}: indicate whether the dataframe
 returned as output will have a column with the values of the permutations
@@ -77,14 +86,6 @@ data in Y instead of X. Default is \code{NULL}. If no value is supplied for
 \code{deltaY}, \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from 0.1
 to 0.9, will be used to find the best delta for permutations for each row
 (gene) in Y.}
-
-\item{maxDistPrctile}{\code{numeric}: percentile of distances between pixels
-to use as max distance in when calculating variograms. Default = 0.25. At
-greater distances the variogram is less precise because there are fewer
-pairs of points with that distance between them. Therefore, since the goal
-is to minimize the difference between the variogram of X and those of its
-permutations, the variogram should be subsetted to the percentile that is
-more robust.}
 }
 \value{
 The output is returned as a \code{data.frame}. The rownames are
