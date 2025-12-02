@@ -34,4 +34,4 @@ remotes::install_github('JEFworks-Lab/STcompare')
 
 ## Citation 
 
-[place holder: manuscript in progress]
+Clifton K, Jiang V, Singh S, Matsuura R, Rabb H, Fan J., STcompare: Comparative spatial transcriptomics data analysis to characterize differentially spatially patterned genes. bioRxiv 2025.11.21.689847. doi: https://doi.org/10.1101/2025.11.21.689847
