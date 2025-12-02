@@ -1,19 +1,3 @@
----
-title: "Getting Started with STcompare"
-author: 
-- "Vivien Jiang"
-- "Kalen Clifton" 
-- "Jean Fan" 
-output: html_document
-vignette: >
-  %\VignetteIndexEntry{STcompare Vignette}
-  %\VignetteEncoding{UTF-8}
-  %\VignetteEngine{knitr::rmarkdown}
----
-
-
-
-
 # Introducton 
 
 Spatial transcriptomic (ST) technologies enable the investigation of how tissue organization relates to cellular function by profiling the spatial location of cells within a tissue and the gene expression profiles associated with those locations. As ST technologies are increasingly applied in the context of disease characterization and translational research, identifying genes that spatially change in their expression patterns in diseased tissues as compared to healthy controls could reveal localized molecular variation associated with pathological processes, offering insights into disease mechanisms as well as aiding in the discovery of diagnostic biomarkers. 
