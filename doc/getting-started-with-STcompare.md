@@ -1,75 +1,60 @@
-# Introducton
+---
+title: "Getting Started with STcompare"
+author: 
+- "Vivien Jiang"
+- "Kalen Clifton" 
+- "Jean Fan" 
+output: html_document
+vignette: >
+  %\VignetteIndexEntry{STcompare Vignette}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
 
-Spatial transcriptomic (ST) technologies enable the investigation of how
-tissue organization relates to cellular function by profiling the
-spatial location of cells within a tissue and the gene expression
-profiles associated with those locations. As ST technologies are
-increasingly applied in the context of disease characterization and
-translational research, identifying genes that spatially change in their
-expression patterns in diseased tissues as compared to healthy controls
-could reveal localized molecular variation associated with pathological
-processes, offering insights into disease mechanisms as well as aiding
-in the discovery of diagnostic biomarkers.
 
-Attempts at such comparative analysis of ST datasets can be performed
-using traditional non-spatial bulk or single cell transcriptomics
-analysis approaches such as differential gene expression (DGE) analysis,
-comparing the mean expression of genes between two datasets by
-fold-change. However, this type of DGE analysis does not consider the
-spatial information. As such, a gene can be identified as not
-differentially expressed across two datasets by having the same mean
-gene expression, but the gene can still have two distinct spatial
-patterns of expression. On the other hand, a gene can be identified as
-differentially expressed across the two datasets by having very
-different mean gene expression but have spatial expression patterns that
-are highly similar. By not considering spatial information, traditional
-DGE analysis fails to characterize such cases. To demonstrate these
-cases, we simulated ST datasets where one pair of genes has different
-radial expression patterns but the same mean expression, while the other
-pair has same radial expression patterns but different mean expression.
 
-# Installation
+
+# Introducton 
+
+Spatial transcriptomic (ST) technologies enable the investigation of how tissue organization relates to cellular function by profiling the spatial location of cells within a tissue and the gene expression profiles associated with those locations. As ST technologies are increasingly applied in the context of disease characterization and translational research, identifying genes that spatially change in their expression patterns in diseased tissues as compared to healthy controls could reveal localized molecular variation associated with pathological processes, offering insights into disease mechanisms as well as aiding in the discovery of diagnostic biomarkers. 
+
+Attempts at such comparative analysis of ST datasets can be performed using traditional non-spatial bulk or single cell transcriptomics analysis approaches such as differential gene expression (DGE) analysis, comparing the mean expression of genes between two datasets by fold-change. However, this type of DGE analysis does not consider the spatial information. As such, a gene can be identified as not differentially expressed across two datasets by having the same mean gene expression, but the gene can still have two distinct spatial patterns of expression. On the other hand, a gene can be identified as differentially expressed across the two datasets by having very different mean gene expression but have spatial expression patterns that are highly similar. By not considering spatial information, traditional DGE analysis fails to characterize such cases. To demonstrate these cases, we simulated ST datasets where one pair of genes has different radial expression patterns but the same mean expression, while the other pair has same radial expression patterns but different mean expression. 
+
+# Installation 
+
 
 ``` r
 require(remotes)
 remotes::install_github('JEFworks-Lab/STcompare')
+
 ```
 
-# Tutorial
+# Tutorial 
 
-In this tutorial we will walk through applying `STcompare`’s two
-differential spatial comparison tests to simulated kidney datasets:
+In this tutorial we will walk through applying `STcompare`'s two differential spatial comparison tests to simulated kidney datasets: 
 
-1.  **Spatial Correlation:** Person correlation assumes that each sample
-    is independent and identically distributed random variables.
-    However, in terms of gene expression, the gene expression of one
-    cell influences the gene expression of the neighboring cells.
-    Spatial Correlation computes the empirical p-value instead to
-    consider the dependent relationship. We will show why the p-value
-    null distribution correction is needed in the Spatial Correlation
-    test.
+1.	**Spatial Correlation:** Person correlation assumes that each sample is independent and identically distributed random variables. However, in terms of gene expression, the gene expression of one cell influences the gene expression of the neighboring cells. Spatial Correlation computes the empirical p-value instead to consider the dependent relationship. We will show why the p-value null distribution correction is needed in the Spatial Correlation test. 
 
-2.  **Spatial Fold Change:** Computes a Similarity score for each gene
-    in the comparison, compares the change in expression at matched
-    locations.
 
-## Load Libraries
+2.	**Spatial Fold Change:** Computes a Similarity score for each gene in the comparison, compares the change in expression at matched locations. 
+
+
+
+## Load Libraries 
+
 
 ``` r
 library(STcompare)
 library(SpatialExperiment)
 library(SEraster)
 library(ggplot2)
+
 ```
 
-## Simulated Pattern Kidney
+## Simulated Pattern Kidney 
 
-[‘SpatialExperiment’](%22https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html%22)
-objects store spatial transcriptomics data, combining gene expression
-matrices with the spatial coordinates of each spot or cell. `speKidney`
-is a list of three `SpatialExperiment` objects representing simulated
-kidneys, where A and B share expression magnitude but differ in spatial
-pattern, and A and C share spatial pattern but differ in magnitude.
+['SpatialExperiment']("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") objects store spatial transcriptomics data, combining gene expression matrices with the spatial coordinates of each spot or cell. `speKidney` is a list of three `SpatialExperiment` objects representing simulated kidneys, where A and B share expression magnitude but differ in spatial pattern, and A and C share spatial pattern but differ in magnitude.
+
 
 ``` r
 
@@ -121,13 +106,10 @@ head(speKidney)
 #> imgData names(0):
 ```
 
-Each element of `speKidney` contains a gene-expression assay, x–y
-spatial coordinates for each spot, and associated metadata. The three
-samples vary slightly in the number of spatial locations but share the
-same structure.
+Each element of `speKidney` contains a gene-expression assay, x–y spatial coordinates for each spot, and associated metadata. The three samples vary slightly in the number of spatial locations but share the same structure. 
 
-First, we use `SEraster` to rasterize this list of simulated kidneys,
-stored as `SpatialExperiment` objects, onto the same coordinate plane.
+First, we use `SEraster` to rasterize this list of simulated kidneys, stored as `SpatialExperiment` objects, onto the same coordinate plane. 
+
 
 ``` r
 rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
@@ -186,7 +168,7 @@ pA <- plotRaster(rastKidney$A, plotTitle = "Simulated Kidney A")
 pA
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/rasterization-1.png)
+![plot of chunk rasterization](getting-started-with-STcompare-figures/rasterization-1.png)
 
 ``` r
 
@@ -194,7 +176,7 @@ pB <- plotRaster(rastKidney$B, plotTitle = "Simulated Kidney B")
 pB
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/rasterization-2.png)
+![plot of chunk rasterization](getting-started-with-STcompare-figures/rasterization-2.png)
 
 ``` r
 
@@ -202,12 +184,12 @@ pC <- plotRaster(rastKidney$C, plotTitle = "Simulated Kidney C")
 pC
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/rasterization-3.png)
+![plot of chunk rasterization](getting-started-with-STcompare-figures/rasterization-3.png)
 
-### Mean comparision is not sufficient
+### Mean comparision is not sufficient 
 
-Traditionally, these simulated kidneys would be compared using the
-average of the mean expression.
+Traditionally, these simulated kidneys would be compared using the average of the mean expression. 
+
 
 ``` r
 
@@ -244,69 +226,44 @@ compare_box_plot <- ggplot(df, aes(x = sample, y = value, fill = sample)) +
 compare_box_plot
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/box_plot-1.png)
+![plot of chunk box_plot](getting-started-with-STcompare-figures/box_plot-1.png)
 
-Comparing the means allows us to differentiate between A and C since the
-expression magnitudes have a fold difference. However, comparing the
-mean does not capture the spatial gene expression difference between A
-and B.
+Comparing the means allows us to differentiate between A and C since the expression magnitudes have a fold difference. 
+However, comparing the mean does not capture the spatial gene expression difference between A and B. 
 
-1.  We will use `spatialCorrelationGeneExp` test to quantify the
-    correlation in gene expression pattern between (A and B) and (A and
-    C). Where (A and B) will have a significant negative correlation and
-    (A and C) will have a significant postive correation.
-2.  And we will use `SpatialSimilarity` test quantify the difference in
-    gene expression magnitude not reflected by DGE between (A and B)
+1. We will use `spatialCorrelationGeneExp` test to quantify the correlation in gene expression pattern between (A and B) and (A and C). Where (A and B) will have a significant negative correlation and (A and C) will have a significant postive correation.
+2. And we will use `SpatialSimilarity` test quantify the difference in gene expression magnitude not reflected by DGE between (A and B)   
 
-## Using STcompare
+## Using STcompare 
 
-### Input formatting
+### Input formatting 
 
-1.  **Tissue Alignment**  
-    For `STcompare` to produce meaningful comparisons, the tissues must
-    first be spatially aligned so that corresponding structures are
-    matched across samples. The `STalign` package can be used to align
-    two tissues. [STalign
-    Tutorial](%22https://jef.works/STalign/notebooks/merfish-merfish-alignment.html%22)
+1. **Tissue Alignment**\
+  For `STcompare` to produce meaningful comparisons, the tissues must first be spatially aligned so that corresponding structures are matched across samples.
+  The `STalign` package can be used to align two tissues. [STalign Tutorial]("https://jef.works/STalign/notebooks/merfish-merfish-alignment.html")
 
-2.  **Rasterization**  
-    `STcompare` takes a list of
-    [`SpatialExperiment`](%22https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html%22)
-    objects and requires them to be on a shared coordinate plane. Use
-    `SEraster` to rasterize multiple samples onto the same plane,
-    allowing `STcompare` to pairwise compare across any number of
-    samples. [SEraster formatting
-    tutorial](%22https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html%22)
+2. **Rasterization**\
+  `STcompare` takes a list of [`SpatialExperiment`]("https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") objects and requires them to be on a shared coordinate plane. Use `SEraster` to rasterize multiple samples onto the same plane, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial]("https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html")
 
-### Spatial correlation
 
-Now, we will use `spatialCorrelationGeneExp` to understand correlation
-of expression across pixels.
+### Spatial correlation 
 
--   **correlationCoef** Pearson’s is correlation coefficient shows the
-    strength and direction of a linear relationship between the two
-    objects
--   **pValueNaive** is the analytical p-value naively assuming
-    independent observations, often time not accurate  
--   **pValuePermuteY** is the p-value when creating an empirical null
-    from permutations of observations in Y – the higher of
-    **pValuePermuteY**, **pValuePermuteX**, is more accurate p-value due
-    to corrected null distribution
--   **pValuePermuteX** the p-value when creating an empirical null from
-    permutations of observations in X
--   **deltaStarMedianX** the median delta star (the delta which
-    minimizes the difference between the variogram of the permutation
-    and the variogram of observations) across permutations of X
--   **deltaStarMedianY** the median delta star across permutations of Y
--   **deltaStarXlist** of delta star for all permutations of X
--   **deltaStarY** is list of delta star for all permutations of Y
--   **nullCorrelationsX** correlation coefficients for Y and all
-    permuations of X
--   **nullCorrelationsY** correlation coefficients for X and all
-    permuations of Y
+Now, we will use `spatialCorrelationGeneExp` to understand correlation of expression across pixels. 
 
-Gene expression at matched pixel locations are negatively correlated in
-A and B.
+
+* **correlationCoef** Pearson's is correlation coefficient shows the strength and direction of a linear relationship between the two objects 
+* **pValueNaive** is the analytical p-value naively assuming independent observations, often time not accurate  
+* **pValuePermuteY** is the p-value when creating an empirical null from permutations of observations in Y -- the higher of **pValuePermuteY**, **pValuePermuteX**, is more accurate p-value due to corrected null distribution 
+* **pValuePermuteX** the p-value when creating an empirical null from permutations of observations in X 
+* **deltaStarMedianX** the median delta star (the delta which minimizes the difference between the variogram of the permutation and the variogram of observations) across permutations of X
+* **deltaStarMedianY** the median delta star across permutations of Y
+* **deltaStarXlist** of delta star for all permutations of X
+* **deltaStarY** is list of delta star for all permutations of Y
+* **nullCorrelationsX** correlation coefficients for Y and all permuations of X
+* **nullCorrelationsY** correlation coefficients for X and all permuations of Y
+
+Gene expression at matched pixel locations are negatively correlated in A and B.
+
 
 ``` r
 
@@ -321,12 +278,8 @@ scAB <- spatialCorrelationGeneExp(rastGexpListAB, nThreads = 1)
 # correlationCoef is showing a negative linear relationship 
 # Both the naive and the permuted p-values (pValuePermuteY and pValuePermuteX) are showing that the correlation is significant 
 head(scAB)
-#>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY
-#> Gene      -0.9472813 5.652003e-136              0              0
-#>      deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY
-#> Gene              0.2              0.2 0.2, 0.7.... 0.3, 0.3....
-#>      nullCorrelationsX nullCorrelationsY
-#> Gene      -0.02466....      -0.34167....
+#>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX nullCorrelationsY
+#> Gene      -0.9472813 5.652003e-136              0              0              0.2              0.2 0.2, 0.4.... 0.3, 0.2....      -0.21904....      -0.08650....
 
 # visualization of the negative correlation 
 # plotCorrelationGeneExp needs the list of rasterized SpatialExperiment objects, the table from spatialCorrelationGeneExp of the same objects, 
@@ -335,10 +288,11 @@ expAB <- plotCorrelationGeneExp(rastGexpListAB, scAB, "Gene")
 expAB
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/spatialCorrelationA-1.png)
+![plot of chunk spatialCorrelationA](getting-started-with-STcompare-figures/spatialCorrelationA-1.png)
 
-Gene expression at matched pixel locations are positively correlated in
-A and C.
+
+Gene expression at matched pixel locations are positively correlated in A and C. 
+
 
 ``` r
 
@@ -350,12 +304,8 @@ rastGexpListAC <- list(A = rastKidney$A, C = rastKidney$C)
 # Both the naive and the permuted p-values (pValuePermuteY and pValuePermuteX) are showing that the correlation is significant 
 scAC <- spatialCorrelationGeneExp(rastGexpListAC)
 head(scAC)
-#>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY
-#> Gene       0.9431531 1.409195e-133              0              0
-#>      deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY
-#> Gene              0.3              0.3 0.3, 0.3.... 0.4, 0.2....
-#>      nullCorrelationsX nullCorrelationsY
-#> Gene      0.193330....      0.550622....
+#>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX nullCorrelationsY
+#> Gene       0.9431531 1.409195e-133              0              0              0.3             0.25 0.2, 0.3.... 0.4, 0.3....      0.256654....      -0.12674....
 
 # visualization of the positive correlation
 # plotCorrelationGeneExp needs the list of rasterized SpatialExperiment objects, the table from spatialCorrelationGeneExp of the same objects, 
@@ -364,10 +314,11 @@ expAC <- plotCorrelationGeneExp(rastGexpListAC, scAC, "Gene")
 expAC
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/spatialCorrelationAC-1.png)
+![plot of chunk spatialCorrelationAC](getting-started-with-STcompare-figures/spatialCorrelationAC-1.png)
 
-Gene expression at matched pixel locations are negatively correlated in
-B and C.
+
+Gene expression at matched pixel locations are negatively correlated in B and C. 
+
 
 ``` r
 
@@ -377,12 +328,8 @@ B and C.
 rastGexpListBC <- list(B = rastKidney$B, C = rastKidney$C)
 scBC <- spatialCorrelationGeneExp(rastGexpListBC)
 head(scBC)
-#>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY
-#> Gene      -0.9478025 4.914519e-138              0              0
-#>      deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY
-#> Gene              0.2              0.2 0.2, 0.2.... 0.3, 0.2....
-#>      nullCorrelationsX nullCorrelationsY
-#> Gene      0.047830....      -0.04917....
+#>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX nullCorrelationsY
+#> Gene      -0.9478025 4.914519e-138              0              0              0.2              0.3 0.2, 0.3.... 0.3, 0.2....      -0.15422....      0.154471....
 
 # visualization of the negative correlation 
 # plotCorrelationGeneExp needs the list of rasterized SpatialExperiment objects, the table from spatialCorrelationGeneExp of the same objects, 
@@ -391,24 +338,21 @@ expBC <- plotCorrelationGeneExp(rastGexpListBC, scBC, "Gene")
 expBC
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/spatialCorrelationBC-1.png)
-\### Why does p-value correction matter
+![plot of chunk spatialCorrelationBC](getting-started-with-STcompare-figures/spatialCorrelationBC-1.png)
+### Why does p-value correction matter 
 
-`simRanPatternRasts` is a list of 100 simulated `SpatialExperiment`
-objects representing kidney-shaped datasets, each containing one
-independently generated spatially patterned gene with no correlation
-between datasets. Each dataset consists of N = 5000 simulated cells
-distributed within a kidney-shaped region, with spatial coordinates and
-expression values generated from Gaussian random fields. All it the
-objects in `simRanPatternRasts` is already rasterized onto the same
-coordinate plane.
+`simRanPatternRasts` is a list of 100 simulated `SpatialExperiment` objects representing kidney-shaped 
+datasets, each containing one independently generated spatially patterned gene with
+no correlation between datasets. Each dataset consists of N = 5000 simulated
+cells distributed within a kidney-shaped region, with spatial coordinates and
+expression values generated from Gaussian random fields. All it the objects in `simRanPatternRasts` is already
+rasterized onto the same coordinate plane. 
 
-Using the kidney 1 and kidney 7 in the `simRanPatternRasts` dataset, we
-see that the p-value is in the significant range (p-value \< 0.05).
-However, based on the way the kidneys are simulated (simulated to have
-no correlation), this should not be the case, which is reflected in the
-permuted p-values. The unlike the naive p-value, the permuted p-values
-do not show significant correlation.
+Using the kidney 1 and kidney 7 in the `simRanPatternRasts` dataset, we see that the p-value is in the significant range (p-value < 0.05). 
+However, based on the way the kidneys are simulated (simulated to have no correlation), this should not be the case, which is reflected in the permuted p-values. 
+The unlike the naive p-value, the permuted p-values do not show significant correlation. 
+
+
 
 ``` r
 
@@ -416,13 +360,13 @@ do not show significant correlation.
 plotRaster(simRanPatternRasts[[1]], plotTitle = "simRanPatternRasts Kidney 1")
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/show_ran_kid-1.png)
+![plot of chunk show_ran_kid](getting-started-with-STcompare-figures/show_ran_kid-1.png)
 
 ``` r
 plotRaster(simRanPatternRasts[[7]], plotTitle = "simRanPatternRasts Kidney 7")
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/show_ran_kid-2.png)
+![plot of chunk show_ran_kid](getting-started-with-STcompare-figures/show_ran_kid-2.png)
 
 ``` r
 
@@ -436,21 +380,17 @@ sc <- spatialCorrelationGeneExp(rastGexpList)
 # the naive p-value is showing that the correlation is significant 
 # while both of the permuted p-values are showing not significant p-values 
 head(sc) 
-#>   correlationCoef  pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX
-#> 1      -0.2189486 0.0002533931           0.28            0.3              0.1
-#>   deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX
-#> 1              0.3 0.6, 0.1.... 0.5, 0.1....      -0.25735....
-#>   nullCorrelationsY
-#> 1      -0.26680....
+#>   correlationCoef  pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX nullCorrelationsY
+#> 1      -0.2189486 0.0002533931           0.26           0.26              0.1              0.3 0.1, 0.4.... 0.8, 0.3....      0.119487....      0.074500....
 
 # the plot further shows that there isn't a correlation between kidney 1 and kidney 7
 plotCorrelationGeneExp(rastGexpList, sc, "1")
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/show_ran_kid-3.png)
+![plot of chunk show_ran_kid](getting-started-with-STcompare-figures/show_ran_kid-3.png)
 
-For each pairwise kidney SpatialExperiment object in the list, the
-corrected p-value is computed using `spatialCorrelationGeneExp`
+For each pairwise kidney SpatialExperiment object in the list, the corrected p-value is computed using `spatialCorrelationGeneExp`
+
 
 ``` r
 
@@ -487,26 +427,23 @@ corrected <- ggplot(cors_df) +
   ylim(min(-log10(cors_df$corspv), na.rm = TRUE), max(-log10(cors_df$corspv), na.rm = TRUE)) +
   labs(x = "Correlation" , y = "-log10(p-value)")
 corrected
-#> Warning: Removed 85 rows containing missing values or values outside the scale range
-#> (`geom_point()`).
+#> Warning: Removed 85 rows containing missing values or values outside the scale range (`geom_point()`).
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/load-results-1.png)
+![plot of chunk load-results](getting-started-with-STcompare-figures/load-results-1.png)
 
-Without p-value correction, we observe that 50% of these p-values are
-less than 0.05, while after correcting for p-value only 4% of the
-empirical p-values are less than 0.05.
+Without p-value correction, we observe that 50% of these p-values are less than 0.05, 
+while after correcting for p-value only 4% of the empirical p-values are less than 0.05. 
 
-Therefore, the permuted p-value is needed to more accurately capture
-true correlation significance.
+Therefore, the permuted p-value is needed to more accurately capture true correlation significance. 
 
-### Spatial fold change
+### Spatial fold change 
 
-Now, we have use `spatialSimilarity` to understand the magnitude changes
-cross paired pixels.
+Now, we have use `spatialSimilarity` to understand the magnitude changes cross paired pixels. 
 
-Here, we find the spatialSimilarity pairwise between in the `speKidney`
-between (A, B, C)
+Here, we find the spatialSimilarity pairwise between in the `speKidney` between (A, B, C) 
+
+
 
 ``` r
 
@@ -534,15 +471,15 @@ sAC <- spatialSimilarity(
 sBC <- spatialSimilarity(
   list(B = rastKidney$B, C = rastKidney$C)
 )
+
 ```
 
-For gene `Gene` in the comparision between A and B, we see that A and B
-has a similarity score of S=0.535. This means that 53.5% of the
-intersecting pixels between A and B are within a 1
+For gene `Gene` in the comparision between A and B, we see that A and B has a similarity score of S=0.535.
+This means that 53.5% of the intersecting pixels between A and B are within a 1 
 
-We see here that the inner radius is more highly expressed in B, while
-the outer radius is more highly expressed in C. The intermediate radius
-is shared between the two.
+We see here that the inner radius is more highly expressed in B, while the outer radius is more highly expressed in C. 
+The intermediate radius is shared between the two. 
+
 
 ``` r
 
@@ -555,7 +492,7 @@ lrAB <- linearRegression(input=sAB, gene = "Gene")
 lrAB
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/lr_pc_AB-1.png)
+![plot of chunk lr_pc_AB](getting-started-with-STcompare-figures/lr_pc_AB-1.png)
 
 ``` r
 
@@ -566,10 +503,11 @@ pcAB <- pixelClass(input=sAB, gene="Gene")
 pcAB
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/lr_pc_AB-2.png)
+![plot of chunk lr_pc_AB](getting-started-with-STcompare-figures/lr_pc_AB-2.png)
 
-All the pixels have over 1-fold increase in C relative to the same
-pixels in A.
+
+All the pixels have over 1-fold increase in C relative to the same pixels in A. 
+
 
 ``` r
 
@@ -580,7 +518,7 @@ lrAC <- linearRegression(input=sAC, gene = "Gene")
 lrAC
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/lr_pc_AC-1.png)
+![plot of chunk lr_pc_AC](getting-started-with-STcompare-figures/lr_pc_AC-1.png)
 
 ``` r
 
@@ -588,10 +526,11 @@ pcAC <- pixelClass(input=sAC, gene="Gene")
 pcAC
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/lr_pc_AC-2.png)
+![plot of chunk lr_pc_AC](getting-started-with-STcompare-figures/lr_pc_AC-2.png)
 
-25.4% of B and C pixels are within 1-fold difference of each other,
-while the rest are not.
+
+25.4% of B and C pixels are within 1-fold difference of each other, while the rest are not. 
+
 
 ``` r
 
@@ -599,7 +538,7 @@ lrBC <- linearRegression(input=sBC, gene = "Gene")
 lrBC
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/lr_pc_BC-1.png)
+![plot of chunk lr_pc_BC](getting-started-with-STcompare-figures/lr_pc_BC-1.png)
 
 ``` r
 
@@ -608,19 +547,28 @@ pcBC <- pixelClass(input=sBC, gene="Gene")
 pcBC
 ```
 
-![](/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/lr_pc_BC-2.png)
+![plot of chunk lr_pc_BC](getting-started-with-STcompare-figures/lr_pc_BC-2.png)
 
-# Conclusion
 
-Changes in expression magnitude and pattern can be independent
-observations.
 
--   A and B have similar magnitude (no fold change) and negatively
-    correlated
--   A and C do not have similar magnitude and are positively correlated
--   B and C do not have similar magnitude and are negatively correlated
+# Conclusion 
 
-These are differences that would otherwise have been able to be detected
-using mean gene expression magnitude comparison. P value correction is
-needed to take into account that gene expression in each pixel is not
-independent from that of its neighbors’.
+Changes in expression magnitude and pattern can be independent observations. 
+
+- A and B have similar magnitude (no fold change) and negatively correlated 
+- A and C do not have similar magnitude and are positively correlated
+- B and C do not have similar magnitude and are negatively correlated
+
+These are differences that would otherwise have been able to be detected using mean gene expression magnitude comparison. 
+P value correction is needed to take into account that gene expression in each pixel is not independent from that of its neighbors’. 
+
+
+
+
+
+
+
+
+
+
+

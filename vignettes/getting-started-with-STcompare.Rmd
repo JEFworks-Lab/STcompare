@@ -1,9 +1,14 @@
 ---
 title: "Getting Started with STcompare"
-author: "Vivien Jiang"
-output:
-  md_document:
-    variant: markdown_github
+author: 
+- "Vivien Jiang"
+- "Kalen Clifton" 
+- "Jean Fan" 
+output: html_document
+vignette: >
+  %\VignetteIndexEntry{STcompare Vignette}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
 ---
 
 
@@ -16,7 +21,7 @@ knitr::opts_chunk$set(
   fig.height = 6,
   dpi = 72,
   dev = "png",
-  fig.path = "/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare-figures/"
+  fig.path = "getting-started-with-STcompare-figures/"
 
 )
 ```
