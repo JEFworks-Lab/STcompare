@@ -12,3 +12,16 @@ output:
   md_document:
   variant: markdown_github
 pandoc_args: ["--output=/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/STcompare/doc/getting-started-with-STcompare.md"]
+
+rmarkdown::render(
+  "../vignettes/getting-started-with-STcompare.Rmd",
+  output_format = "md_document",
+  output_file = "getting-started-with-STcompare.md",
+  output_dir = "doc"
+)
+
+rmarkdown::render(
+  "getting-started-with-STcompare.Rmd",
+  output_format = "md_document",
+  output_file = "getting-started-with-STcompare.md"
+)
