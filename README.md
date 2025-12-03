@@ -1,7 +1,7 @@
 
 # STcompare
 
-`STcompare` is an R package for comparing spatial gene expression patterns across spatial transcriptomics (ST) datasets, addressing cases where traditional non-spatial differential expression methods fail to capture spatially distinct variation. This is the `STcompare` R documentation website.  	
+`STcompare` is an R package for comparing spatial gene expression patterns across spatial transcriptomics (ST) datasets, addressing cases where traditional non-spatial differential expression methods fail to capture spatially distinct variation. [jef.works/STcompare](jef.works/STcompare) is the `STcompare` R documentation website.  	
 
 ## Overview 
 
