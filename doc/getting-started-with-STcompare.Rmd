@@ -70,7 +70,7 @@ library(viridis)
 
 Here we load the simulated kidney data `speKidney` that we will use to demonstrate `spatialCorrelation` and `spatialSimilarity`
 
-`speKidney` is a list of three `SpatialExperiment` objects representing three simulated single-cell kidney datasets named A, B, and C. A [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html")  object store spatial transcriptomics data, combining gene expression matrices with the spatial coordinates of each spatial location. Each element of `speKidney` contains `assays`: gene-by-cell expression matrices and `spatialCoords`: x–y spatial coordinates for each spatial location.
+`speKidney` is a list of three `SpatialExperiment` objects representing three simulated single-cell kidney datasets named A, B, and C. A [`SpatialExperiment`](https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html)  object store spatial transcriptomics data, combining gene expression matrices with the spatial coordinates of each spatial location. Each element of `speKidney` contains `assays`: gene-by-cell expression matrices and `spatialCoords`: x–y spatial coordinates for each spatial location.
 
 
 ```{r load_data}
@@ -175,10 +175,10 @@ Comparing the mean between A and B does not capture the spatial gene expression 
 
 1. **Tissue Alignment**\
   For `STcompare` to produce meaningful comparisons, the tissues must first be spatially aligned so that corresponding structures are matched across samples.
-  The `STalign` package can be used to align two tissues. [STalign Tutorial]("https://jef.works/STalign/notebooks/merfish-merfish-alignment.html")
+  The `STalign` package can be used to align two tissues. [STalign Tutorial](https://jef.works/STalign/notebooks/merfish-merfish-alignment.html)
 
 2. **Rasterization**\
-  `STcompare` takes a list of [`SpatialExperiment`]("https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") objects and requires them to have matched spatial locations. Use `SEraster` to rasterize multiple samples onto the same coordinate system, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial]("https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html")
+  `STcompare` takes a list of [`SpatialExperiment`](https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html) objects and requires them to have matched spatial locations. Use `SEraster` to rasterize multiple samples onto the same coordinate system, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial](https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html)
 
 
 Since our simulated data is already aligned we first use `SEraster` to rasterize this list of simulated kidneys, stored as `SpatialExperiment` objects, onto the same coordinate plane. 
