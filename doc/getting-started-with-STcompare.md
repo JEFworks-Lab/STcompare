@@ -72,7 +72,7 @@ demonstrate `spatialCorrelation` and `spatialSimilarity`
 
 `speKidney` is a list of three `SpatialExperiment` objects representing
 three simulated single-cell kidney datasets named A, B, and C. A
-[`SpatialExperiment`](https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html)
+[`SpatialExperiment`](%22https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html%22)
 object store spatial transcriptomics data, combining gene expression
 matrices with the spatial coordinates of each spatial location. Each
 element of `speKidney` contains `assays`: gene-by-cell expression
@@ -240,16 +240,16 @@ organized.
     first be spatially aligned so that corresponding structures are
     matched across samples. The `STalign` package can be used to align
     two tissues. [STalign
-    Tutorial](https://jef.works/STalign/notebooks/merfish-merfish-alignment.html)
+    Tutorial](%22https://jef.works/STalign/notebooks/merfish-merfish-alignment.html%22)
 
 2.  **Rasterization**  
     `STcompare` takes a list of
-    [`SpatialExperiment`](https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html)
+    [`SpatialExperiment`](%22https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html%22)
     objects and requires them to have matched spatial locations. Use
     `SEraster` to rasterize multiple samples onto the same coordinate
     system, allowing `STcompare` to pairwise compare across any number
     of samples. [SEraster formatting
-    tutorial](https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html)
+    tutorial](%22https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html%22)
 
 Since our simulated data is already aligned we first use `SEraster` to
 rasterize this list of simulated kidneys, stored as `SpatialExperiment`
@@ -336,7 +336,7 @@ As input `spatialCorrelationGeneExp` takes a list of two
     # Both the naive and the permuted p-values (pValuePermuteY and pValuePermuteX) are showing that the correlation is significant 
     head(scAB)
     #>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX nullCorrelationsY
-    #> Gene      -0.9472813 5.652003e-136              0              0              0.2              0.2 0.2, 0.2.... 0.4, 0.2....      0.423614....      -0.45092....
+    #> Gene      -0.9472813 5.652003e-136              0              0              0.3              0.2 0.3, 0.3.... 0.2, 0.2....      -0.01401....      -0.08742....
 
 As output `spatialCorrelationGeneExp` returns:
 
@@ -390,7 +390,7 @@ We can repeat the analysis for A and C.
     scAC <- spatialCorrelationGeneExp(rastGexpListAC)
     head(scAC)
     #>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX nullCorrelationsY
-    #> Gene       0.9431531 1.409195e-133              0              0              0.3              0.3 0.1, 0.4.... 0.7, 0.3....      -0.30969....      -0.29114....
+    #> Gene       0.9431531 1.409195e-133              0              0              0.2              0.2 0.2, 0.2.... 0.2, 0.4....      0.188003....      0.174202....
 
     # visualization of the positive correlation
     # plotCorrelationGeneExp needs the list of rasterized SpatialExperiment objects, the table from spatialCorrelationGeneExp of the same objects, 
@@ -448,7 +448,7 @@ significant correlation.
     # while both of the permuted p-values are showing not significant p-values 
     head(sc) 
     #>   correlationCoef  pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX nullCorrelationsY
-    #> 1      -0.2189486 0.0002533931           0.32           0.27              0.1              0.3 0.2, 0.1.... 0.1, 0.2....      -0.26184....      -0.01011....
+    #> 1      -0.2189486 0.0002533931           0.26           0.24              0.1              0.3 0.1, 0.1.... 0.1, 0.9....      -0.15756....      0.109176....
 
     # the plot further shows that there isn't a correlation between kidney 1 and kidney 7
     plotCorrelationGeneExp(rastGexpList, sc, "1")

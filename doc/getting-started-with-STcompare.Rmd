@@ -6,7 +6,7 @@ author:
 - "Jean Fan" 
 output: html_document
 vignette: >
-  %\VignetteIndexEntry{STcompare Vignette}
+  %\VignetteIndexEntry{Getting Started with STcompare}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
 ---
@@ -26,7 +26,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Introducton 
+# Introduction 
 
 Spatial transcriptomic (ST) technologies enable the investigation of how tissue organization relates to cellular function by profiling the spatial location of cells within a tissue and the gene expression profiles associated with those locations. As ST technologies are increasingly applied in the context of disease characterization and translational research, identifying genes that spatially change in their expression patterns in diseased tissues as compared to healthy controls could reveal localized molecular variation associated with pathological processes, offering insights into disease mechanisms as well as aiding in the discovery of diagnostic biomarkers. 
 
@@ -34,15 +34,13 @@ Attempts at such comparative analysis of ST datasets can be performed using trad
 
 Clifton K, Jiang V, Singh S, Matsuura R, Rabb H, Fan J., STcompare: Comparative spatial transcriptomics data analysis to characterize differentially spatially patterned genes. bioRxiv 2025.11.21.689847. doi: https://doi.org/10.1101/2025.11.21.689847
 
-# Installation 
+# Install 
 
 ```{r eval=FALSE, message=FALSE, warning=FALSE}
 require(remotes)
 remotes::install_github('JEFworks-Lab/STcompare')
 
 ```
-
-# Tutorial 
 
 In this tutorial we will walk through applying `STcompare`'s two differential spatial comparison tests to simulated kidney datasets: 
 
@@ -53,7 +51,7 @@ In this tutorial we will walk through applying `STcompare`'s two differential sp
 
 
 
-## Load Libraries 
+# Load Libraries 
 
 ```{r import_packages, message=FALSE, warning=FALSE}
 library(STcompare)
@@ -66,11 +64,11 @@ library(viridis)
 
 ```
 
-## Simulated Pattern Kidney 
+# Simulated Pattern Kidney 
 
 Here we load the simulated kidney data `speKidney` that we will use to demonstrate `spatialCorrelation` and `spatialSimilarity`
 
-`speKidney` is a list of three `SpatialExperiment` objects representing three simulated single-cell kidney datasets named A, B, and C. A [`SpatialExperiment`](https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html)  object store spatial transcriptomics data, combining gene expression matrices with the spatial coordinates of each spatial location. Each element of `speKidney` contains `assays`: gene-by-cell expression matrices and `spatialCoords`: x–y spatial coordinates for each spatial location.
+`speKidney` is a list of three `SpatialExperiment` objects representing three simulated single-cell kidney datasets named A, B, and C. A [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html")  object store spatial transcriptomics data, combining gene expression matrices with the spatial coordinates of each spatial location. Each element of `speKidney` contains `assays`: gene-by-cell expression matrices and `spatialCoords`: x–y spatial coordinates for each spatial location.
 
 
 ```{r load_data}
@@ -122,7 +120,7 @@ pA + pB + pC
 
 Upon plotting the gene expression spatial patterns for each dataset, we can see that A and B share gene expression magnitude but differ in spatial pattern, and A and C share spatial pattern but differ in gene expression magnitude.
 
-### Mean comparision is not sufficient 
+# Mean comparision is not sufficient 
 
 Traditionally, these simulated kidneys would be compared using differential gene expression (DGE) analysis such as comparing the average of the mean expression. 
 
@@ -169,16 +167,16 @@ Comparing the mean between A and B does not capture the spatial gene expression 
 2. And we will use `SpatialSimilarity` test to quantify the difference in gene expression magnitude at matched spatial locations not reflected by DGE between (A and B)   
 
 
-## Using STcompare 
+# Using STcompare 
 
-### Input formatting 
+## Input formatting 
 
 1. **Tissue Alignment**\
   For `STcompare` to produce meaningful comparisons, the tissues must first be spatially aligned so that corresponding structures are matched across samples.
-  The `STalign` package can be used to align two tissues. [STalign Tutorial](https://jef.works/STalign/notebooks/merfish-merfish-alignment.html)
+  The `STalign` package can be used to align two tissues. [STalign Tutorial]("https://jef.works/STalign/notebooks/merfish-merfish-alignment.html")
 
 2. **Rasterization**\
-  `STcompare` takes a list of [`SpatialExperiment`](https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html) objects and requires them to have matched spatial locations. Use `SEraster` to rasterize multiple samples onto the same coordinate system, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial](https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html)
+  `STcompare` takes a list of [`SpatialExperiment`]("https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") objects and requires them to have matched spatial locations. Use `SEraster` to rasterize multiple samples onto the same coordinate system, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial]("https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html")
 
 
 Since our simulated data is already aligned we first use `SEraster` to rasterize this list of simulated kidneys, stored as `SpatialExperiment` objects, onto the same coordinate plane. 
@@ -202,7 +200,7 @@ pA + pB + pC
 
 
 
-### Spatial correlation 
+## Spatial correlation 
 
 Now, we will use `spatialCorrelationGeneExp` to understand correlation of expression across pixels. 
 
@@ -275,7 +273,7 @@ expAC
 Because `correlationCoef = 0.9431531` and `pValuePermuteX` and `pValuePermuteY` < 0.05, we can conclude that gene expression at matched pixel locations is positively correlated in A and C.
 
 
-### Why we generate empirical p-values through permutations 
+## Why we generate empirical p-values through permutations 
 
 Next, we will demonstrate how using the analytical p-value, which naively assumes spatial locations are independent observations, when interpreting Pearson's correlation coefficients results in a high false positive rate when the datasets that are compared have spatial autocorrelation.
 
@@ -356,7 +354,7 @@ while after correcting for p-value only 4% of the empirical p-values are less th
 
 Therefore, the permuted p-value is needed to more accurately capture true correlation significance. 
 
-### Spatial fold change 
+## Spatial fold change 
 
 Now, we use `spatialSimilarity` to understand the magnitude changes across matched spatial locations. 
 

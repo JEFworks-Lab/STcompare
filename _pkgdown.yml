@@ -1,0 +1,15 @@
+url: https://jef.works/STcompare/
+template:
+  bootstrap: 5
+navbar:
+  title: "STcompare"
+  left:
+    - text: "Install"
+      href: articles/Install.html
+    - text: "Tutorials"
+      menu:
+      - text: "Getting Started with STcompare"
+        href: articles/getting-started-with-STcompare.html
+    - text: "Functions"
+      href: reference/index.html
+

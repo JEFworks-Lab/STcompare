@@ -1,0 +1,184 @@
+---
+title: "Riological Replicates"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{biological-replicates-example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(STcompare)
+library(SpatialExperiment)
+library(SEraster)
+library(viridis)
+library(MERINGUE)
+library(patchwork)
+library(ggplot2)
+library(dplyr)
+library(ggrepel)
+```
+
+
+
+```{r load-data}
+
+# The Merfish replicates dataset is stored on Zenodo: https://zenodo.org/records/10724029
+#
+
+
+# Load the target dataset: S2R2
+s2r2_url <- "https://zenodo.org/records/10724029/files/STalign_S2R2.csv.gz?download=1"
+u  <- url(s2r2_url, open = "rb") # binary stream
+gz <- gzcon(u, text = TRUE) # decompress -> text stream
+on.exit({ try(close(gz), silent=TRUE); try(close(u), silent=TRUE) }, add = TRUE)
+
+target <- read.csv(gz)
+
+# Load the source dataset: S2R3
+s2r3_url <- "https://zenodo.org/records/10724029/files/STalign_S2R3_to_S2R2.csv.gz?download=1"
+u  <- url(s2r3_url, open = "rb") # binary stream
+gz <- gzcon(u, text = TRUE) # decompress -> text stream
+on.exit({ try(close(gz), silent=TRUE); try(close(u), silent=TRUE) }, add = TRUE)
+
+source <- read.csv(gz)
+
+head(target)
+head(source)
+
+```
+
+```{r load-data}
+
+read_csv_gz_url <- function(x, ...) {
+  u  <- url(x, open = "rb")
+  gz <- gzcon(u, text = TRUE)
+  on.exit({
+    try(close(gz), silent = TRUE)
+    try(close(u),  silent = TRUE)
+  }, add = TRUE)
+
+  read.csv(gz, ...)
+}
+
+s2r2_url <- "https://zenodo.org/records/10724029/files/STalign_S2R2.csv.gz?download=1"
+s2r3_url <- "https://zenodo.org/records/10724029/files/STalign_S2R3_to_S2R2.csv.gz?download=1"
+
+target <- read_csv_gz_url(s2r2_url)
+source <- read_csv_gz_url(s2r3_url)
+
+# TODO: explain the columns in this output
+utils::head(target)
+utils::head(source)
+
+
+
+```
+
+```{r }
+
+# convert target to spatial experiments
+
+dim(target)
+
+# extract the cell positions (x, y)
+pos_target <- target[, c('x', 'y')]
+
+# after the third column, the remaining columns are the genes
+gene_target <- target[, 3:dim(target)[2]]
+
+# for spatial experiments, need to convert from a dataframe to a dgCMatrix
+class(gene_target)
+
+target_sparse <- as(t(gene_target), "dgCMatrix")
+
+
+# format into SpatialExperiment
+spe_target <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = target_sparse),
+  spatialCoords = as.matrix(pos_target)
+)
+```
+
+``` {r}
+
+# convert source to spatial experiments
+
+dim(source)
+head(source)
+pos_unaligned_source <- source[, c('center_x', 'center_y')]
+colnames(pos_unaligned_source) <- c("x", "y")
+pos_source <- source[, c('STalign_x', 'STalign_y')]
+colnames(pos_source) <- c("x", "y")
+gene_source <- source[, 7:dim(source)[2]]
+
+source_sparse <- as(t(gene_source), "dgCMatrix")
+
+spe_source <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = source_sparse),
+  spatialCoords = as.matrix(pos_source)
+)
+
+```
+
+
+``` {r}
+
+# show that alignment is needed
+
+# TODO: change the colors and add labels
+
+df1 <- data.frame(pos_target, dataset = "target")
+df2 <- data.frame(pos_source, dataset = "source")
+df3 <- data.frame(pos_unaligned_source, dataset = "unaligned")
+
+df4 <- rbind(df1, df2, df3)
+
+ptarget <- ggplot2::ggplot(df1, ggplot2::aes(x = x, y = y)) +
+  ggplot2::geom_point(size = 0.1, alpha = 0.1, color = "gray") +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_void()
+
+psource <- ggplot2::ggplot(df2, ggplot2::aes(x = x, y = y)) +
+  ggplot2::geom_point(size = 0.1, alpha = 0.1, color = "gray") +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_void()
+
+punaligned <- ggplot2::ggplot(df3, ggplot2::aes(x = x, y = y)) +
+  ggplot2::geom_point(size = 0.1, alpha = 0.1, color = "gray") +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_void()
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(ptarget, punaligned, ncol=2, nrow=1),
+                        gridExtra::arrangeGrob(ptarget, psource, ncol=2, nrow=1))
+
+
+```
+
+``` {r}
+
+# rasterization
+
+spe_list <- list(target = spe_target, source = spe_source)
+resolution = 200
+output <- SEraster::rasterizeGeneExpression(spe_list, resolution = resolution, fun = "mean", BPPARAM = BiocParallel::MulticoreParam())
+
+
+
+```
+
+
+
+
+
+
+
+
+
