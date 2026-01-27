@@ -7,6 +7,9 @@
 .DS_Store
 .quarto
 
-test_functions.R
-
 inst/doc
+/Meta/
+
+
+docs
+/doc/
