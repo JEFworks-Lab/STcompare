@@ -1,0 +1,10 @@
+pandoc: 3.1.1
+pkgdown: 2.1.3
+pkgdown_sha: ~
+articles:
+  getting-started-with-STcompare: getting-started-with-STcompare.html
+  Install: Install.html
+last_built: 2026-01-30T20:40Z
+urls:
+  reference: https://jef.works/STcompare/reference
+  article: https://jef.works/STcompare/articles
