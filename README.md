@@ -30,7 +30,7 @@ remotes::install_github('JEFworks-Lab/STcompare')
 
 ## Tutorials 
 
-1. [Getting started with `STcompare`](https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html)
+1. [Getting started with `STcompare`](https://jef.works/STcompare/articles/getting-started-with-STcompare.html)
 
 ## Citation 
 
