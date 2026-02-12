@@ -11,5 +11,5 @@ inst/doc
 /Meta/
 
 
-docs
-/doc/
+# docs
+# /doc/

@@ -88,12 +88,12 @@ linearRegression <- function (input, gene, assayName = NULL) {
   df$color <- dplyr::case_when(df$pixel %in% similarPixels[[1]] ~ "blue",
                                df$pixel %in% dissimilarPixelsX[[1]] ~ viridis::plasma(3)[3],
                                df$pixel %in% dissimilarPixelsY[[1]] ~ "red",
-                               df$pixel %in% belowThreshPixels[[1]] ~ "grey",
+                               df$pixel %in% belowThreshPixels[[1]] ~ "grey"
                                )
 
 
   plt <- ggplot2::ggplot(df, ggplot2::aes(
-    x = x, y = y, color = color,
+    x = x, y = y, color = color
   )) +
     # geom_point(size=2) +
     ggplot2::geom_point(alpha = 0.5, size=1) +
