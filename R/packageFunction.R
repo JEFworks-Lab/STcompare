@@ -150,7 +150,7 @@ threshold <- function (genePixelDF, t1, t2) {
 #'                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
 #'
 #' s <- spatialSimilarity(list(rastKidney$A, rastKidney$C))
-
+#'
 spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, minPixels = 0.1, foldChange = 1, assayName = NULL) {
 
   if (is.null(assayName)) {
