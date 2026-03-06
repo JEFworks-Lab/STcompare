@@ -1,0 +1,600 @@
+---
+title: "Acute Kidney Injury (10x Visium) Application"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{acute-kidney-injury-10x-visium}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(STcompare)
+library(rhdf5)
+library(Matrix)
+library(ggplot2)
+library(dplyr)
+
+```
+
+TODO: Introduction 
+* explain the kidney 
+* explain the visium dataset 
+
+TODO: explain that you expect the dataset to be well formatted 
+
+# Introduction 
+
+
+```{r load-data}
+
+# The Visium mouse kidney datasets can be found Zenodo: https://zenodo.org/records/17676992
+# IL3 - ischemia acute kidney injury dataset 
+# NL3 - control dataset 
+
+# AKI counts ###################################################################
+zenodo_url <- "https://zenodo.org/records/17676992/files/IL3_filtered_feature_bc_matrix.h5?download=1"
+temp_h5 <- tempfile(fileext = ".h5")
+download.file(zenodo_url, temp_h5, mode = "wb")
+
+# this is a list of the internal groups and datasets stored in the HDF5 file 
+# we are interested in the "matrix/barcodes" dataset 
+rhdf5::h5ls(temp_h5)
+
+# Read the CSC-encoded matrix components from the HDF5 file
+file_barcodes <- as.character(rhdf5::h5read(temp_h5, "matrix/barcodes"))
+barcodes_matrix <- rhdf5::h5read(temp_h5, "matrix") # stores the sparse matrix components 
+
+# convert CSC encoding into an R dgCMatrix
+aki_counts <- Matrix::sparseMatrix(
+  dims = barcodes_matrix$shape,
+  i = as.numeric(barcodes_matrix$indices),
+  p = as.numeric(barcodes_matrix$indptr),
+  x = as.numeric(barcodes_matrix$data),
+  index1 = FALSE
+)
+
+colnames(aki_counts) <- file_barcodes
+rownames(aki_counts) <- as.data.frame(barcodes_matrix[["features"]])$name
+
+unlink(temp_h5)
+
+
+# Control counts ###############################################################
+
+zenodo_url <- "https://zenodo.org/records/17676992/files/NL3_filtered_feature_bc_matrix.h5?download=1"
+temp_h5 <- tempfile(fileext = ".h5")
+download.file(zenodo_url, temp_h5, mode = "wb")
+
+# Read the CSC-encoded matrix components from the HDF5 file
+file_barcodes <- as.character(rhdf5::h5read(temp_h5, "matrix/barcodes"))
+barcodes_matrix <- rhdf5::h5read(temp_h5, "matrix") # stores the sparse matrix components 
+
+# convert CSC encoding into an R dgCMatrix
+control_counts <- Matrix::sparseMatrix(
+  dims = barcodes_matrix$shape,
+  i = as.numeric(barcodes_matrix$indices),
+  p = as.numeric(barcodes_matrix$indptr),
+  x = as.numeric(barcodes_matrix$data),
+  index1 = FALSE
+)
+
+colnames(control_counts) <- file_barcodes
+rownames(control_counts) <- as.data.frame(barcodes_matrix[["features"]])$name
+
+unlink(temp_h5)
+
+head(aki_counts)
+head(control_counts)
+
+# positions ####################################################################
+
+zenodo_url <- "https://zenodo.org/records/17676992/files/IL3_tissue_positions.csv?download=1"
+aki_pos <- read.csv(zenodo_url, header = TRUE, stringsAsFactors = FALSE)
+
+zenodo_url <- "https://zenodo.org/records/17676992/files/NL3_tissue_positions.csv?download=1"
+ctrl_pos <- read.csv(zenodo_url, header = TRUE, stringsAsFactors = FALSE)
+
+# given the counts the the position matrix 
+head(colnames(aki_counts))
+head(aki_pos$barcode)
+
+# Standardize spot identifiers by removing sample-specific prefixes
+# The regex "^[^_]*_" matches from the start (^) through the first underscore:
+#   [^_]* = any characters except underscore
+#   _     = the first underscore itself
+# Original format: "SAMPLE_X_Y" 
+# Standardized format: "X_Y"
+aki_pos$barcode <- sub("^[^_]*_", "", aki_pos$barcode)
+ctrl_pos$barcode <- sub("^[^_]*_", "", ctrl_pos$barcode)
+
+# limit the counts to the spots with positions and make sure they are in the same order
+
+# AKI 
+# aki_pos$barcode with tag removed and colnames(aki_counts) are not identical 
+identical(aki_pos$barcode, colnames(aki_counts))
+
+# There are spots in aki_counts that are not in aki_pos
+setdiff(aki_pos$barcode, colnames(aki_counts))
+setdiff(colnames(aki_counts), aki_pos$barcode)
+
+# removing the spots that are in aki_counts but not in aki_pos 
+# remove the tag from the position barcodes 
+aki_counts <- aki_counts[, colnames(aki_counts) %in% sub("^[^_]+_", "", aki_pos$barcode)]
+
+# they are now identical, if this was not the case, more alignments 
+# step would've been needed 
+identical(sub("^[^_]+_", "", aki_pos$barcode), colnames(aki_counts))
+
+# Control 
+# The control is also not identical 
+identical(sub("^[^_]+_", "", ctrl_pos$barcode), colnames(control_counts))
+
+# same case as before, remove the spots that are in the counts, but no in the pos
+setdiff(sub("^[^_]+_", "", ctrl_pos$barcode), colnames(control_counts))
+setdiff(colnames(control_counts), sub("^[^_]+_", "", ctrl_pos$barcode))
+control_counts <- control_counts[, colnames(control_counts) %in% sub("^[^_]+_", "", ctrl_pos$barcode)]
+
+# they are now identical
+identical(sub("^[^_]+_", "", ctrl_pos$barcode), colnames(control_counts))
+
+# plot positions ###############################################################
+
+# set the barcode column as the rownames
+rownames(ctrl_pos) <- ctrl_pos$barcode
+ctrl_pos <- ctrl_pos[,-1]
+colnames(ctrl_pos) <- c("x", "y")
+
+rownames(aki_pos) <- aki_pos$barcode
+aki_pos <- aki_pos[,-1]
+colnames(aki_pos) <- c("x", "y")
+
+ctrl_pos$group <- "Control"
+aki_pos$group  <- "AKI"
+
+df <- rbind(ctrl_pos, aki_pos)
+pos_plot <- ggplot(df, aes(x = x, y = y, color = group)) +
+  geom_point() +
+  scale_color_manual(values = c("Control" = "blue", "AKI" = "red")) +
+  coord_fixed() +
+  labs(x = "x", y = "y", color = "Group") +
+  theme_classic()
+pos_plot
+
+
+# rotate the tissue by 90-degrees for visualization 
+
+ctrl_pos_rot <- transform(ctrl_pos, x = y, y = -x + max(ctrl_pos$x))
+aki_pos_rot <- transform(aki_pos, x = y, y = -x + max(aki_pos$x))
+
+df_rot <- rbind(ctrl_pos_rot, aki_pos_rot)
+pos_rot_plot <- ggplot(df_rot, aes(x = x, y = y, color = group)) +
+  geom_point(size=0.5) +
+  scale_color_manual(values = c("Control" = "blue", "AKI" = "red")) +
+  coord_fixed() +
+  labs(x = "x", y = "y", color = "Group") +
+  theme_classic()
+pos_rot_plot
+
+```
+
+goal: fill in the holes 
+
+1. load data 
+2. process the data 
+  1. make the spatial experiments 
+  2. align the spatial experiments 
+  
+3. correlation/similarity 
+  1. identify svgs (Moran's I)
+  
+  
+counts and the position 
+the position should have less cell than the counts (bc of QC) -> reduce counts matrix cell number to match that of the position 
+
+load("data/kidney_data/Rabb_ctrl.RData") -> list of post and gene exp 
+need ctrl3 
+data/kidney_data/Rabb_irl24h.RData -> need irl3 
+
+
+The kidneys are currently oriented horizontally. We are going to rotate the kidney for better downstream visualization. 
+
+
+Spot names are different across the two sample. 
+In later steps, we need to be able to match the spots to each other to use STcompare. 
+
+``` {r}
+
+# Turn the position and gene expression counts matrix into a spatial experiment 
+# with the following assays 
+#   counts: raw gene expression counts
+#   libnorm: CPM (counts per million) normalization to adjust for sequencing depth
+
+# remove the group column from position 
+ctrl_pos <- ctrl_pos[, -3]
+aki_pos <- aki_pos[, -3]
+
+AKI_ctrl_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = control_counts,
+                libnorm = Matrix::t(Matrix::t(control_counts/Matrix::colSums(control_counts))*1e6)),
+  spatialCoords = as.matrix(ctrl_pos),
+  
+)
+
+AKI_irl_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = aki_counts,
+                libnorm = Matrix::t(Matrix::t(aki_counts)/Matrix::colSums(aki_counts))*1e6),
+  spatialCoords = as.matrix(aki_pos)
+
+)
+
+```
+
+Removes rarely-expressed genes that likely represent noise by filtering to genes that are detected in at least 1% of spots in both samples.
+
+``` {r}
+
+# there are 32285 genes in both samples 
+dim(SummarizedExperiment::assays(AKI_ctrl_SE)$libnorm) 
+dim(SummarizedExperiment::assays(AKI_irl_SE)$libnorm) 
+
+# which rows in the matrix that (1) has gene expression and (2) the gene is expressed in greater than 1% of all spots 
+# this has to be true in both datasets to be considered a "good gene" 
+good.genes <- names(which((
+  Matrix::rowSums(SummarizedExperiment::assays(AKI_ctrl_SE)$libnorm > 0)) / dim(AKI_ctrl_SE)[2]*100 > 1 &
+  (Matrix::rowSums(SummarizedExperiment::assays(AKI_irl_SE)$libnorm > 0))/dim(AKI_irl_SE)[2]*100 > 1))
+length(good.genes)
+
+# Reduced the number of genes from 32285 --> 12697 genes 
+
+```
+
+Of the "good genes" that have at least 1%, we now want to identify which of those genes are then spatially variable (SVG). 
+One of the main analysis of STcompare is to be able to identify SVGs that change in spatial pattern across datasets. 
+
+We use Moran's I to identify SVGs. 
+
+``` {r}
+
+moransI <- function(SE_temp){
+  
+  # Get neighbor-relationships 
+  w <- MERINGUE::getSpatialNeighbors(SpatialExperiment::spatialCoords(SE_temp), filterDist = 1.75)
+  par(mfrow=c(1,1))
+  # plotNetwork(SpatialExperiment::spatialCoords(SE_temp), w)
+  MERINGUE::plotNetwork(SpatialExperiment::spatialCoords(SE_temp), w)
+  
+  # Identify significantly spatially auto-correlated genes
+  start_time <- Sys.time()
+  I <- MERINGUE::getSpatialPatterns(SummarizedExperiment::assays(SE_temp)$libnorm, w)
+  end_time <- Sys.time()
+  print(end_time - start_time)
+  
+  results.filter <- MERINGUE::filterSpatialPatterns(mat = SummarizedExperiment::assays(SE_temp)$libnorm,
+                                          I = I,
+                                          w = w,
+                                          adjustPv = TRUE,
+                                          alpha = 0.05,
+                                          minPercentCells = 0.01,
+                                          verbose = TRUE, details = TRUE)
+
+  return(results.filter)
+}
+
+
+start_time <- Sys.time()
+moransI_ctrl <- moransI(AKI_ctrl_SE[good.genes,])
+end_time <- Sys.time()
+print(end_time - start_time) #Time difference of 51.26422 mins
+
+start_time <- Sys.time()
+moransI_irl <- moransI(AKI_irl_SE[good.genes,])
+end_time <- Sys.time()
+print(end_time - start_time) #Time difference of 43.29134 mins
+
+# "moransI_ctrl" and "moransI_irl" are dataframes these columns: 
+# observed: Observed Moran's I statistic measuring spatial autocorrelation
+#           Positive values = spatially clustered expression pattern
+#           Values range from -1 to 1
+
+# expected: Expected Moran's I under null hypothesis of random distribution
+#           Typically close to zero
+
+# sd: Standard deviation of Moran's I under the null hypothesis
+#     Used to calculate the test statistic
+
+# p.value: Statistical significance of the spatial pattern
+#          Lower values = stronger evidence of non-random spatial expression
+
+# p.adj: Adjusted p-value (FDR-corrected) for multiple testing correction
+
+# minPercentCells: Minimum percentage of cells/spots where gene is expressed
+
+head(moransI_ctrl)
+head(moransI_irl)
+
+# Running Moran's I already filtered the dataframe to only the genes that are statistically significantly autocorrelated 
+# SVGs are then chosen as the gene that have expression patterns that possess more than 1% of all spots  
+svg_ctrl <- moransI_ctrl %>% filter(minPercentCells > 0.01) %>% rownames()
+svg_irl <- moransI_irl %>% filter(minPercentCells > 0.01) %>% rownames()
+svg_int <- intersect(svg_ctrl, svg_irl) # genes that are SVGs in both conditions 
+svg_uni <- union(svg_ctrl, svg_irl) # genes that are SVG in one condition but not the other 
+
+# Out of 32285 gene: 
+# there are 3389 genes that are SVGs in the control dataset 
+length(svg_ctrl)
+
+# there are 4447 genes that are SVGs in the aki dataset  
+length(svg_irl)
+
+# there are 2278 genes that are SVGs in both datasets   
+length(svg_int)
+
+# there are 5558 genes that are SVGs in either datasets 
+length(svg_uni)
+
+```
+
+``` {r remove}
+wd <- "/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/ST_compare"
+
+# TODO: remove 
+# loading in the moran's I data 
+
+# saved as "moransI_ctrl" "moransI_irl" 
+load(file.path(wd,"data/kidney_data/moransI_svg01per_20250817.RData"))
+
+```
+
+
+With the SVGs, use STcompare to calculate Pearson's correlation coefficient for genes that were SVGs in both conditions to investigate whether there was a change in the spatial patterning of expression. 
+
+``` {r}
+
+# TODO: did not run this for the sake of time 
+
+# choosing the gene that are SVGs in both conditions 
+genes_chosen <- svg_int
+
+# The input is the spatial experiment for the genes that are SVGs in both conditions 
+input = list('AKI_ctrl'= AKI_ctrl_SE[genes_chosen, ], 
+             'AKI_irl'= AKI_irl_SE[genes_chosen, ])
+
+set.seed(0)
+start_time <- Sys.time()
+deltaList <- replicate(length(rownames(input[[1]])), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
+kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
+  input, 
+  deltaX = deltaList, 
+  deltaY = deltaList, 
+  returnPermutations = FALSE, 
+  assayName = "libnorm", 
+  nThreads = 5
+)
+end_time <- Sys.time()
+print(end_time - start_time) 
+
+# TODO: add change number of threads 
+
+
+
+# TODO: remove 
+# load kidneyCorrelation variable 
+load(file.path(wd,"data/kidney_data/kidneyCorrelation_20250816.RData"))
+head(kidneyCorrelation)
+
+# 527 genes are SVGs that are significantly positively correlated 
+kidneyCorrelation %>%
+  dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
+  dplyr::filter(correlationCoef > 0) %>% 
+  dim()
+
+svgSigPos <- kidneyCorrelation %>%
+  dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef > 0) %>% 
+  rownames()
+
+
+# 25 genes are SVGs that are significantly negatively correlated 
+kidneyCorrelation %>%
+  dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef < 0) %>% 
+  dim()
+
+svgSigNeg <- kidneyCorrelation %>%
+  dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef < 0) %>% 
+  rownames()
+
+
+# TODO: add comments 
+# Figure 2J 
+fig_2j <- kidneyCorrelation %>%
+  dplyr::mutate(Sig = dplyr::case_when(rownames(kidneyCorrelation) %in% svgSigPos ~ "SigPos",
+                         rownames(kidneyCorrelation) %in% svgSigNeg ~ "SigNeg",
+                         .default = "")) %>%
+  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
+                                     .default = pValuePermuteX)) %>%
+  dplyr::mutate(pValueEmpiricalRound = dplyr::case_when(pValueEmpirical == 0 ~ 0.01,
+                                    .default = pValueEmpirical)) %>%
+  ggplot2::ggplot() + 
+  ggplot2::geom_point(ggplot2::aes(x= correlationCoef, y = -log10(pValueEmpiricalRound), color = Sig), alpha = 0.25, size = 1) +
+  ggplot2::xlim(NA,1) +
+  ggplot2::scale_color_manual(values = c("SigPos" = "green", "SigNeg" = "blue")) +
+  ggplot2::theme_classic() +
+  ggplot2::geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  + 
+  ggplot2::labs(x = "Correlation" , y = "-log10(p-value)", 
+  )
+fig_2j
+
+
+# Adding a column for the empirical p-value (pValueEmpirical) 
+# defined as the larger of the two x and y permuted p-values (greater of pValuePermuteX and pValuePermuteY)
+kidneyCorrelationEmpirical <- kidneyCorrelation %>%
+  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
+                                     .default = pValuePermuteX))
+
+
+```
+
+``` {r}
+
+# Spots that are shared between the two datasets 
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(input[[1]])),
+                          rownames(SpatialExperiment::spatialCoords(input[[2]])))
+
+gene <- "Acsm2"
+
+g1 <- SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels]
+g2 <- SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels]
+
+df12 <- cbind(g1, g2)
+
+cor1 <- ggplot2::ggplot(df12, ggplot2::aes(x=g1, y=g2)) +
+  ggplot2::geom_point(alpha = 0.2, size = 1) + ggplot2::theme_classic() + 
+  #coord_fixed() +
+  ggplot2::labs(x = paste0("Expression of pixel in ", names(input)[1]) , y = paste0("Expression of pixel in ", names(input)[2]),
+       title = paste(" r = ", round(kidneyCorrelationEmpirical[gene,"correlationCoef"], 3),
+                     " naïve p = ", round(kidneyCorrelationEmpirical[gene,"pValueNaive"], 3),
+                     " p = ", round(kidneyCorrelationEmpirical[gene, "pValueEmpirical"], 3))
+  ) 
+
+cor1
+
+``` 
+
+``` {r}
+
+gene <- "Cbr1"
+
+g1 <- SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels]
+g2 <- SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels]
+
+df12 <- cbind(g1, g2)
+
+cor2 <- ggplot2::ggplot(df12, ggplot2::aes(x=g1, y=g2)) +
+  ggplot2::geom_point(alpha = 0.2, size = 1) + ggplot2::theme_classic() + 
+  ggplot2::labs(x = paste0("Expression of pixel in ", names(input)[1]) , y = paste0("Expression of pixel in ", names(input)[2]),
+       title = paste(" r = ", round(kidneyCorrelationEmpirical[gene,"correlationCoef"], 3),
+                     " naïve p = ", round(kidneyCorrelationEmpirical[gene,"pValueNaive"], 3),
+                     " p = ", round(kidneyCorrelationEmpirical[gene, "pValueEmpirical"], 3))
+  ) 
+
+cor2
+
+
+```
+
+``` {r}
+
+# Function to plot gene correlation between two samples
+plot_gene_correlation <- function(gene, input, sharedPixels, kidneyCorrelationEmpirical) {
+  #  expression data for the gene from both samples
+  g1 <- SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels]
+  g2 <- SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels]
+  df12 <- cbind(g1, g2)
+  
+  # correlation plot
+  cor_plot <- ggplot2::ggplot(df12, ggplot2::aes(x = g1, y = g2)) +
+    ggplot2::geom_point(alpha = 0.2, size = 1) + 
+    ggplot2::theme_classic() + 
+    ggplot2::labs(
+      x = paste0("Expression of pixel in ", names(input)[1]), 
+      y = paste0("Expression of pixel in ", names(input)[2]),
+      title = paste(" r = ", round(kidneyCorrelationEmpirical[gene, "correlationCoef"], 3),
+                    " naïve p = ", round(kidneyCorrelationEmpirical[gene, "pValueNaive"], 3),
+                    " p = ", round(kidneyCorrelationEmpirical[gene, "pValueEmpirical"], 3))
+    )
+  
+  return(cor_plot)
+}
+
+cor1 <- plot_gene_correlation("Acsm2", input, sharedPixels, kidneyCorrelationEmpirical)
+cor2 <- plot_gene_correlation("Cbr1", input, sharedPixels, kidneyCorrelationEmpirical)
+
+cor1
+cor2
+
+```
+
+Cbr1 
+- negative correlation 
+- low fold change similarity 
+
+Acsm2 
+- positive correlation 
+- low fold change similarity 
+
+
+
+``` {r}
+
+# Finding the spatial similarity 
+
+start_time <- Sys.time()
+ss <- STcompare::spatialSimilarity(input, foldChange = 1, assayName = "libnorm", t1 = NULL, t2 = NULL)
+end_time <- Sys.time()
+print(end_time-start_time)
+
+lr1 <- STcompare::linearRegression(ss, gene="Acsm2", assayName = "libnorm") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+lr1 
+
+lr2 <- STcompare::linearRegression(ss, gene="Cbr1", assayName = "libnorm") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+lr2 
+
+
+# TODO: plots not working from here down 
+
+pc1 <- pixelClass(ss, gene="Acsm2", assayName = "libnorm")
+pc1
+
+
+df3 <- data.frame(SpatialExperiment::spatialCoords(AKI_ctrl_SE)[sharedPixels,],
+                  dataset = "ctrl_aligned", color = SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels])
+df4 <- data.frame(SpatialExperiment::spatialCoords(AKI_irl_SE)[sharedPixels,],
+                  dataset = "irl_aligned", color = SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels])
+
+pctrl_gene <- ggplot2::ggplot(df3, ggplot2::aes(x = x, y = y, color = color)) +
+  ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
+  viridis::scale_color_viridis() +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_void()
+
+pctrl_gene
+
+pirl_gene <- ggplot2::ggplot(df4, ggplot2::aes(x = x, y = y, color = color)) +
+  ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
+  viridis::scale_color_viridis() +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_void()
+
+pirl_gene
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
