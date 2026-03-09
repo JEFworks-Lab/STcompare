@@ -11,8 +11,8 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.width = 7,
-  fig.height = 5,
+  fig.width = 8,
+  fig.height = 6,
   dpi = 72,
   dev = "png",
   fig.path = "getting-started-with-STcompare-figures/"
@@ -26,6 +26,7 @@ library(rhdf5)
 library(Matrix)
 library(ggplot2)
 library(dplyr)
+library(patchwork)
 
 ```
 
@@ -36,6 +37,8 @@ In the [`Getting Started with STcompare`](https://jef.works/STcompare/articles/g
 This tutorial corresponds with Figures 2f-j from the [`STcompare paper`](https://doi.org/10.1101/2025.11.21.689847). 
 
 The files are stored as a H5 file on Zenodo. We are assuming here that the counts and the position matrices are well formed and correspond properly with one another. 
+
+# Load H5 files
 
 ```{r load-data}
 
@@ -189,6 +192,8 @@ pos_rot_plot
 
 ```
 
+# Create SpatialExperiment 
+
 Now that it has been verified that both the counts and the position matrices are well formed, the inputs to `STcompare` is a [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html"). They are objects that store spatial transcriptomics data, in this case, combining gene expression matrices with the spatial coordinates of each spatial location. 
 
 ``` {r create_spatial_experiment}
@@ -237,11 +242,13 @@ length(good.genes)
 
 ```
 
+# Identify SVGs 
+
 Of the "good genes" that have at least 1%, we now want to identify which of those genes are then spatially variable (SVG). We use Moran's I to identify SVGs. 
 
-Unlike previous methods, `STcompare` is to be able to identify SVGs that change in spatial pattern across datasets. 
+Unlike previous methods, `STcompare` is to be able to identify SVGs that change in spatial pattern across datasets. Existing SVG analysis methods can identify genes that change from spatially variable to not or vice versa across conditions. However, genes that are classified as spatially variable in both conditions can still vary in the specific spatial pattern in each condition. 
 
-``` {r}
+``` {r moransI}
 
 moransI <- function(SE_temp){
   
@@ -321,24 +328,9 @@ length(svg_uni)
 
 ```
 
-``` {r remove}
-wd <- "/Users/vivien/Library/CloudStorage/OneDrive-JohnsHopkins/JefWorks/ST_compare"
-
-# TODO: remove 
-# loading in the moran's I data 
-
-# saved as "moransI_ctrl" "moransI_irl" 
-load(file.path(wd,"data/kidney_data/moransI_svg01per_20250817.RData"))
-
-```
-
-
 With the SVGs, use STcompare to calculate Pearson's correlation coefficient for genes that were SVGs in both conditions to investigate whether there was a change in the spatial patterning of expression. 
 
-``` {r}
-
-# TODO: did not run this for the sake of time 
-
+``` {r spatial-correlation}
 # choosing the gene that are SVGs in both conditions 
 genes_chosen <- svg_int
 
@@ -346,6 +338,7 @@ genes_chosen <- svg_int
 input <- list('AKI_ctrl'= AKI_ctrl_SE[genes_chosen, ], 
              'AKI_irl'= AKI_irl_SE[genes_chosen, ])
 
+# running spatialCorrelationGeneExp 
 set.seed(0)
 start_time <- Sys.time()
 deltaList <- replicate(length(rownames(input[[1]])), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
@@ -361,15 +354,6 @@ kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
 end_time <- Sys.time()
 print(end_time - start_time) 
 
-# TODO: add change number of threads 
-
-
-
-# TODO: remove 
-# load kidneyCorrelation variable 
-load(file.path(wd,"data/kidney_data/kidneyCorrelation_20250816.RData"))
-head(kidneyCorrelation)
-
 # 527 genes are SVGs that are significantly positively correlated 
 kidneyCorrelation %>%
   dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
@@ -377,6 +361,7 @@ kidneyCorrelation %>%
   dplyr::filter(correlationCoef > 0) %>% 
   dim()
 
+# saving the significantly positively correlated svg genes 
 svgSigPos <- kidneyCorrelation %>%
   dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
   dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
@@ -391,15 +376,15 @@ kidneyCorrelation %>%
   dplyr::filter(correlationCoef < 0) %>% 
   dim()
 
+# saving the significantly negatively correlated svg genes 
 svgSigNeg <- kidneyCorrelation %>%
   dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
   dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
   dplyr::filter(correlationCoef < 0) %>% 
   rownames()
 
-
-# TODO: add comments 
-# Figure 2J 
+# visualize the significantly positively correlate and significantly negatively correlated svg genes  
+# Figure 2J - Rate of Significance for SVGs 
 fig_2j <- kidneyCorrelation %>%
   dplyr::mutate(Sig = dplyr::case_when(rownames(kidneyCorrelation) %in% svgSigPos ~ "SigPos",
                          rownames(kidneyCorrelation) %in% svgSigNeg ~ "SigNeg",
@@ -414,8 +399,7 @@ fig_2j <- kidneyCorrelation %>%
   ggplot2::scale_color_manual(values = c("SigPos" = "green", "SigNeg" = "blue")) +
   ggplot2::theme_classic() +
   ggplot2::geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  + 
-  ggplot2::labs(x = "Correlation" , y = "-log10(p-value)", 
-  )
+  ggplot2::labs(x = "Correlation" , y = "-log10(p-value)", title = "Rate of Significance for SVGs")
 fig_2j
 
 
@@ -428,181 +412,131 @@ kidneyCorrelationEmpirical <- kidneyCorrelation %>%
 
 ```
 
-``` {r}
+# Spatial Correlation and Fold Change Similarity 
 
-# Spots that are shared between the two datasets 
+Here we show two examples of the significantly correlated SVG genes. Cbr1 is negatively correlated while Acsm2 is positively correlated.
+
+In Crb1, for the control, gene expression closer to the center of the tissue (inner medulla), while in the AKI sample, gene expression was closer the edge of the issue (cortex). 
+1. The **correlation metric** was used to show that there is a significantly negative correlation between the two samples. 
+2. The **fold change similarity metric** was used to show that samples are not similar based on fold change. 
+
+In Acsm2, gene expression was concentrated around the edge of the issue (cortex) in both cases, but 
+1. The **correlation metric** was used to show that there is a significantly negative correlation between the two samples. 
+2. Even though expression pattern remained the same, **fold change similarity metric** was used to show that there is higher overall expression in the control. 
+
+
+``` {r correlation-plots}
+
+# only the spots that are in both datasets
 sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(input[[1]])),
                           rownames(SpatialExperiment::spatialCoords(input[[2]])))
 
-gene <- "Acsm2"
 
-g1 <- SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels]
-g2 <- SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels]
+# Figure 2g - Visualization of example genes (Cbr1 and Acsm2)
 
-df12 <- cbind(g1, g2)
+plot_gene_spatial <- function(gene, AKI_ctrl_SE, AKI_irl_SE, sharedPixels) {
 
-cor1 <- ggplot2::ggplot(df12, ggplot2::aes(x=g1, y=g2)) +
-  ggplot2::geom_point(alpha = 0.2, size = 1) + ggplot2::theme_classic() + 
-  #coord_fixed() +
-  ggplot2::labs(x = paste0("Expression of pixel in ", names(input)[1]) , y = paste0("Expression of pixel in ", names(input)[2]),
-       title = paste(" r = ", round(kidneyCorrelationEmpirical[gene,"correlationCoef"], 3),
-                     " naïve p = ", round(kidneyCorrelationEmpirical[gene,"pValueNaive"], 3),
-                     " p = ", round(kidneyCorrelationEmpirical[gene, "pValueEmpirical"], 3))
-  ) 
+  # Control dataframe
+  ctrl_df <- data.frame(
+    SpatialExperiment::spatialCoords(AKI_ctrl_SE)[sharedPixels, ],
+    color = SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels]
+  )
 
-cor1
+  # AKI dataframe
+  aki_df <- data.frame(
+    SpatialExperiment::spatialCoords(AKI_irl_SE)[sharedPixels, ],
+    color = SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels]
+  )
 
-``` 
+  # Control plot
+  ctrl_plot <- ggplot2::ggplot(ctrl_df, ggplot2::aes(x = x, y = y, color = color)) +
+    ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
+    viridis::scale_color_viridis() +
+    ggplot2::coord_fixed() +
+    ggplot2::theme_void() +
+    ggplot2::ggtitle(paste0("Control: ", gene))
 
-``` {r}
+  # AKI plot
+  aki_plot <- ggplot2::ggplot(aki_df, ggplot2::aes(x = x, y = y, color = color)) +
+    ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
+    viridis::scale_color_viridis() +
+    ggplot2::coord_fixed() +
+    ggplot2::theme_void() +
+    ggplot2::ggtitle(paste0("AKI: ", gene))
 
-gene <- "Cbr1"
-
-g1 <- SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels]
-g2 <- SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels]
-
-df12 <- cbind(g1, g2)
-
-cor2 <- ggplot2::ggplot(df12, ggplot2::aes(x=g1, y=g2)) +
-  ggplot2::geom_point(alpha = 0.2, size = 1) + ggplot2::theme_classic() + 
-  ggplot2::labs(x = paste0("Expression of pixel in ", names(input)[1]) , y = paste0("Expression of pixel in ", names(input)[2]),
-       title = paste(" r = ", round(kidneyCorrelationEmpirical[gene,"correlationCoef"], 3),
-                     " naïve p = ", round(kidneyCorrelationEmpirical[gene,"pValueNaive"], 3),
-                     " p = ", round(kidneyCorrelationEmpirical[gene, "pValueEmpirical"], 3))
-  ) 
-
-cor2
-
-
-```
-
-``` {r}
-# 2h ####################################################################
-
-
-# Function to plot gene correlation between two samples
-plot_gene_correlation <- function(gene, input, sharedPixels, kidneyCorrelationEmpirical) {
-  #  expression data for the gene from both samples
-  g1 <- SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels]
-  g2 <- SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels]
-  df12 <- cbind(g1, g2)
-  
-  # correlation plot
-  cor_plot <- ggplot2::ggplot(df12, ggplot2::aes(x = g1, y = g2)) +
-    ggplot2::geom_point(alpha = 0.2, size = 1) + 
-    ggplot2::theme_classic() + 
-    ggplot2::labs(
-      x = paste0("Expression of pixel in ", names(input)[1]), 
-      y = paste0("Expression of pixel in ", names(input)[2]),
-      title = paste(" r = ", round(kidneyCorrelationEmpirical[gene, "correlationCoef"], 3),
-                    " naïve p = ", round(kidneyCorrelationEmpirical[gene, "pValueNaive"], 3),
-                    " p = ", round(kidneyCorrelationEmpirical[gene, "pValueEmpirical"], 3))
-    )
-  
-  return(cor_plot)
+  return(list(control = ctrl_plot, aki = aki_plot))
 }
 
-cor1 <- plot_gene_correlation("Acsm2", input, sharedPixels, kidneyCorrelationEmpirical)
-cor2 <- plot_gene_correlation("Cbr1", input, sharedPixels, kidneyCorrelationEmpirical)
+cbr1_plt <- plot_gene_spatial("Cbr1", AKI_ctrl_SE, AKI_irl_SE, sharedPixels)
+acsm2_plt <- plot_gene_spatial("Acsm2", AKI_ctrl_SE, AKI_irl_SE, sharedPixels)
 
-cor1
-cor2
+# Figure 2h - example of correlation visualization 
+# use the plotCorrelationGeneExp function to generate the correlation plots 
 
-```
+Cbr1_corr <- plotCorrelationGeneExp(
+  speList = input, 
+  spatialCorrelation = kidneyCorrelation, 
+  geneName = "Cbr1", 
+  assayName = "libnorm"
+  )
 
-Cbr1 
-- negative correlation 
-- low fold change similarity 
+Acsm2_corr <- plotCorrelationGeneExp(
+  speList = input, 
+  spatialCorrelation = kidneyCorrelation, 
+  geneName = "Acsm2", 
+  assayName = "libnorm"
+  )
 
-Acsm2 
-- positive correlation 
-- low fold change similarity 
-
-
-
-``` {r}
 
 # Finding the spatial similarity
-
-# TODO: t1 and t2, default 
+# If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
 start_time <- Sys.time()
 ss <- STcompare::spatialSimilarity(input, foldChange = 1, assayName = "libnorm", t1 = NULL, t2 = NULL)
 end_time <- Sys.time()
 print(end_time-start_time)
 
-# 2i ####################################################
-lr1 <- STcompare::linearRegression(ss, gene="Acsm2", assayName = "libnorm") + ggplot2::theme_classic() + ggplot2::coord_fixed()
-lr1 
 
-lr2 <- STcompare::linearRegression(ss, gene="Cbr1", assayName = "libnorm") + ggplot2::theme_classic() + ggplot2::coord_fixed()
-lr2 
+# Figure 2I - fold change linear regression and spot classification 
+acsm2_lr <- STcompare::linearRegression(ss, gene="Acsm2", assayName = "libnorm") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+cbr1_lr <- STcompare::linearRegression(ss, gene="Cbr1", assayName = "libnorm") + ggplot2::theme_classic() + ggplot2::coord_fixed()
 
-pc1 <- pixelClass(ss, gene="Acsm2", assayName = "libnorm")
-pc1
+acsm2_pc <- pixelClass(ss, gene="Acsm2", assayName = "libnorm")
+cbr1_pc <- pixelClass(ss, gene="Cbr1", assayName = "libnorm")
 
-pc2 <- pixelClass(ss, gene="Cbr1", assayName = "libnorm")
-pc2
+cbr1_plt$control + cbr1_plt$aki + Cbr1_corr + cbr1_lr + cbr1_pc
+acsm2_plt$control + acsm2_plt$aki + Acsm2_corr + acsm2_lr + acsm2_pc
 
 
-# 2g ####################################################
+```
 
-df3 <- data.frame(SpatialExperiment::spatialCoords(AKI_ctrl_SE)[sharedPixels,],
-                  dataset = "ctrl_aligned", color = SummarizedExperiment::assay(input[[1]], "libnorm")[gene, sharedPixels])
-df4 <- data.frame(SpatialExperiment::spatialCoords(AKI_irl_SE)[sharedPixels,],
-                  dataset = "irl_aligned", color = SummarizedExperiment::assay(input[[2]], "libnorm")[gene, sharedPixels])
 
-pctrl_gene <- ggplot2::ggplot(df3, ggplot2::aes(x = x, y = y, color = color)) +
-  ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
-  viridis::scale_color_viridis() +
-  ggplot2::coord_fixed() +
-  ggplot2::theme_void()
+Finally, we compare the correlation and similarity metrics for each gene and showed that the compare the correlation and similarity metrics offer orthogonal insights. 
 
-pctrl_gene
+``` {r fig2k}
 
-pirl_gene <- ggplot2::ggplot(df4, ggplot2::aes(x = x, y = y, color = color)) +
-  ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
-  viridis::scale_color_viridis() +
-  ggplot2::coord_fixed() +
-  ggplot2::theme_void()
+# 2k - Comparing Correlation Metric to Similiarty metric 
 
-pirl_gene
-
-# 2k #################################################################
-# TODO: add gridExtra 
-
-df5 <- data.frame(gene = ss$similarityTable$gene[ss$similarityTable$gene %in% svg_int],
+# create a df of correlation and similarity values for each gene 
+sim_corr <- data.frame(gene = ss$similarityTable$gene[ss$similarityTable$gene %in% svg_int],
                   correlation = kidneyCorrelation[svg_int, "correlationCoef" ], 
                   similar = ss$similarityTable$percentSimilarity[ss$similarityTable$gene %in% svg_int])
-df5
+sim_corr
 
-pltCorSim05 <- df5 %>%
+sim_corr_plt <- sim_corr %>%
   dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
                          gene %in% svgSigNeg ~ "SigNeg",
                          .default = "NotSig")) %>%
   dplyr::filter(Sig %in% c("SigPos", "SigNeg")) %>%
   ggplot2::ggplot() + 
   ggplot2::geom_point(ggplot2::aes(x = correlation, y = similar, color = Sig), alpha = 0.25, size = 1) +
-  #xlim(c(0,1)) +
   ggplot2::xlim(NA,1) +
-  #ylim(c(0,1)) +
   ggplot2::coord_fixed() +
-  #viridis::scale_color_viridis(discrete = TRUE) +
   ggplot2::scale_color_manual(values = c("SigPos" = "green", "SigNeg" = "blue")) +
   ggplot2::theme_classic() + 
   ggplot2::labs(x = "Correlation" , y = "Similarity", 
-       #title = "SVGs with minPercentCells = 0.05"
-  )
+                title = "Similarity for significantly positively and negatively correlated SVGs")
 
-
-# histCorSim05 <- ggplot(df5, aes(x = similar)) +
-#   geom_histogram(binwidth = .10) +
-#   theme_classic()
-
-pltCorSim05
-# histCorSim05
-
-
-
+sim_corr_plt
 
 ```
 
