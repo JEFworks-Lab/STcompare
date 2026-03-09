@@ -32,7 +32,7 @@ library(patchwork)
 
 # Introduction 
 
-In the [`Getting Started with STcompare`](https://jef.works/STcompare/articles/getting-started-with-STcompare.html) tutorial, having demonstrated that `STcompare` works on both simulated and real ST data in the, we next sought to apply it to compare healthy and diseased datasets to discover potentially disease-relevant changes in spatial gene expression patterns. To this end, we focus on a common and serious disease, acute kidney injury (AKI), by comparing two previously published murine kidney sections assayed by spot-resolution 10x Visium: a section from a kidney 24 hours post initial AKI injury and a section from a normal kidney as a control. 
+In the [`Getting Started with STcompare`](https://jef.works/STcompare/articles/getting-started-with-STcompare.html) tutorial, we demonstrated that `STcompare` works on both simulated and real ST data. We next sought to apply it to compare healthy and diseased datasets to discover potentially disease-relevant changes in spatial gene expression patterns. To this end, we focus on a common and serious disease, acute kidney injury (AKI), by comparing two previously published murine kidney sections assayed by spot-resolution 10x Visium: a section from a kidney 24 hours post initial AKI injury and a section from a normal kidney as a control. 
 
 This tutorial corresponds with Figures 2f-j from the [`STcompare paper`](https://doi.org/10.1101/2025.11.21.689847). 
 
@@ -194,7 +194,7 @@ pos_rot_plot
 
 # Create SpatialExperiment 
 
-Now that it has been verified that both the counts and the position matrices are well formed, the inputs to `STcompare` is a [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html"). They are objects that store spatial transcriptomics data, in this case, combining gene expression matrices with the spatial coordinates of each spatial location. 
+Now that it has been verified that both the counts and the position matrices are well formed, the input to `STcompare` is a [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html"). They are objects that store spatial transcriptomics data, in this case, combining gene expression matrices with the spatial coordinates of each spatial location. 
 
 ``` {r create_spatial_experiment}
 
@@ -223,7 +223,7 @@ AKI_irl_SE <- SpatialExperiment::SpatialExperiment(
 
 ```
 
-Removes rarely-expressed genes that likely represent noise by filtering to genes that are detected in at least 1% of spots in both samples.
+Removes rarely-expressed genes that are noisy by filtering to genes that are detected in at least 1% of spots in both samples.
 
 ``` {r}
 
@@ -231,7 +231,7 @@ Removes rarely-expressed genes that likely represent noise by filtering to genes
 dim(SummarizedExperiment::assays(AKI_ctrl_SE)$libnorm) 
 dim(SummarizedExperiment::assays(AKI_irl_SE)$libnorm) 
 
-# which rows in the matrix that (1) has gene expression and (2) the gene is expressed in greater than 1% of all spots 
+# which rows in the matrix that the gene is expressed in greater than 1% of all spots 
 # this has to be true in both datasets to be considered a "good gene" 
 good.genes <- names(which((
   Matrix::rowSums(SummarizedExperiment::assays(AKI_ctrl_SE)$libnorm > 0)) / dim(AKI_ctrl_SE)[2]*100 > 1 &
@@ -244,9 +244,7 @@ length(good.genes)
 
 # Identify SVGs 
 
-Of the "good genes" that have at least 1%, we now want to identify which of those genes are then spatially variable (SVG). We use Moran's I to identify SVGs. 
-
-Unlike previous methods, `STcompare` is to be able to identify SVGs that change in spatial pattern across datasets. Existing SVG analysis methods can identify genes that change from spatially variable to not or vice versa across conditions. However, genes that are classified as spatially variable in both conditions can still vary in the specific spatial pattern in each condition. 
+Of the "good genes" that have expression in at least 1% of spots, we now want to identify which of those genes are then spatially variable (SVG). We use Moran's I to identify SVGs. 
 
 ``` {r moransI}
 
@@ -301,15 +299,14 @@ print(end_time - start_time)
 
 # p.adj: Adjusted p-value (FDR-corrected) for multiple testing correction
 
-# minPercentCells: Minimum percentage of cells/spots where gene is expressed
+# minPercentCells: Minimum percent of cells that must be driving spatial pattern as calculated by LISA
 
 head(moransI_ctrl)
 head(moransI_irl)
 
 # Running Moran's I already filtered the dataframe to only the genes that are statistically significantly autocorrelated 
-# SVGs are then chosen as the gene that have expression patterns that possess more than 1% of all spots  
-svg_ctrl <- moransI_ctrl %>% filter(minPercentCells > 0.01) %>% rownames()
-svg_irl <- moransI_irl %>% filter(minPercentCells > 0.01) %>% rownames()
+svg_ctrl <- moransI_ctrl %>% rownames()
+svg_irl <- moransI_irl %>% rownames()
 svg_int <- intersect(svg_ctrl, svg_irl) # genes that are SVGs in both conditions 
 svg_uni <- union(svg_ctrl, svg_irl) # genes that are SVG in one condition but not the other 
 
@@ -327,6 +324,8 @@ length(svg_int)
 length(svg_uni)
 
 ```
+
+Unlike previous methods, `STcompare` is to be able to identify SVGs that change in spatial pattern across datasets. Existing SVG analysis methods can identify genes that change from spatially variable to not or vice versa across conditions. However, genes that are classified as spatially variable in both conditions can still vary in the specific spatial pattern in each condition. 
 
 With the SVGs, use STcompare to calculate Pearson's correlation coefficient for genes that were SVGs in both conditions to investigate whether there was a change in the spatial patterning of expression. 
 
@@ -421,7 +420,7 @@ In Crb1, for the control, gene expression closer to the center of the tissue (in
 2. The **fold change similarity metric** was used to show that samples are not similar based on fold change. 
 
 In Acsm2, gene expression was concentrated around the edge of the issue (cortex) in both cases, but 
-1. The **correlation metric** was used to show that there is a significantly negative correlation between the two samples. 
+1. The **correlation metric** was used to show that there is a significantly positive correlation between the two samples. 
 2. Even though expression pattern remained the same, **fold change similarity metric** was used to show that there is higher overall expression in the control. 
 
 
