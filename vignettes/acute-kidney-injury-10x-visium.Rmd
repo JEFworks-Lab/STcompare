@@ -9,6 +9,7 @@ vignette: >
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
+  cache = TRUE,
   collapse = TRUE,
   comment = "#>",
   fig.width = 8,
@@ -27,6 +28,7 @@ library(Matrix)
 library(ggplot2)
 library(dplyr)
 library(patchwork)
+library(BiocGenerics)
 
 ```
 
@@ -72,8 +74,10 @@ colnames(aki_counts) <- file_barcodes
 rownames(aki_counts) <- as.data.frame(barcodes_matrix[["features"]])$name
 
 unlink(temp_h5)
+head(aki_counts)
+```
 
-
+```{r load-data2}
 # Control counts ###############################################################
 
 zenodo_url <- "https://zenodo.org/records/17676992/files/NL3_filtered_feature_bc_matrix.h5?download=1"
@@ -97,10 +101,10 @@ colnames(control_counts) <- file_barcodes
 rownames(control_counts) <- as.data.frame(barcodes_matrix[["features"]])$name
 
 unlink(temp_h5)
-
-head(aki_counts)
 head(control_counts)
+```
 
+```{r load-data3}
 # positions ####################################################################
 
 zenodo_url <- "https://zenodo.org/records/17676992/files/IL3_tissue_positions.csv?download=1"
@@ -112,7 +116,9 @@ ctrl_pos <- read.csv(zenodo_url, header = TRUE, stringsAsFactors = FALSE)
 # given the counts the the position matrix 
 head(colnames(aki_counts))
 head(aki_pos$barcode)
+```
 
+```{r load-data4}
 # Standardize spot identifiers by removing sample-specific prefixes
 # The regex "^[^_]*_" matches from the start (^) through the first underscore:
 #   [^_]* = any characters except underscore
@@ -151,7 +157,9 @@ control_counts <- control_counts[, colnames(control_counts) %in% ctrl_pos$barcod
 
 # they are now identical
 identical(ctrl_pos$barcode, colnames(control_counts))
+```
 
+```{r load-data5}
 # plot positions ###############################################################
 
 # set the barcode column as the rownames
@@ -175,7 +183,6 @@ pos_plot <- ggplot(df, aes(x = x, y = y, color = group)) +
   theme_classic()
 pos_plot
 
-
 # rotate the tissue by 90-degrees for consistency with the paper 
 
 ctrl_pos_rot <- transform(ctrl_pos, x = y, y = -x + max(ctrl_pos$x))
@@ -196,7 +203,7 @@ pos_rot_plot
 
 Now that it has been verified that both the counts and the position matrices are well formed, the input to `STcompare` is a [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html"). They are objects that store spatial transcriptomics data, in this case, combining gene expression matrices with the spatial coordinates of each spatial location. 
 
-``` {r create_spatial_experiment}
+``` {r create_spatial_experiment1}
 
 # Turn the position and gene expression counts matrix into a spatial experiment 
 # with the following assays 
@@ -225,7 +232,7 @@ AKI_irl_SE <- SpatialExperiment::SpatialExperiment(
 
 Removes rarely-expressed genes that are noisy by filtering to genes that are detected in at least 1% of spots in both samples.
 
-``` {r}
+``` {r, create_spatial_experiment2}
 
 # there are 32285 genes in both samples 
 dim(SummarizedExperiment::assays(AKI_ctrl_SE)$libnorm) 
@@ -233,20 +240,21 @@ dim(SummarizedExperiment::assays(AKI_irl_SE)$libnorm)
 
 # which rows in the matrix that the gene is expressed in greater than 1% of all spots 
 # this has to be true in both datasets to be considered a "good gene" 
-good.genes <- names(which((
-  Matrix::rowSums(SummarizedExperiment::assays(AKI_ctrl_SE)$libnorm > 0)) / dim(AKI_ctrl_SE)[2]*100 > 1 &
-  (Matrix::rowSums(SummarizedExperiment::assays(AKI_irl_SE)$libnorm > 0))/dim(AKI_irl_SE)[2]*100 > 1))
+good.genes <- names(which(
+  (Matrix::rowSums(SummarizedExperiment::assays(AKI_ctrl_SE)$libnorm > 0) / dim(AKI_ctrl_SE)[2]*100 > 1) &
+  (Matrix::rowSums(SummarizedExperiment::assays(AKI_irl_SE)$libnorm > 0) / dim(AKI_irl_SE)[2]*100 > 1)))
 length(good.genes)
 
 # Reduced the number of genes from 32285 --> 12697 genes 
-
+AKI_ctrl_SE <- AKI_ctrl_SE[good.genes,]
+AKI_irl_SE <- AKI_irl_SE[good.genes,]
 ```
 
 # Identify SVGs 
 
 Of the "good genes" that have expression in at least 1% of spots, we now want to identify which of those genes are then spatially variable (SVG). We use Moran's I to identify SVGs. 
 
-``` {r moransI}
+``` {r moransI1}
 
 moransI <- function(SE_temp){
   
@@ -256,10 +264,7 @@ moransI <- function(SE_temp){
   MERINGUE::plotNetwork(SpatialExperiment::spatialCoords(SE_temp), w)
   
   # Identify significantly spatially auto-correlated genes
-  start_time <- Sys.time()
   I <- MERINGUE::getSpatialPatterns(SummarizedExperiment::assays(SE_temp)$libnorm, w)
-  end_time <- Sys.time()
-  print(end_time - start_time)
   
   results.filter <- MERINGUE::filterSpatialPatterns(mat = SummarizedExperiment::assays(SE_temp)$libnorm,
                                           I = I,
@@ -272,16 +277,13 @@ moransI <- function(SE_temp){
   return(results.filter)
 }
 
+moransI_ctrl <- moransI(AKI_ctrl_SE)
+head(moransI_ctrl)
+```
 
-start_time <- Sys.time()
-moransI_ctrl <- moransI(AKI_ctrl_SE[good.genes,])
-end_time <- Sys.time()
-print(end_time - start_time) 
-
-start_time <- Sys.time()
-moransI_irl <- moransI(AKI_irl_SE[good.genes,])
-end_time <- Sys.time()
-print(end_time - start_time) 
+``` {r moransI2}
+moransI_irl <- moransI(AKI_irl_SE)
+head(moransI_irl)
 
 # "moransI_ctrl" and "moransI_irl" are dataframes these columns: 
 # observed: Observed Moran's I statistic measuring spatial autocorrelation
@@ -300,10 +302,9 @@ print(end_time - start_time)
 # p.adj: Adjusted p-value (FDR-corrected) for multiple testing correction
 
 # minPercentCells: Minimum percent of cells that must be driving spatial pattern as calculated by LISA
+```
 
-head(moransI_ctrl)
-head(moransI_irl)
-
+``` {r moransI3}
 # Running Moran's I already filtered the dataframe to only the genes that are statistically significantly autocorrelated 
 svg_ctrl <- moransI_ctrl %>% rownames()
 svg_irl <- moransI_irl %>% rownames()
@@ -322,14 +323,13 @@ length(svg_int)
 
 # there are 5558 genes that are SVGs in either datasets 
 length(svg_uni)
-
 ```
 
 Unlike previous methods, `STcompare` is to be able to identify SVGs that change in spatial pattern across datasets. Existing SVG analysis methods can identify genes that change from spatially variable to not or vice versa across conditions. However, genes that are classified as spatially variable in both conditions can still vary in the specific spatial pattern in each condition. 
 
 With the SVGs, use STcompare to calculate Pearson's correlation coefficient for genes that were SVGs in both conditions to investigate whether there was a change in the spatial patterning of expression. 
 
-``` {r spatial-correlation}
+``` {r spatial-correlation1}
 # choosing the gene that are SVGs in both conditions 
 genes_chosen <- svg_int
 
@@ -352,7 +352,9 @@ kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
 )
 end_time <- Sys.time()
 print(end_time - start_time) 
+```
 
+``` {r spatial-correlation2}
 # 527 genes are SVGs that are significantly positively correlated 
 kidneyCorrelation %>%
   dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
