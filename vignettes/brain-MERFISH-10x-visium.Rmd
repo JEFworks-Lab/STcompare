@@ -1,0 +1,539 @@
+---
+title: "Comparison of MERFISH and Visium for Mouse Brain"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{brain-MERFISH-10x-visium}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  cache = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 6,
+  dpi = 72,
+  dev = "png",
+  fig.path = "getting-started-with-STcompare-figures/"
+
+)
+```
+
+```{r setup}
+library(STcompare)
+library(rhdf5)
+library(Matrix)
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+library(BiocGenerics)
+library(SEraster)
+library(rjson)
+
+```
+
+# Introduction 
+
+This tutorial demonstrate comparing two previously published murine brain sections assayed by two different ST technologies: single cell resolution MERFISH and spot-resolution 10x Visium. 
+
+# Load files
+
+```{r load-data}
+
+# The MERFISH data can be found at Zenodo: https://zenodo.org/records/10724029
+# S2R3 - Slice 2 Replicate 3
+
+# MERFISH counts #################################################
+zenodo_url <- "https://zenodo.org/records/10724029/files/STalign_S2R3_to_Visium.csv.gz?download=1"
+
+temp <- tempfile(fileext = ".csv.gz")
+download.file(zenodo_url, destfile = temp, mode = "wb")
+df <- read.csv(gzfile(temp), row.names = 1)
+
+head(df)
+
+MERFISH.gexp <- df[, -(1:5)]
+MERFISH.gexp <- as.matrix(t(MERFISH.gexp))
+head(MERFISH.gexp)
+
+# MERFISH positions #################################################
+# url <- "https://github.com/JEFworks-Lab/STalign/raw/refs/heads/main/docs/merfish_data/mouse_brain_map_BrainReceptorShowcase_Slice2_Replicate3_STalign_to_Slice2_Replicate2_STalign_to_Visium_tissue_hires_image_with_point_annotator_filtered.csv.gz"
+# temp <- tempfile(fileext = ".csv.gz")
+# download.file(url, temp, mode = "wb")
+# 
+# #Read the csv file
+# pos <- read.csv(gzfile(temp), row.names = 2)
+# head(pos)
+
+#subset area most informative (had high weight) in mapping with Visium
+pos.aligned <- df[, c("STalign_y", "STalign_x")]
+rownames(pos.aligned) <- rownames(df)
+annot <- df[, c("Pmatch")]
+names(annot) <- names(df)
+vi <- annot > 0.95
+MERFISH.pos.good <- pos.aligned[vi,]
+colnames(MERFISH.pos.good) <- c("y", "x")
+
+#plot
+MERINGUE::plotEmbedding(MERFISH.pos.good, col=colSums(MERFISH.gexp[, rownames(MERFISH.pos.good)]))
+```
+
+```{r load-data2}
+# The Visium can be found on 10X Genomics:https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0 
+
+# Visium counts  ###############################################################
+
+url <- "https://cf.10xgenomics.com/samples/spatial-exp/1.3.0/Visium_FFPE_Mouse_Brain/Visium_FFPE_Mouse_Brain_filtered_feature_bc_matrix.tar.gz"
+
+temp_tar <- tempfile(fileext = ".tar.gz")
+download.file(url, destfile = temp_tar, mode = "wb")
+
+temp_dir <- tempdir()
+untar(temp_tar, exdir = temp_dir)
+
+matrix_path <- file.path(temp_dir, "filtered_feature_bc_matrix", "matrix.mtx.gz")
+barcodes_path <- file.path(temp_dir, "filtered_feature_bc_matrix", "barcodes.tsv.gz")
+features_path <- file.path(temp_dir, "filtered_feature_bc_matrix", "features.tsv.gz")
+
+Visium.gexp.raw <- Matrix::readMM(matrix_path)
+Visium.barcodes <- read.csv(barcodes_path, header=FALSE)
+Visium.genenames <- read.csv(features_path, sep='\t', header=FALSE)
+
+
+dim(Visium.gexp.raw)
+length(Visium.barcodes[,1])
+length(Visium.genenames[,2])
+rownames(Visium.gexp.raw) <- Visium.genenames[,2]
+colnames(Visium.gexp.raw) <- Visium.barcodes[,1]
+head(Visium.gexp.raw)
+```
+
+```{r load-data3}
+# Visium positions #############################################################
+
+url <- "https://cf.10xgenomics.com/samples/spatial-exp/1.3.0/Visium_FFPE_Mouse_Brain/Visium_FFPE_Mouse_Brain_spatial.tar.gz"
+
+temp_tar <- tempfile(fileext = ".tar.gz")
+download.file(url, destfile = temp_tar, mode = "wb")
+
+temp_dir <- tempdir()
+untar(temp_tar, exdir = temp_dir)
+
+pos_path <- file.path(temp_dir, "spatial", "tissue_positions_list.csv")
+scale_path <- file.path(temp_dir, "spatial", "scalefactors_json.json")
+
+Visium.pos.info <- read.csv(pos_path, header = FALSE, row.names = 1)
+head(Visium.pos.info)
+Visium.pos <- Visium.pos.info[, 4:5]
+Visium.pos.good <- Visium.pos[colnames(Visium.gexp.raw),]
+
+convert <- fromJSON(file = scale_path)
+range(Visium.pos.good*convert$tissue_hires_scalef)
+Visium.pos.good <- Visium.pos.good*convert$tissue_hires_scalef
+colnames(Visium.pos.good) <- c("y", "x")
+
+## plot
+Visium.gexp.raw <- as.matrix(Visium.gexp.raw)
+par(mfrow=c(1,1))
+MERINGUE::plotEmbedding(Visium.pos.good, col=colSums(Visium.gexp.raw))
+MERINGUE::plotEmbedding(Visium.pos.good, col=Visium.gexp.raw[gene,])
+```
+
+```{r}
+genes.have <- intersect(rownames(Visium.gexp.raw), rownames(MERFISH.gexp))
+length(genes.have)
+```
+
+# Create SpatialExperiment 
+
+Now that both the counts and the position matrices have been loaded, the input to `STcompare` is a [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html"). They are objects that store spatial transcriptomics data, in this case, combining gene expression matrices with the spatial coordinates of each spatial location. 
+
+To control for detection efficiency differences between the two technologies, we performed the same counts-per-million normalization on the Visium spot gene expression measurements and the MERFISH cell gene expression measurements.
+
+```{r create_spatial_experiment1}
+MERFISH_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = MERFISH.gexp[genes.have, rownames(MERFISH.pos.good)],
+                libnorm = MERINGUE::normalizeCounts(MERFISH.gexp[genes.have, rownames(MERFISH.pos.good)], log = FALSE)),
+  spatialCoords = as.matrix(MERFISH.pos.good),
+  
+)
+
+Visium_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = Visium.gexp.raw[genes.have,],
+                libnorm = MERINGUE::normalizeCounts(Visium.gexp.raw[genes.have,], log=FALSE)),
+  spatialCoords = as.matrix(Visium.pos.good)
+
+)
+```
+
+# Rasterize 
+
+`STcompare` takes a list of [`SpatialExperiment`]("https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") objects and requires them to have matched spatial locations. Use `SEraster` to rasterize multiple samples onto the same coordinate system, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial]("https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html")
+
+```{r}
+spe_list <- list(MERFISH = MERFISH_SE, Visium = Visium_SE)
+resolution = 10
+rast <- SEraster::rasterizeGeneExpression(spe_list, 
+                                            resolution = resolution,
+                                            assay_name = 'libnorm',
+                                            fun = "mean",
+                                            square = FALSE,
+                                            BPPARAM = BiocParallel::MulticoreParam())
+gene <- "Baiap2"
+gene <- "Gabbr2"
+plt1 <- SEraster::plotRaster(rast[["MERFISH"]][gene,], name = paste0(gene, " normalized expression")) + ggplot2::theme_void()
+plt2 <- SEraster::plotRaster(rast[["Visium"]][gene,], name = paste0(gene, " normalized expression")) + ggplot2::theme_void()
+
+plt1 + plt2
+
+#do log transformation after mean-rasterization
+SummarizedExperiment::assay(rast[["MERFISH"]], "lognorm") <- log10(SummarizedExperiment::assay(rast[["MERFISH"]]) + 1)
+SummarizedExperiment::assay(rast[["Visium"]], "lognorm") <- log10(SummarizedExperiment::assay(rast[["Visium"]]) + 1)
+
+
+plt1 <- SEraster::plotRaster(rast[["MERFISH"]][gene,], assay_name = "lognorm", name = paste0(gene, " log normalized expression")) + ggplot2::theme_void()
+plt2 <- SEraster::plotRaster(rast[["Visium"]][gene,], assay_name = "lognorm", name = paste0(gene, " log normalized expression")) + ggplot2::theme_void()
+
+plt1
+plt2
+
+plt1 + plt2
+
+```
+#Filter lowly expression genes
+
+STcompare's `SpatialCorrelation` does not work when there is zero expression of a gene expression as cannot create permutations for the empirical p-value from zero expression.
+```{r}
+# gene is expressed in greater than 1% of all spots 
+# this has to be true in both datasets to be considered a "good gene" 
+good.genes <- names(which(
+  (Matrix::rowSums(SummarizedExperiment::assay(rast[["MERFISH"]], "lognorm") > 0) / dim(rast[["MERFISH"]])[2]*100 > 1) &
+  (Matrix::rowSums(SummarizedExperiment::assay(rast[["Visium"]], "lognorm") > 0) / dim(rast[["Visium"]])[2]*100 > 1)))
+length(good.genes)
+
+# Reduced the number of genes from 466 --> 325 genes 
+rast[["MERFISH"]] <- rast[["MERFISH"]][good.genes,]
+rast[["Visium"]] <- rast[["Visium"]][good.genes,]
+```
+
+# Identify SVGs 
+
+Of the "good genes" that have expression in at least 1% of spots, we now want to identify which of those genes are then spatially variable (SVG). We use Moran's I to identify SVGs. 
+
+``` {r moransI1}
+
+moransI <- function(SE_temp, filterDist, assayName=1){
+  
+  # use MERINGUE to get the neighbor-relationships 
+  w <- MERINGUE::getSpatialNeighbors(SpatialExperiment::spatialCoords(SE_temp), filterDist = filterDist)
+  par(mfrow=c(1,1))
+  MERINGUE::plotNetwork(SpatialExperiment::spatialCoords(SE_temp), w)
+  
+  # Identify significantly spatially auto-correlated genes
+  I <- MERINGUE::getSpatialPatterns(SummarizedExperiment::assays(SE_temp)[[assayName]], w)
+  
+  results.filter <- MERINGUE::filterSpatialPatterns(mat = SummarizedExperiment::assays(SE_temp)[[assayName]],
+                                          I = I,
+                                          w = w,
+                                          adjustPv = TRUE,
+                                          alpha = 0.05,
+                                          minPercentCells = 0.01,
+                                          verbose = TRUE, details = TRUE)
+
+  return(results.filter)
+}
+```
+
+Calculate Moran's I on the rasterized MERFISH data to reduce computational time.
+``` {r moransI2}
+moransI_MERFISH <- moransI(rast[["MERFISH"]], filterDist = resolution, assayName = "lognorm")
+head(moransI_MERFISH)
+```
+
+Calculate Moran's I on the non-rasterized Visium data.
+``` {r moransI3}
+moransI_Visium <- moransI(Visium_SE, filterDist = 25, assayName = "libnorm")
+head(moransI_Visium)
+
+# "moransI_MERFISH" and "moransI_Visium" are dataframes these columns: 
+# observed: Observed Moran's I statistic measuring spatial autocorrelation
+#           Positive values = spatially clustered expression pattern
+#           Values range from -1 to 1
+
+# expected: Expected Moran's I under null hypothesis of random distribution
+#           Typically close to zero
+
+# sd: Standard deviation of Moran's I under the null hypothesis
+#     Used to calculate the test statistic
+
+# p.value: Statistical significance of the spatial pattern
+#          Lower values = stronger evidence of non-random spatial expression
+
+# p.adj: Adjusted p-value (FDR-corrected) for multiple testing correction
+
+# minPercentCells: Minimum percent of cells/spots that must be driving spatial pattern as calculated by LISA
+```
+
+``` {r moransI3}
+# Running Moran's I already filtered the dataframe to only the genes that are statistically significantly autocorrelated 
+svg_MERFISH <- moransI_MERFISH %>% rownames()
+svg_Visium <- moransI_Visium %>% rownames()
+svg_int <- intersect(svg_MERFISH, svg_Visium) # genes that are SVGs in both conditions 
+svg_uni <- union(svg_MERFISH, svg_Visium) # genes that are SVG in at least one condition
+non_svg <- good.genes[!(good.genes %in% svg_int)] # genes that are not SVGs in both conditions
+
+# Out of 325 genes: 
+# there are 313 genes that are SVGs in the MERFISH dataset 
+length(svg_MERFISH)
+
+# there are 230 genes that are SVGs in the Visium dataset  
+length(svg_Visium)
+
+# there are 226 genes that are SVGs in both datasets   
+length(svg_int)
+
+# there are 317 genes that are SVGs in either datasets 
+length(svg_uni)
+
+# there are 99 genes that are not SVGs in both datasets 
+length(non_svg)
+```
+
+
+## Spatial correlation 
+Use STcompare to calculate Pearson's correlation coefficient for genes in both technologies to investigate if there is spatial correspondence of gene expression. 
+
+``` {r spatial-correlation1}
+
+# running spatialCorrelationGeneExp 
+deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
+
+set.seed(0)
+start_time <- Sys.time()
+brainCorrelation <- STcompare::spatialCorrelationGeneExp(
+  rast, 
+  deltaX = deltaList, 
+  deltaY = deltaList, 
+  nPermutations = 100, 
+  returnPermutations = FALSE,
+  nThreads = 5
+)
+end_time <- Sys.time()
+print(end_time - start_time) 
+```
+
+We expect spatially variable genes to be significantly positively correlated and expect non-spatially variable genes to not be significantly correlated.
+``` {r spatial-correlation2}
+# 126 of 226 genes are significantly positively correlated 
+brainCorrelation %>%
+  dplyr::filter(rownames(brainCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
+  dplyr::filter(correlationCoef > 0) %>% 
+  dim()
+
+# saving the significantly positively correlated svg genes 
+svgSigPos <- brainCorrelation %>%
+  dplyr::filter(rownames(brainCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef > 0) %>%
+  dplyr::arrange(desc(correlationCoef)) %>% 
+  rownames()
+
+# 0 of 226 svgs are significantly negatively correlated 
+brainCorrelation %>%
+  dplyr::filter(rownames(brainCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef < 0) %>% 
+  dim()
+
+# saving the significantly negatively correlated svg genes 
+svgSigNeg <- brainCorrelation %>%
+  dplyr::filter(rownames(brainCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef < 0) %>% 
+  rownames()
+
+# 89 of 99 non svgs are not significantly correlated
+brainCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(brainCorrelation)) %>% 
+  dplyr::filter(rownamesCol %in% non_svg) %>%
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  dim()
+
+# saving the not significantly correlated non-svg genes
+nonsvgNotSig <- brainCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(brainCorrelation)) %>% 
+  dplyr::filter(rownamesCol %in% non_svg) %>%
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  dplyr::arrange(correlationCoef) %>% 
+  rownames()
+```
+
+56% (126/226) of spatially variable genes identified as significantly positively correlated. No spatially variable genes identified as significantly negatively correlated. 90% (89/99) of non-spatially variable genes identified as not significantly correlated.
+
+``` {r spatial-correlation3}
+# visualize the rate of significant correlations for spatially variable genes and non-spatially variable genes
+plt3 <- brainCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(brainCorrelation)) %>% 
+  dplyr::mutate(SVG = case_when(rownamesCol %in% non_svg ~ "non-SVG",
+                                rownamesCol %in% svg_int ~ "SVG",
+                         .default = "")) %>%
+  dplyr::filter(SVG %in% c("SVG", "non-SVG")) %>% 
+  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
+                                                   .default = pValuePermuteX)) %>%
+  dplyr::mutate(pValueEmpiricalRound = dplyr::case_when(pValueEmpirical == 0 ~ 0.01,
+                                                        .default = pValueEmpirical)) %>%
+  ggplot2::ggplot() + 
+  ggplot2::geom_point(ggplot2::aes(x= correlationCoef, y = -log10(pValueEmpiricalRound), color = SVG), alpha = 0.25, size = 1) +
+  ggplot2::xlim(NA,1) +
+  ggplot2::scale_color_manual(values = c("SVG" = "green", "non-SVG" = "blue")) +
+  ggplot2::theme_classic() +
+  ggplot2::geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  + 
+  ggplot2::labs(x = "Correlation coefficient, r" , y = "-log10(p_empirical)", 
+       title = "Rate of significance for SVGs versus non-SVGs", color = ""
+       )
+plt3
+
+# Adding a column for the empirical p-value (pValueEmpirical) 
+# defined as the larger of the two x and y permuted p-values (greater of pValuePermuteX and pValuePermuteY)
+brainCorrelationEmpirical <- brainCorrelation %>%
+  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
+                                     .default = pValuePermuteX))
+
+
+```
+```{r}
+# Visualization of example genes
+
+plot_gene_spatial <- function(gene, input, assayName) {
+  
+  sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(input[[1]])),
+                           rownames(SpatialExperiment::spatialCoords(input[[2]])))
+
+  # dataframe 1
+  df1 <- data.frame(
+    SpatialExperiment::spatialCoords(input[[1]])[sharedPixels, ],
+    color = SummarizedExperiment::assay(input[[1]], assayName)[gene, 
+                                                               sharedPixels
+                                                               ]
+  )
+
+  # dataframe 2
+  df2 <- data.frame(
+    SpatialExperiment::spatialCoords(input[[2]])[sharedPixels, ],
+    color = SummarizedExperiment::assay(input[[2]], assayName)[gene, 
+                                                               sharedPixels
+                                                               ]
+  )
+
+  # plot 1
+  plot1 <- ggplot2::ggplot(df1, ggplot2::aes(x = x, y = y, color = color)) +
+    ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
+    viridis::scale_color_viridis() +
+    ggplot2::coord_fixed() +
+    ggplot2::theme_void() +
+    ggplot2::ggtitle(paste0(names(input[1]), ": ", gene))
+
+  # plot 2
+  plot2 <- ggplot2::ggplot(df2, ggplot2::aes(x = x, y = y, color = color)) +
+    ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
+    viridis::scale_color_viridis() +
+    ggplot2::coord_fixed() +
+    ggplot2::theme_void() +
+    ggplot2::ggtitle(paste0(names(input[2]), ": ", gene))
+
+  return(list(n1 = plot1, n2 = plot2))
+}
+
+geneSig <- svgSigPos[1]
+pltSig <- plot_gene_spatial(geneSig, rast, "lognorm")
+names(pltSig) <- names(spe_list)
+
+gene_corr_Sig <- plotCorrelationGeneExp(
+  speList = rast,
+  assayName = "lognorm",
+  spatialCorrelation = brainCorrelation, 
+  geneName = geneSig
+  )
+
+pltSig$MERFISH + pltSig$Visium + gene_corr_Sig
+
+geneNotSig <- nonsvgNotSig[1]
+pltNotSig <- plot_gene_spatial(geneNotSig, rast, "lognorm")
+names(pltNotSig) <- names(spe_list)
+
+gene_corr_NotSig <- plotCorrelationGeneExp(
+  speList = rast,
+  assayName = "lognorm",
+  spatialCorrelation = brainCorrelation, 
+  geneName = geneNotSig
+  )
+
+pltNotSig$MERFISH + pltNotSig$Visium + gene_corr_NotSig
+
+(pltSig$MERFISH | pltSig$Visium | gene_corr_Sig)/(pltNotSig$MERFISH | pltNotSig$Visium | gene_corr_NotSig)
+```
+
+```{r}
+lsa::cosine(SummarizedExperiment::assay(rast_log[["MERFISH"]])[gene, sharedPixels], SummarizedExperiment::assay(rast_log[["Visium"]])[gene, sharedPixels])
+```
+
+# Fold Change Similarity 
+
+```{r}
+# Finding the spatial similarity
+# If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
+start_time <- Sys.time()
+ss <- STcompare::spatialSimilarity(rast_log, foldChange = 1, t1 = NULL, t2 = NULL)
+end_time <- Sys.time()
+print(end_time-start_time)
+```
+
+```{r}
+lr_geneSig <- STcompare::linearRegression(ss, gene=geneSig) + ggplot2::theme_classic() + ggplot2::coord_fixed()
+pc_geneSig <- pixelClass(ss, gene=geneSig)
+
+(lr_geneSig | pc_geneSig)
+
+lr_geneNotSig <- STcompare::linearRegression(ss, gene=geneNotSig) + ggplot2::theme_classic() + ggplot2::coord_fixed()
+pc_geneNotSig <- pixelClass(ss, gene=geneNotSig)
+
+(lr_geneNotSig | pc_geneNotSig)
+
+(lr_geneSig | pc_geneSig)/(lr_geneNotSig | pc_geneNotSig)
+```
+Finally, we compare the correlation and similarity metrics for each gene and showed that the compare the correlation and similarity metrics offer orthogonal insights. 
+
+``` {r fig2k}
+
+# 2k - Comparing Correlation Metric to Similiarty metric 
+
+# create a df of correlation and similarity values for each gene 
+sim_corr <- data.frame(gene = ss$similarityTable$gene,
+                  correlation = brainCorrelation[, "correlationCoef" ], 
+                  similar = ss$similarityTable$percentSimilarity)
+sim_corr
+
+sim_corr_plt <- sim_corr %>%
+  dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
+                         gene %in% svgSigNeg ~ "SigNeg",
+                         .default = "NotSig")) %>%
+  dplyr::filter(Sig %in% c("SigPos")) %>%
+  ggplot2::ggplot() + 
+  ggplot2::geom_point(ggplot2::aes(x = correlation, y = similar), alpha = 0.25, size = 1) +
+  ggplot2::xlim(NA,1) +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_classic() + 
+  ggplot2::labs(x = "Correlation" , y = "Similarity", 
+                title = "Similarity for significantly positively SVGs")
+
+sim_corr_plt
+
+```
+
+We note that this gene expression correspondence (56% of spatially variable genes identified as significantly positively correlated) is lower than what was previously observed for biological replicates both assayed by MERFISH (93% of spatially variable genes identified as significantly positively correlated in https://doi.org/10.1101/2025.11.21.689847) most likely due to variation in detection efficiency across technologies in addition to variation in tissue preservation rather than poor spatial alignment. While MERFISH detects targeted genes at high sensitivity, Visium enables untargeted transcriptome-wide profiling though sensitivity for individual genes may be lower. Likewise, while the MERFISH dataset was generated with fresh, frozen tissue, the Visium dataset was generated with FFPE-preserved tissue. Still, we anticipate that while sensitivity to specific genes may vary across technologies and with different tissue preservation techniques, the underlying cell-types should be consistent.
+
+https://github.com/JEFworks/STalign_evaluation/blob/main/dev/fig2_ct_clean.R
