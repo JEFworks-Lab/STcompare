@@ -536,4 +536,8 @@ sim_corr_plt
 
 We note that this gene expression correspondence (56% of spatially variable genes identified as significantly positively correlated) is lower than what was previously observed for biological replicates both assayed by MERFISH (93% of spatially variable genes identified as significantly positively correlated in https://doi.org/10.1101/2025.11.21.689847) most likely due to variation in detection efficiency across technologies in addition to variation in tissue preservation rather than poor spatial alignment. While MERFISH detects targeted genes at high sensitivity, Visium enables untargeted transcriptome-wide profiling though sensitivity for individual genes may be lower. Likewise, while the MERFISH dataset was generated with fresh, frozen tissue, the Visium dataset was generated with FFPE-preserved tissue. Still, we anticipate that while sensitivity to specific genes may vary across technologies and with different tissue preservation techniques, the underlying cell-types should be consistent.
 
+https://github.com/JEFworks/ST_compare/blob/main/correlation_correction/STcompare_merfish_correlation.R
+
+https://github.com/JEFworks/STalign_evaluation/blob/main/Visium_alignment_test.R
+
 https://github.com/JEFworks/STalign_evaluation/blob/main/dev/fig2_ct_clean.R
