@@ -6,7 +6,8 @@
 \usage{
 spatialCorrelationGeneExp(
   input,
-  nPermutations = 100,
+  alpha = 0.05,
+  nPermutations = c(100, 1000),
   deltaX = NULL,
   deltaY = NULL,
   maxDistPrctile = 0.25,
@@ -29,10 +30,16 @@ SpatialExperiment objects do not have shared locations, use
 with shared pixel locations. See \code{assayName} parameter if the
 SpatialExperiment objects have more than one assay.}
 
-\item{nPermutations}{\code{integer} or \code{double}: number of permutations
-to generate to build the empirical null distribution. This number will
-determine the precision of the p-value. Default is \code{100}, such that
-the smallest p-value is 0.01}
+\item{alpha}{\code{numeric}: p-value threshold for correlation coefficient to
+be considered significant. Default is \code{0.05}}
+
+\item{nPermutations}{\code{list}: list of the number of permutations to
+generate to build the empirical null distribution. This number will
+determine the precision of the p-value. The list is applied iteratively. If
+\code{nPermutations[1]} results in an empirical p-value \code{< alpha},
+then \code{nPermutations[2]} is used to recalculate the empirical p-value.
+Default is \code{c(100, 1000)}, such that the initially the smallest
+non-zero p-value is 0.01, and then the smallest non-zero p-value is 0.01.}
 
 \item{deltaX}{\code{list}: List of single numerics or list of numeric vectors
 to use for delta, the parameter controlling the degree of smoothing in

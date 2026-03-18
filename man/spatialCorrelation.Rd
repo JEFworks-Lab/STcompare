@@ -27,9 +27,9 @@ with N observations}
 \item{pos}{\code{matrix}: a N x 2 matrix array of spatial x,y coordinates of
 observations}
 
-\item{nPermutations}{\code{integer} or \code{double}: number of permutations
-to generate to build the empirical null distribution. This number will
-determine the precision of the p-value. Default is \code{100}, such that
+\item{nPermutations}{\code{integer}: Number of permutations to generate to
+build the empirical null distribution. This number will determine the
+precision of the p-value. For example, if \code{nPermutations <- 100}, then
 the smallest p-value is 0.01}
 
 \item{deltaX}{\code{numeric}: A single numeric or a numeric vector for

@@ -382,7 +382,7 @@ start_time <- Sys.time()
 deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
 kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
   input, 
-  nPermutations = 100, # increased the number of permutations to account for stochasticity 
+  #nPermutations = c(100,1000), # increased the number of permutations to account for stochasticity 
   deltaX = deltaList, 
   deltaY = deltaList, 
   returnPermutations = FALSE, 
@@ -536,12 +536,10 @@ gene2_plt_ctrl | gene2_plt_aki | gene2_corr
 
 ```{r correlation-plots3}
 
-
-
 # Finding the spatial similarity
 # If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
 start_time <- Sys.time()
-ss <- spatialSimilarity(input, foldChange = 1, assayName = "CPM", t1 = NULL, t2 = NULL)
+ss <- STcompare::spatialSimilarity(input, foldChange = 1, assayName = "CPM", t1 = NULL, t2 = NULL)
 end_time <- Sys.time()
 print(end_time-start_time)
 
