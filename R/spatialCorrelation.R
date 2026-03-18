@@ -343,9 +343,9 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #' @param pos \code{matrix}: a N x 2 matrix array of spatial x,y coordinates of
 #'   observations
 #'
-#' @param nPermutations \code{integer} or \code{double}: number of permutations
-#'   to generate to build the empirical null distribution. This number will
-#'   determine the precision of the p-value. Default is \code{100}, such that
+#' @param nPermutations \code{integer}: Number of permutations to generate to
+#'   build the empirical null distribution. This number will determine the
+#'   precision of the p-value. For example, if \code{nPermutations <- 100}, then
 #'   the smallest p-value is 0.01
 #'
 #' @param deltaX \code{numeric}: A single numeric or a numeric vector for
@@ -521,7 +521,7 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
     #estimate and naive p-value assuming independence
     corDF <- cor.test(dataForward$X, dataForward$Y)
 
-    ## Calculate corrected p-value for Pearson's correlation
+    ## Calculate corrected p-value for Pearson's correlation with nPermutationsMin
     resultsPermuteX <- viladomatCorrelation(dataForward, delta = deltaX,
                                             maxDistPrctile = maxDistPrctile,
                                             nPermutations = nPermutations,
@@ -627,10 +627,16 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   with shared pixel locations. See \code{assayName} parameter if the
 #'   SpatialExperiment objects have more than one assay.
 #'
-#' @param nPermutations \code{integer} or \code{double}: number of permutations
-#'   to generate to build the empirical null distribution. This number will
-#'   determine the precision of the p-value. Default is \code{100}, such that
-#'   the smallest p-value is 0.01
+#' @param alpha \code{numeric}: p-value threshold for correlation coefficient to
+#'   be considered significant. Default is \code{0.05}
+#'
+#' @param nPermutations \code{list}: list of the number of permutations to
+#'   generate to build the empirical null distribution. This number will
+#'   determine the precision of the p-value. The list is applied iteratively. If
+#'   \code{nPermutations[1]} results in an empirical p-value \code{< alpha},
+#'   then \code{nPermutations[2]} is used to recalculate the empirical p-value.
+#'   Default is \code{c(100, 1000)}, such that the initially the smallest
+#'   non-zero p-value is 0.01, and then the smallest non-zero p-value is 0.01.
 #'
 #' @param deltaX \code{list}: List of single numerics or list of numeric vectors
 #'   to use for delta, the parameter controlling the degree of smoothing in
@@ -739,7 +745,8 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #' negCorrelation
 #' posCorrelation
 
-spatialCorrelationGeneExp <- function(input, nPermutations = 100,
+spatialCorrelationGeneExp <- function(input, alpha = 0.05, 
+                                      nPermutations = c(100, 1000),
                                       deltaX = NULL, deltaY = NULL,
                                       maxDistPrctile = 0.25,
                                       returnPermutations = FALSE,
@@ -778,7 +785,7 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 
   #calculate Pearson's correlation of expression between shared pixels in
   #datasets for each gene, naive p-value assuming independence and corrected
-  #p-value using empirical null from permutations
+  #p-value using empirical null from from nPermutations[1] permutations
   correctedCorrelation <- do.call(rbind,
                                   lapply(1:length(rownames(source)),
                                          function(i) {
@@ -797,7 +804,7 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 
     #calculate correlation, naive p-value, corrected p-value using empirical
     #null from permutations
-    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations,
+    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations[1],
                                  deltaX = deltaX[[i]], deltaY = deltaY[[i]],
                                  maxDistPrctile = maxDistPrctile,
                                  returnPermutations = returnPermutations,
@@ -809,6 +816,58 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
     return(output)
 
   }))
+  
+  # adjust p-values for multiple testing correction
+  correctedCorrelation$pValuePermuteX <- p.adjust(correctedCorrelation$pValuePermuteX)
+  correctedCorrelation$pValuePermuteY <- p.adjust(correctedCorrelation$pValuePermuteY)
+  
+  # return the genes that have an adjusted p-value less than alpha so can recalculate empirical p-value with more permutations
+  genesPermuteAgain <- rownames(correctedCorrelation)[max(correctedCorrelation$pValuePermuteX, correctedCorrelation$pValuePermuteY) < alpha]
+
+  # use those genes to subset the gene-by-pixel datasets
+  sourcePermuteAgain <- source[genesPermuteAgain,]
+  targetPermuteAgain <- target[genesPermuteAgain,]
+  
+  #recalculate Pearson's correlation of expression between shared pixels in
+  #datasets for each gene, naive p-value assuming independence and corrected
+  #p-value using empirical null from nPermutations[2] permutations 
+  correctedCorrelationPermuteAgain <- do.call(rbind,
+                                  lapply(1:length(rownames(sourcePermuteAgain)),
+                                         function(i) {
+
+    #store name of gene
+    g <- rownames(sourcePermuteAgain)[i]
+
+    #print number of iteration and name of gene
+    if (verbose) {
+      message(paste0(i, ': ', g))
+    }
+
+    #store gene expression matrices from SpatialExperiments for gene "g"
+    X <- SummarizedExperiment::assays(sourcePermuteAgain)[[assayName]][g, shared_pixels]
+    Y <- SummarizedExperiment::assays(targetPermuteAgain)[[assayName]][g, shared_pixels]
+
+    #calculate correlation, naive p-value, corrected p-value using empirical
+    #null from permutations
+    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations[2],
+                                 deltaX = deltaX[[i]], deltaY = deltaY[[i]],
+                                 maxDistPrctile = maxDistPrctile,
+                                 returnPermutations = returnPermutations,
+                                 nThreads = nThreads, BPPARAM = NULL)
+
+    #name row of dataframe with gene name
+    row.names(output) <- g
+
+    return(output)
+
+  }))
+  
+  ##how should I p.adjust the new p-values from more permutations? Should I change N to the nrows of correctedCorrelation + nrows of correctedCorrelationPermuteAgain?
+  nTests <- dim(correctedCorrelation)[1] + dim(correctedCorrelationPermuteAgain)[1]
+  correctedCorrelationPermuteAgain$pValuePermuteX <- p.adjust(correctedCorrelationPermuteAgain$pValuePermuteX, n = nTests)
+  correctedCorrelationPermuteAgain$pValuePermuteY <- p.adjust(correctedCorrelationPermuteAgain$pValuePermuteY, n = nTests)
+  
+  correctedCorrelation[match(rownames(correctedCorrelationPermuteAgain), rownames(correctedCorrelation)), ] <- correctedCorrelationPermuteAgain
 
   return(correctedCorrelation)
 }
@@ -826,9 +885,9 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'   \code{assayName} parameter if the SpatialExperiment object has more than
 #'   one assay.
 #'
-#' @param nPermutations \code{integer} or \code{double}: number of permutations
-#'   to generate to build the empirical null distribution. This number will
-#'   determine the precision of the p-value. Default is \code{100}, such that
+#' @param nPermutations \code{integer}: Number of permutations to generate to
+#'   build the empirical null distribution. This number will determine the
+#'   precision of the p-value. For example, if \code{nPermutations <- 100}, then
 #'   the smallest p-value is 0.01
 #'
 #' @param deltaX \code{list}: List of single numerics or list of numeric vectors
