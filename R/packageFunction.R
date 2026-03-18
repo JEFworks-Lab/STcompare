@@ -182,6 +182,9 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
   y = input[[2]]
 
   shared_genes <- intersect(rownames(x), rownames(y))
+  
+  t1Global <- t1
+  t2Global <- t2
 
   for (gene in shared_genes) {
 
@@ -191,11 +194,15 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
     # threshold the gene to pixel matrix and
     # and remove NA values and make approximations for 0 numbers
 
-    if (is.null(t1)) {
-      t1 <- quantile(genePixel$x, minQuantile)
+    if (is.null(t1Global)) {
+      t1 <- unname(quantile(genePixel$x, minQuantile))
+    } else {
+      t1 <- t1Global
     }
-    if (is.null(t2)) {
-      t2 <- quantile(genePixel$y, minQuantile)
+    if (is.null(t2Global)) {
+      t2 <- unname(quantile(genePixel$y, minQuantile))
+    } else {
+      t2 <- t2Global
     }
 
     thresh <- threshold(genePixel, t1, t2)
@@ -246,8 +253,8 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
     dissimilarityY <- dim(dissimilarPixelsY)[1] / dim(logTrans)[1]
 
     # remove the name of the threshold from the index
-    t1 <- unname(quantile(genePixel$x, minQuantile))
-    t2 <- unname(quantile(genePixel$y, minQuantile))
+    #t1 <- unname(quantile(genePixel$x, minQuantile))
+    #t2 <- unname(quantile(genePixel$y, minQuantile))
 
     output <- rbind(output, data.frame(
       gene = gene,

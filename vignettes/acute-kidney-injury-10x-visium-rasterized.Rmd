@@ -541,12 +541,17 @@ gene2 <- kidneyCorrNeg %>% arrange(correlationCoef) %>% rownames() %>% head(1)
 
 
 # plot spatial patterns of example genes
-gene1_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene1, ], assay_name = "CPM", name = "CPM expression")
-gene1_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene1, ], assay_name = "CPM", name = "CPM expression")
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast$AKI_ctrl)),
+                           rownames(SpatialExperiment::spatialCoords(rast$AKI_aki)))
+
+gene1_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene1, sharedPixels], assay_name = "CPM", name = "CPM expression")
+gene1_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene1, sharedPixels], assay_name = "CPM", name = "CPM expression")
+
 gene1_plt_ctrl + gene1_plt_aki
 
-gene2_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene2, ], assay_name = "CPM", name = "CPM expression")
-gene2_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene2, ], assay_name = "CPM", name = "CPM expression")
+gene2_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene2, sharedPixels], assay_name = "CPM", name = "CPM expression")
+gene2_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene2, sharedPixels], assay_name = "CPM", name = "CPM expression")
+
 gene2_plt_ctrl + gene2_plt_aki
 
 ```
@@ -561,32 +566,32 @@ gene1_corr <- plotCorrelationGeneExp(
   speList = input, 
   spatialCorrelation = kidneyCorrelation, 
   geneName = gene1, 
-  assayName = "pixelval"
+  assayName = "CPM"
   )
 gene2_corr <- plotCorrelationGeneExp(
   speList = input, 
   spatialCorrelation = kidneyCorrelation, 
   geneName = gene2, 
-  assayName = "pixelval"
+  assayName = "CPM"
   )
 
 
 # Finding the spatial similarity
 # If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
 start_time <- Sys.time()
-ss <- STcompare::spatialSimilarity(input, foldChange = 1, assayName = "pixelval", t1 = NULL, t2 = NULL)
+ss <- spatialSimilarity(input, foldChange = 1, assayName = "CPM", t1 = NULL, t2 = NULL)
 end_time <- Sys.time()
 print(end_time-start_time)
 
 
 # Figure 2I - fold change linear regression and spot classification 
-gene1_lr <- STcompare::linearRegression(ss, gene=gene1, assayName = "pixelval") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+gene1_lr <- STcompare::linearRegression(ss, gene=gene1, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
 cbr1_lr <- STcompare::linearRegression(ss, gene=gene2, assayName = "pixelval") + ggplot2::theme_classic() + ggplot2::coord_fixed()
 
-gene1_pc <- pixelClass(ss, gene=gene1, assayName = "pixelval")
+gene1_pc <- pixelClass(ss, gene=gene1, assayName = "CPM")
 gene2_pc <- pixelClass(ss, gene=gene2, assayName = "pixelval")
 
-gene1_plt$control + gene1_plt$aki + gene1_corr + gene1_lr + gene1_pc
+gene1_plt_ctrl + gene1_plt_aki + gene1_corr + gene1_lr + gene1_pc
 gene2_plt$control + gene2_plt$aki + gene2_corr + gene2_lr + gene2_pc
 
 
