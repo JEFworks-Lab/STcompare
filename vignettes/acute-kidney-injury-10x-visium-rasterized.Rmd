@@ -586,13 +586,13 @@ print(end_time-start_time)
 
 # Figure 2I - fold change linear regression and spot classification 
 gene1_lr <- STcompare::linearRegression(ss, gene=gene1, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
-cbr1_lr <- STcompare::linearRegression(ss, gene=gene2, assayName = "pixelval") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+cbr1_lr <- STcompare::linearRegression(ss, gene=gene2, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
 
 gene1_pc <- pixelClass(ss, gene=gene1, assayName = "CPM")
-gene2_pc <- pixelClass(ss, gene=gene2, assayName = "pixelval")
+gene2_pc <- pixelClass(ss, gene=gene2, assayName = "CPM")
 
 gene1_plt_ctrl + gene1_plt_aki + gene1_corr + gene1_lr + gene1_pc
-gene2_plt$control + gene2_plt$aki + gene2_corr + gene2_lr + gene2_pc
+gene2_plt_ctrl + gene2_plt_aki + gene2_corr + gene2_lr + gene2_pc
 
 
 ```

@@ -252,10 +252,6 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
     dissimilarityX <- dim(dissimilarPixelsX)[1] / dim(logTrans)[1]
     dissimilarityY <- dim(dissimilarPixelsY)[1] / dim(logTrans)[1]
 
-    # remove the name of the threshold from the index
-    #t1 <- unname(quantile(genePixel$x, minQuantile))
-    #t2 <- unname(quantile(genePixel$y, minQuantile))
-
     output <- rbind(output, data.frame(
       gene = gene,
       percentSimilarity = geneSimilarity,
