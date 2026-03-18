@@ -246,7 +246,7 @@ Lastly, `SEraster::rasterizeGeneExpression` allows the user to specify what aggr
 
 Because we perform counts-per-million (CPM) normalization (converting the expression of any gene into a proportion of total gene expression for all genes in the pixel) after rasterization, we could have chosen either of `mean` or `sum`.
 
-After performing CPM normalization, when we plot the total expression of all genes in each pixel, the value of each pixel should be 1 million (1e6).
+After performing CPM normalization, when we plot the total expression of all genes in each pixel, the value of each pixel should be 1 million (1e6). For `SEraster::plotRaster`, we specify the name of the assay from which we want to plot gene expression with `assay_name` and we specify the name to give the color bar with `name`. By default, if the the rasterized SpatialExperiment is not subsetted to one gene, `plotRaster` visualizes the total expression (from the specified assay) of all genes for each spot.
 
 ```{r, rasterize}
 input <- list(AKI_ctrl = AKI_ctrl_SE, AKI_aki = AKI_aki_SE)
@@ -432,8 +432,10 @@ fig_2j <- kidneyCorrelation %>%
                                      .default = pValuePermuteX)) %>%
   dplyr::mutate(pValueEmpiricalRound = dplyr::case_when(pValueEmpirical == 0 ~ 0.01,
                                     .default = pValueEmpirical)) %>%
-  ggplot2::ggplot() + 
-  ggplot2::geom_point(ggplot2::aes(x= correlationCoef, y = -log10(pValueEmpiricalRound), color = Sig), alpha = 0.25, size = 1) +
+  ggplot2::ggplot(ggplot2::aes(x= correlationCoef, 
+                               y = -log10(pValueEmpiricalRound), 
+                               color = Sig)) + 
+  ggplot2::geom_point(alpha = 0.25, size = 1) +
   ggplot2::xlim(NA,1) +
   ggplot2::scale_color_manual(values = c("SigPos" = "green", "SigNeg" = "blue")) +
   ggplot2::theme_classic() +
@@ -464,13 +466,27 @@ In Acsm2, gene expression was concentrated around the edge of the issue (cortex)
 
 
 ``` {r correlation-plots1}
+# kidneyCorrPos <- kidneyCorrelation[svgSigPos,]
+# head(kidneyCorrPos[order(kidneyCorrPos$correlationCoef, decreasing=TRUE),])
+# gene1 <- 'Slc5a3'
+# kidneyCorrNeg <- kidneyCorrelation[svgSigNeg,]
+# head(kidneyCorrNeg[order(kidneyCorrNeg$correlationCoef, decreasing=FALSE),])
+# gene2 <- 'Ech1'
+
+#filter the correlation dataframe to only the genes that are significantly positively correlated
 kidneyCorrPos <- kidneyCorrelation[svgSigPos,]
-head(kidneyCorrPos[order(kidneyCorrPos$correlationCoef, decreasing=TRUE),])
-gene1 <- 'Slc5a3'
-  
+#arrange this resulting dataframe in descending order for the correlation coefficient 
+kidneyCorrPos %>% arrange(desc(correlationCoef))
+#save the name of the significantly positively correlated gene with the highest correlation coefficient
+gene1 <- kidneyCorrPos %>% arrange(desc(correlationCoef)) %>% rownames() %>% head(1)
+
+#filter the correlation dataframe to only the genes that are significantly negatively correlated
 kidneyCorrNeg <- kidneyCorrelation[svgSigNeg,]
-head(kidneyCorrNeg[order(kidneyCorrNeg$correlationCoef, decreasing=FALSE),])
-gene2 <- 'Ech1'
+#arrange this resulting dataframe in ascending order for the correlation coefficient 
+kidneyCorrNeg %>% arrange(correlationCoef)
+#save the name of the significantly negatively correlated gene with the lowest correlation coefficient
+gene2 <- kidneyCorrNeg %>% arrange(correlationCoef) %>% rownames() %>% head(1)
+
 ```
 
 
@@ -479,49 +495,60 @@ gene2 <- 'Ech1'
 
 ``` {r correlation-plots2}
 
-# Figure 2g - Visualization of example genes 
-plot_gene_spatial <- function(gene, input, sharedPixels) {
-  # only the spots that are in both datasets
-  sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(input[[1]])),
-                          rownames(SpatialExperiment::spatialCoords(input[[2]])))
+# # Figure 2g - Visualization of example genes 
+# plot_gene_spatial <- function(gene, input, assayName) {
+#   # only the spots that are in both datasets
+#   sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(input[[1]])),
+#                           rownames(SpatialExperiment::spatialCoords(input[[2]])))
+# 
+#   # Control dataframe
+#   ctrl_df <- data.frame(
+#     SpatialExperiment::spatialCoords(input[[1]])[sharedPixels, ],
+#     color = SummarizedExperiment::assay(input[[1]], assayName)[gene, sharedPixels]
+#   )
+# 
+#   # AKI dataframe
+#   aki_df <- data.frame(
+#     SpatialExperiment::spatialCoords(input[[2]])[sharedPixels, ],
+#     color = SummarizedExperiment::assay(input[[2]], assayName)[gene, sharedPixels]
+#   )
+# 
+#   # Control plot
+#   ctrl_plot <- ggplot2::ggplot(ctrl_df, ggplot2::aes(x = x, y = y, color = color)) +
+#     ggplot2::geom_point(size = 3, alpha = 1, shape = 18) +
+#     viridis::scale_color_viridis() +
+#     ggplot2::coord_fixed() +
+#     ggplot2::theme_void() +
+#     ggplot2::ggtitle(paste0("Control: ", gene))
+# 
+#   # AKI plot
+#   aki_plot <- ggplot2::ggplot(aki_df, ggplot2::aes(x = x, y = y, color = color)) +
+#     ggplot2::geom_point(size = 3, alpha = 1, shape = 18) +
+#     viridis::scale_color_viridis() +
+#     ggplot2::coord_fixed() +
+#     ggplot2::theme_void() +
+#     ggplot2::ggtitle(paste0("AKI: ", gene))
+# 
+#   return(list(control = ctrl_plot, aki = aki_plot))
+# }
+# 
+# gene1_plt <- plot_gene_spatial(gene1, input, assayName = "CPM")
+# #gene2_plt <- plot_gene_spatial(gene2, input, assayName = "CPM")
+# 
+# # plot together
+# gene1_plt[[1]] + gene1_plt[[2]] 
+# #gene2_plt[[1]] + gene2_plt[[2]] 
 
-  # Control dataframe
-  ctrl_df <- data.frame(
-    SpatialExperiment::spatialCoords(input[[1]])[sharedPixels, ],
-    color = SummarizedExperiment::assay(input[[1]])[gene, sharedPixels]
-  )
 
-  # AKI dataframe
-  aki_df <- data.frame(
-    SpatialExperiment::spatialCoords(input[[2]])[sharedPixels, ],
-    color = SummarizedExperiment::assay(input[[2]])[gene, sharedPixels]
-  )
+# plot spatial patterns of example genes
+gene1_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene1, ], assay_name = "CPM", name = "CPM expression")
+gene1_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene1, ], assay_name = "CPM", name = "CPM expression")
+gene1_plt_ctrl + gene1_plt_aki
 
-  # Control plot
-  ctrl_plot <- ggplot2::ggplot(ctrl_df, ggplot2::aes(x = x, y = y, color = color)) +
-    ggplot2::geom_point(size = 3, alpha = 1, shape = 18) +
-    viridis::scale_color_viridis() +
-    ggplot2::coord_fixed() +
-    ggplot2::theme_void() +
-    ggplot2::ggtitle(paste0("Control: ", gene))
+gene2_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene2, ], assay_name = "CPM", name = "CPM expression")
+gene2_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene2, ], assay_name = "CPM", name = "CPM expression")
+gene2_plt_ctrl + gene2_plt_aki
 
-  # AKI plot
-  aki_plot <- ggplot2::ggplot(aki_df, ggplot2::aes(x = x, y = y, color = color)) +
-    ggplot2::geom_point(size = 3, alpha = 1, shape = 18) +
-    viridis::scale_color_viridis() +
-    ggplot2::coord_fixed() +
-    ggplot2::theme_void() +
-    ggplot2::ggtitle(paste0("AKI: ", gene))
-
-  return(list(control = ctrl_plot, aki = aki_plot))
-}
-
-gene1_plt <- plot_gene_spatial(gene1, input, sharedPixels)
-gene2_plt <- plot_gene_spatial(gene2, input, sharedPixels)
-
-# plot together
-gene1_plt[[1]] + gene1_plt[[2]] 
-gene2_plt[[1]] + gene2_plt[[2]] 
 ```
 
 [Jean to Vivien and Kalen - STcompare::spatialSimilarity andSTcompare::linearRegression are still giving me issues so I am not able to run this]
