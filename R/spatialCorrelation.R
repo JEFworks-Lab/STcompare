@@ -821,53 +821,57 @@ spatialCorrelationGeneExp <- function(input, alpha = 0.05,
   correctedCorrelation$pValuePermuteX <- p.adjust(correctedCorrelation$pValuePermuteX)
   correctedCorrelation$pValuePermuteY <- p.adjust(correctedCorrelation$pValuePermuteY)
   
-  # return the genes that have an adjusted p-value less than alpha so can recalculate empirical p-value with more permutations
-  genesPermuteAgain <- rownames(correctedCorrelation)[max(correctedCorrelation$pValuePermuteX, correctedCorrelation$pValuePermuteY) < alpha]
-
-  # use those genes to subset the gene-by-pixel datasets
-  sourcePermuteAgain <- source[genesPermuteAgain,]
-  targetPermuteAgain <- target[genesPermuteAgain,]
-  
-  #recalculate Pearson's correlation of expression between shared pixels in
-  #datasets for each gene, naive p-value assuming independence and corrected
-  #p-value using empirical null from nPermutations[2] permutations 
-  correctedCorrelationPermuteAgain <- do.call(rbind,
-                                  lapply(1:length(rownames(sourcePermuteAgain)),
-                                         function(i) {
-
-    #store name of gene
-    g <- rownames(sourcePermuteAgain)[i]
-
-    #print number of iteration and name of gene
-    if (verbose) {
-      message(paste0(i, ': ', g))
-    }
-
-    #store gene expression matrices from SpatialExperiments for gene "g"
-    X <- SummarizedExperiment::assays(sourcePermuteAgain)[[assayName]][g, shared_pixels]
-    Y <- SummarizedExperiment::assays(targetPermuteAgain)[[assayName]][g, shared_pixels]
-
-    #calculate correlation, naive p-value, corrected p-value using empirical
-    #null from permutations
-    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations[2],
-                                 deltaX = deltaX[[i]], deltaY = deltaY[[i]],
-                                 maxDistPrctile = maxDistPrctile,
-                                 returnPermutations = returnPermutations,
-                                 nThreads = nThreads, BPPARAM = NULL)
-
-    #name row of dataframe with gene name
-    row.names(output) <- g
-
-    return(output)
-
-  }))
-  
-  ##how should I p.adjust the new p-values from more permutations? Should I change N to the nrows of correctedCorrelation + nrows of correctedCorrelationPermuteAgain?
-  nTests <- dim(correctedCorrelation)[1] + dim(correctedCorrelationPermuteAgain)[1]
-  correctedCorrelationPermuteAgain$pValuePermuteX <- p.adjust(correctedCorrelationPermuteAgain$pValuePermuteX, n = nTests)
-  correctedCorrelationPermuteAgain$pValuePermuteY <- p.adjust(correctedCorrelationPermuteAgain$pValuePermuteY, n = nTests)
-  
-  correctedCorrelation[match(rownames(correctedCorrelationPermuteAgain), rownames(correctedCorrelation)), ] <- correctedCorrelationPermuteAgain
+  # if there are significantly correlated genes with p-value < alpha and if the 2nd entry in the list of nPermutations is greater than the 1st entry
+  if(sum(max(correctedCorrelation$pValuePermuteX, correctedCorrelation$pValuePermuteY) < alpha) > 0 & nPermutations[2] > nPermutations[1]){
+    
+    # return the genes that have an adjusted p-value less than alpha so can recalculate empirical p-value with more permutations
+    genesPermuteAgain <- rownames(correctedCorrelation)[max(correctedCorrelation$pValuePermuteX, correctedCorrelation$pValuePermuteY) < alpha]
+    
+    # use those genes to subset the gene-by-pixel datasets
+    sourcePermuteAgain <- source[genesPermuteAgain,]
+    targetPermuteAgain <- target[genesPermuteAgain,]
+    
+    #recalculate Pearson's correlation of expression between shared pixels in
+    #datasets for each gene, naive p-value assuming independence and corrected
+    #p-value using empirical null from nPermutations[2] permutations 
+    correctedCorrelationPermuteAgain <- do.call(rbind,
+                                                lapply(1:length(rownames(sourcePermuteAgain)),
+                                                       function(i) {
+                                                         
+                                                         #store name of gene
+                                                         g <- rownames(sourcePermuteAgain)[i]
+                                                         
+                                                         #print number of iteration and name of gene
+                                                         if (verbose) {
+                                                           message(paste0(i, ': ', g))
+                                                         }
+                                                         
+                                                         #store gene expression matrices from SpatialExperiments for gene "g"
+                                                         X <- SummarizedExperiment::assays(sourcePermuteAgain)[[assayName]][g, shared_pixels]
+                                                         Y <- SummarizedExperiment::assays(targetPermuteAgain)[[assayName]][g, shared_pixels]
+                                                         
+                                                         #calculate correlation, naive p-value, corrected p-value using empirical
+                                                         #null from permutations
+                                                         output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations[2],
+                                                                                      deltaX = deltaX[[i]], deltaY = deltaY[[i]],
+                                                                                      maxDistPrctile = maxDistPrctile,
+                                                                                      returnPermutations = returnPermutations,
+                                                                                      nThreads = nThreads, BPPARAM = NULL)
+                                                         
+                                                         #name row of dataframe with gene name
+                                                         row.names(output) <- g
+                                                         
+                                                         return(output)
+                                                         
+                                                       }))
+    
+    ##how should I p.adjust the new p-values from more permutations? Should I change N to the nrows of correctedCorrelation + nrows of correctedCorrelationPermuteAgain?
+    nTests <- dim(correctedCorrelation)[1] + dim(correctedCorrelationPermuteAgain)[1]
+    correctedCorrelationPermuteAgain$pValuePermuteX <- p.adjust(correctedCorrelationPermuteAgain$pValuePermuteX, n = nTests)
+    correctedCorrelationPermuteAgain$pValuePermuteY <- p.adjust(correctedCorrelationPermuteAgain$pValuePermuteY, n = nTests)
+    
+    correctedCorrelation[match(rownames(correctedCorrelationPermuteAgain), rownames(correctedCorrelation)), ] <- correctedCorrelationPermuteAgain
+  }
 
   return(correctedCorrelation)
 }
