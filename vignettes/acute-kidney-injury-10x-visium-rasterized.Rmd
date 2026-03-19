@@ -367,7 +367,7 @@ Next we use STcompare to calculate Pearson's correlation coefficient for genes t
 
 ``` {r spatial-correlation1}
 # choosing the genes that are SVGs in both conditions 
-genes_chosen <- svg_int[1:10]
+genes_chosen <- svg_int
 
 ## alternative: choosing the genes that are expressed in greater than 5% of all spots
 # genes_chosen <- good.genes
@@ -387,7 +387,8 @@ kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
   deltaY = deltaList, 
   returnPermutations = FALSE, 
   assayName = "CPM", 
-  nThreads = 5
+  nThreads = 5,
+  verbose = TRUE
 )
 end_time <- Sys.time()
 print(end_time - start_time) 
