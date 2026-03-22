@@ -29,6 +29,8 @@
 #'
 #' @param i \code{integer} the number indicating the ith permutation
 #'
+#' @param seed \code{integer} Seed for the random number generator. Default \code{0}.
+#'
 #' @return The output is returned as a list.
 #'  \itemize{
 #'   \item{\code{residus}}{numeric vector of length of delta, sum of squares of
@@ -92,7 +94,9 @@
 #' output
 #'
 matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
-                                prctile, ids, i ) {
+                                prctile, ids, i, seed = 0 ) {
+
+  set.seed(seed)
 
   #initialize vectors for fitting variograms for each delta
   variog.X.delta <- vector(mode = "list", length = length(delta))
@@ -179,6 +183,8 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #'   parallel-execution back-end. Default is NULL. If provided, this is assumed
 #'   to be an instance of \code{BiocParallelParam}.
 #'
+#' @param seed \code{integer}: Seed for the random number generator. Default \code{0}.
+#'
 #' @return The output is returned as a list.
 #'  \itemize{
 #'   \item{\code{deltaStarMedian}}{numeric, the median of the deltas that minimize
@@ -226,12 +232,14 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #' resultsPermuteX <- viladomatCorrelation(data, delta, maxDistPrctile, nPermutations)
 #'
 viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
-                                 nThreads = 1, BPPARAM = NULL) {
+                                 nThreads = 1, BPPARAM = NULL, seed = 0) {
 
   ## Set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
     BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
   }
+
+  set.seed(seed)
 
   # load the data X, Y and the coordinates of the N data locations:
   X <- data[,1]
@@ -282,7 +290,8 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
   output <- BiocParallel::bplapply(1:B, function(i) {
     # smoothing and scaling step to match the target variogram:
     output <- matchingVariograms(X.randomized[[i]], long, lat,
-                                 delta, target_variog, prctile, ids, i)
+                                 delta, target_variog, prctile, ids, i,
+                                 seed = seed + i)
   }, BPPARAM=BPPARAM)
 
 
@@ -396,6 +405,8 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   parallel-execution back-end. Default is NULL. If provided, this is assumed
 #'   to be an instance of \code{BiocParallelParam}.
 #'
+#' @param seed \code{integer}: Seed for the random number generator. Default \code{0}.
+#'
 #' @return The output is returned as a \code{data.frame} containing the columns:
 #' \itemize{
 #'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
@@ -489,7 +500,8 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
                                deltaX = NULL, deltaY = NULL,
                                maxDistPrctile = 0.25,
                                returnPermutations = FALSE,
-                               nThreads = 1, BPPARAM = NULL){
+                               nThreads = 1, BPPARAM = NULL,
+                               seed = 0){
 
   ## Set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
@@ -526,12 +538,14 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
                                             maxDistPrctile = maxDistPrctile,
                                             nPermutations = nPermutations,
                                             nThreads = nThreads,
-                                            BPPARAM = BPPARAM)
+                                            BPPARAM = BPPARAM,
+                                            seed = seed)
     resultsPermuteY <- viladomatCorrelation(dataReverse, delta = deltaY,
                                             maxDistPrctile = maxDistPrctile,
                                             nPermutations = nPermutations,
                                             nThreads = nThreads,
-                                            BPPARAM = BPPARAM)
+                                            BPPARAM = BPPARAM,
+                                            seed = seed)
 
     ## Store correlation value, naive p-value, and corrected p-value for
     #permuting either source and target as dataframe with 1 row
@@ -693,6 +707,11 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   SpatialExperiments to calculate a correlation coefficient and empirical
 #'   p-value for each row
 #'
+#' @param seed \code{integer}: Seed for the random number generator used to
+#'   generate noise in the variogram matching step. Ensures reproducibility of
+#'   empirical p-values regardless of parallelization back-end. Default is
+#'   \code{0}.
+#'
 #' @return The output is returned as a \code{data.frame}. The rownames are the
 #'   rownames of the SpatialExperiments. The names of the columns and their
 #'   contents are as follows:
@@ -745,7 +764,8 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
                                       returnPermutations = FALSE,
                                       assayName = NULL,
                                       nThreads = 1, BPPARAM = NULL,
-                                      verbose = TRUE){
+                                      verbose = TRUE,
+                                      seed = 0){
 
   ## set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
@@ -801,7 +821,8 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
                                  deltaX = deltaX[[i]], deltaY = deltaY[[i]],
                                  maxDistPrctile = maxDistPrctile,
                                  returnPermutations = returnPermutations,
-                                 nThreads = nThreads, BPPARAM = NULL)
+                                 nThreads = nThreads, BPPARAM = NULL,
+                                 seed = seed)
 
     #name row of dataframe with gene name
     row.names(output) <- g
@@ -892,6 +913,11 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'   SpatialExperiments to calculate a correlation coefficient and empirical
 #'   p-value for each row
 #'
+#' @param seed \code{integer}: Seed for the random number generator used to
+#'   generate noise in the variogram matching step. Ensures reproducibility of
+#'   empirical p-values regardless of parallelization back-end. Default is
+#'   \code{0}.
+#'
 #' @return The output is returned as a \code{data.frame}. The rownames are
 #'   arbitrary. The names of the columns and their contents are as follows:
 #' \itemize{
@@ -941,7 +967,8 @@ spatialCorrelationGeneExpWithinSample <- function(input,
                                                   assayName = NULL,
                                                   nThreads = 1,
                                                   BPPARAM = NULL,
-                                                  verbose = TRUE){
+                                                  verbose = TRUE,
+                                                  seed = 0){
 
   ## set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
@@ -990,7 +1017,8 @@ spatialCorrelationGeneExpWithinSample <- function(input,
                                  maxDistPrctile = maxDistPrctile,
                                  returnPermutations = returnPermutations,
                                  nThreads = nThreads,
-                                 BPPARAM = BPPARAM)
+                                 BPPARAM = BPPARAM,
+                                 seed = seed)
 
     #add columns with gene names from the pair
     output$first <- g
