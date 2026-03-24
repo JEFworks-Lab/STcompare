@@ -159,76 +159,6 @@ AKI_aki_SE <- SpatialExperiment::SpatialExperiment(
   spatialCoords = as.matrix(aki_pos_aligned[,1:2])
 )
 
-# the region labels were generated in the paper using a clustering approach and are used here to ensure that we are comparing shared regions across the two samples
-load(file = "~/ST_compare/data/kidney_data/region_labels_20241106.RData")
-
-# rename names of region labels so can used shared spot locations
-ctrl_region <- new.com[grepl("CTRL", names(new.com))]
-names(ctrl_region) <- sub("^[^_]*_", "", names(ctrl_region))
-
-aki_region <- new.com[grepl("IR", names(new.com))]
-names(aki_region) <- sub("^[^_]*_", "", names(aki_region))
-
-# save the cluster labels in spatial experiments
-AKI_ctrl_SE$region <- ctrl_region[colnames(AKI_ctrl_SE)]
-AKI_aki_SE$region <- aki_region[colnames(AKI_aki_SE)]
-
-#save the cluster labels as one-hot encoded matrices
-ctrl_region_onehot <- model.matrix(~ region - 1, data = colData(AKI_ctrl_SE))
-aki_region_onehot <- model.matrix(~ region - 1, data = colData(AKI_aki_SE))
-colnames(ctrl_region_onehot) <- gsub("region", "", colnames(ctrl_region_onehot))
-colnames(aki_region_onehot) <- gsub("region", "", colnames(aki_region_onehot))
-
-#append spatial coordinates to the one-hot encoded matrices to align
-ctrl_region_onehot <- cbind(ctrl_pos, ctrl_region_onehot)
-aki_region_onehot <- cbind(aki_pos, aki_region_onehot)
-
-#save one-hot encoded matrices as csv files to use as input for the region-based alignment methods
-write.csv(ctrl_region_onehot, file = "~/ST_compare/data/kidney_data/ctrl_region_onehot.csv", row.names = TRUE)
-write.csv(aki_region_onehot, file = "~/ST_compare/data/kidney_data/aki_region_onehot.csv", row.names = TRUE)
-
-
-load(file = "~/ST_compare/data/kidney_data/harmonized_clusters_20240626.RData")
-
-# rename names of region labels so can used shared spot locations
-ctrl_emb <- emb.harmony[grepl("CTRL", rownames(emb.harmony)),]
-rownames(ctrl_emb) <- sub("^[^_]*_", "", rownames(ctrl_emb))
-colnames(ctrl_emb) <- c("tSNE1", "tSNE2")
-
-aki_emb <- emb.harmony[grepl("IR", rownames(emb.harmony)),]
-rownames(aki_emb) <- sub("^[^_]*_", "", rownames(aki_emb))
-colnames(aki_emb) <- c("tSNE1", "tSNE2")
-
-df1 <- data.frame(SpatialExperiment::spatialCoords(AKI_ctrl_SE), dataset = "ctrl", region = AKI_ctrl_SE$region, ctrl_emb)
-df2 <- data.frame(SpatialExperiment::spatialCoords(AKI_aki_SE), dataset = "aki", region = AKI_aki_SE$region, aki_emb)
-df5 <- rbind(df1, df2)
-
-# spatial plot of control with region cluster labels
-pctrl <- ggplot2::ggplot(df1, ggplot2::aes(x = x, y = y, color = region)) +
-  ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
-  ggplot2::coord_fixed() +
-  ggplot2::theme_void()
-
-# spatial plot of ischemia with region cluster labels
-paki <- ggplot2::ggplot(df2, ggplot2::aes(x = x, y = y, color = region)) +
-  ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
-  ggplot2::coord_fixed() +
-  ggplot2::theme_void()
-
-# tSNE plot with region cluster labels
-ptSNEregion <- ggplot2::ggplot(df5, ggplot2::aes(x = tSNE1, y = tSNE2, color = region)) +
-  ggplot2::geom_point(size = 0.4) +
-  ggplot2::coord_fixed() +
-  ggplot2::theme_classic()
-ptSNEregion
-
-# tSNE plot with dataset labels to show harmonization
-ptSNEdataset <- ggplot2::ggplot(df5, ggplot2::aes(x = tSNE1, y = tSNE2, color = dataset)) +
-  ggplot2::geom_point(size = 0.4) +
-  ggplot2::coord_fixed() +
-  ggplot2::theme_classic()
-ptSNEdataset
-
 # rasterize the gene expression for both samples using SEraster
 input <- list(AKI_ctrl = AKI_ctrl_SE, AKI_aki = AKI_aki_SE)
 rast <- SEraster::rasterizeGeneExpression(
@@ -248,44 +178,6 @@ p1 <- SEraster::plotRaster(rast$AKI_ctrl, assay_name = "CPM", name = "total expr
 p2 <- SEraster::plotRaster(rast$AKI_aki, assay_name = "CPM", name = "total expression")
 p1 + p2
 
-# rasterize the region labels for both samples using rasterizeCellType
-rast_clusters <- SEraster::rasterizeCellType(input, 
-  col_name = "region", 
-  resolution = 5, 
-  fun = "mean", 
-  square = FALSE,
-  BPPARAM = BiocParallel::MulticoreParam())
-
-#check that plots look correct and that same coordinate system created from rasterizeGeneExpression and rasterizeCellType
-# plot spatial patterns of regions proportion for both samples
-sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast_clusters$AKI_ctrl)),
-                          rownames(SpatialExperiment::spatialCoords(rast_clusters$AKI_aki)))
-p3 <- SEraster::plotRaster(rast_clusters$AKI_ctrl[,sharedPixels], feature_name = "cortex", name = "region")
-p4 <- SEraster::plotRaster(rast_clusters$AKI_aki[,sharedPixels], feature_name = "cortex", name = "region")
-p3 + p4
-
-p5 <- SEraster::plotRaster(rast_clusters$AKI_ctrl[,sharedPixels], feature_name = "interface", name = "region")
-p6 <- SEraster::plotRaster(rast_clusters$AKI_aki[,sharedPixels], feature_name = "interface", name = "region")
-p5 + p6
-
-p7 <- SEraster::plotRaster(rast_clusters$AKI_ctrl[,sharedPixels], feature_name = "medulla", name = "region")
-p8 <- SEraster::plotRaster(rast_clusters$AKI_aki[,sharedPixels], feature_name = "medulla", name = "region")
-p7 + p8
-
-#use scatterbar to visualize the proportion of each region in each sample
-dfproportions_ctrl <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_clusters$AKI_ctrl)[,sharedPixels])))
-dfcoords_ctrl <- data.frame(SpatialExperiment::spatialCoords(rast_clusters$AKI_ctrl)[sharedPixels,])
-
-p9 <- scatterbar::scatterbar(data = dfproportions_ctrl, 
-                              xy = dfcoords_ctrl, 
-                              size_x = 4, size_y = 4, 
-                              padding_x = 0.01, padding_y = 0.01) + coord_fixed()
-
-dfproportions_aki <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_clusters$AKI_aki)[,sharedPixels])))
-dfcoords_aki <- data.frame(SpatialExperiment::spatialCoords(rast_clusters$AKI_aki)[sharedPixels,])
-
-p10 <- scatterbar::scatterbar(data = dfproportions_aki, xy = dfcoords_aki, size_x = 4, size_y = 4, padding_x = 0.01, padding_y = 0.01) + coord_fixed()
-p9 + p10
 
 # Returns a dataframe with these columns: 
 # observed: Observed Moran's I statistic measuring spatial autocorrelation
@@ -536,6 +428,130 @@ sim_corr_plt
 
 # paper figures
 
+# the region labels were generated in the paper using a clustering approach and are used here to ensure that we are comparing shared regions across the two samples
+load(file = "~/ST_compare/data/kidney_data/region_labels_20241106.RData")
+
+# rename names of region labels so can used shared spot locations
+ctrl_region <- new.com[grepl("CTRL", names(new.com))]
+names(ctrl_region) <- sub("^[^_]*_", "", names(ctrl_region))
+
+aki_region <- new.com[grepl("IR", names(new.com))]
+names(aki_region) <- sub("^[^_]*_", "", names(aki_region))
+
+# save the cluster labels in spatial experiments
+AKI_ctrl_SE$region <- ctrl_region[colnames(AKI_ctrl_SE)]
+AKI_aki_SE$region <- aki_region[colnames(AKI_aki_SE)]
+
+#save the cluster labels as one-hot encoded matrices
+ctrl_region_onehot <- model.matrix(~ region - 1, data = colData(AKI_ctrl_SE))
+aki_region_onehot <- model.matrix(~ region - 1, data = colData(AKI_aki_SE))
+colnames(ctrl_region_onehot) <- gsub("region", "", colnames(ctrl_region_onehot))
+colnames(aki_region_onehot) <- gsub("region", "", colnames(aki_region_onehot))
+
+#append spatial coordinates to the one-hot encoded matrices to align
+ctrl_region_onehot <- cbind(ctrl_pos, ctrl_region_onehot)
+aki_region_onehot <- cbind(aki_pos, aki_region_onehot)
+
+#save one-hot encoded matrices as csv files to use as input for the region-based alignment methods
+write.csv(ctrl_region_onehot, file = "~/ST_compare/data/kidney_data/ctrl_region_onehot.csv", row.names = TRUE)
+write.csv(aki_region_onehot, file = "~/ST_compare/data/kidney_data/aki_region_onehot.csv", row.names = TRUE)
+
+
+load(file = "~/ST_compare/data/kidney_data/harmonized_clusters_20240626.RData")
+
+# rename names of region labels so can used shared spot locations
+ctrl_emb <- emb.harmony[grepl("CTRL", rownames(emb.harmony)),]
+rownames(ctrl_emb) <- sub("^[^_]*_", "", rownames(ctrl_emb))
+colnames(ctrl_emb) <- c("tSNE1", "tSNE2")
+
+aki_emb <- emb.harmony[grepl("IR", rownames(emb.harmony)),]
+rownames(aki_emb) <- sub("^[^_]*_", "", rownames(aki_emb))
+colnames(aki_emb) <- c("tSNE1", "tSNE2")
+
+df1 <- data.frame(SpatialExperiment::spatialCoords(AKI_ctrl_SE), dataset = "ctrl", region = AKI_ctrl_SE$region, ctrl_emb)
+df2 <- data.frame(SpatialExperiment::spatialCoords(AKI_aki_SE), dataset = "aki", region = AKI_aki_SE$region, aki_emb)
+df5 <- rbind(df1, df2)
+
+# spatial plot of control with region cluster labels
+pctrl <- ggplot2::ggplot(df1, ggplot2::aes(x = x, y = y, color = region)) +
+  ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_void()
+
+# spatial plot of ischemia with region cluster labels
+paki <- ggplot2::ggplot(df2, ggplot2::aes(x = x, y = y, color = region)) +
+  ggplot2::geom_point(size = 0.7, alpha = 1, shape = 18) +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_void()
+
+# tSNE plot with region cluster labels
+ptSNEregion <- ggplot2::ggplot(df5, ggplot2::aes(x = tSNE1, y = tSNE2, color = region)) +
+  ggplot2::geom_point(size = 0.4) +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_classic()
+ptSNEregion
+
+# tSNE plot with dataset labels to show harmonization
+ptSNEdataset <- ggplot2::ggplot(df5, ggplot2::aes(x = tSNE1, y = tSNE2, color = dataset)) +
+  ggplot2::geom_point(size = 0.4) +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_classic()
+ptSNEdataset
+
+
+# rasterize the region labels for both samples using rasterizeCellType
+rast_clusters <- SEraster::rasterizeCellType(input, 
+  col_name = "region", 
+  resolution = 5, 
+  fun = "mean", 
+  square = FALSE,
+  BPPARAM = BiocParallel::MulticoreParam())
+
+#check that plots look correct and that same coordinate system created from rasterizeGeneExpression and rasterizeCellType
+# plot spatial patterns of regions proportion for both samples
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast_clusters$AKI_ctrl)),
+                          rownames(SpatialExperiment::spatialCoords(rast_clusters$AKI_aki)))
+p3 <- SEraster::plotRaster(rast_clusters$AKI_ctrl[,sharedPixels], feature_name = "cortex", name = "region")
+p4 <- SEraster::plotRaster(rast_clusters$AKI_aki[,sharedPixels], feature_name = "cortex", name = "region")
+p3 + p4
+
+p5 <- SEraster::plotRaster(rast_clusters$AKI_ctrl[,sharedPixels], feature_name = "interface", name = "region")
+p6 <- SEraster::plotRaster(rast_clusters$AKI_aki[,sharedPixels], feature_name = "interface", name = "region")
+p5 + p6
+
+p7 <- SEraster::plotRaster(rast_clusters$AKI_ctrl[,sharedPixels], feature_name = "medulla", name = "region")
+p8 <- SEraster::plotRaster(rast_clusters$AKI_aki[,sharedPixels], feature_name = "medulla", name = "region")
+p7 + p8
+
+#use scatterbar to visualize the proportion of each region in each sample
+dfproportions_ctrl <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_clusters$AKI_ctrl)[,sharedPixels])))
+dfcoords_ctrl <- data.frame(SpatialExperiment::spatialCoords(rast_clusters$AKI_ctrl)[sharedPixels,])
+
+p9 <- scatterbar::scatterbar(data = dfproportions_ctrl, 
+                              xy = dfcoords_ctrl, 
+                              size_x = 4, size_y = 4, 
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+dfproportions_aki <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_clusters$AKI_aki)[,sharedPixels])))
+dfcoords_aki <- data.frame(SpatialExperiment::spatialCoords(rast_clusters$AKI_aki)[sharedPixels,])
+
+p10 <- scatterbar::scatterbar(data = dfproportions_aki, xy = dfcoords_aki, size_x = 4, size_y = 4, padding_x = 0.01, padding_y = 0.01) + coord_fixed() + ggplot2::theme(legend.position="none")
+p9 + p10
+
+file_name = paste0("~/ST_compare/plots/figure2_kidney_spots_regions_20260322.pdf")
+pdf(file = file_name, width = 4, height = 4, onefile=FALSE)
+p9 + p10
+dev.off()
+
+# supplemental figure 
+file_name = paste0("~/ST_compare/plots/figure2_kidney_tSNE_20260322.pdf")
+pdf(file = file_name, width = 8, height = 8, onefile=FALSE)
+gridExtra::grid.arrange(gridExtra::arrangeGrob(pctrl, paki, ncol=2, nrow=1),
+                        gridExtra::arrangeGrob(ptSNEregion, ptSNEdataset, ncol=2, nrow=1))
+dev.off()
+
+
 # visualize the significantly positively correlate and significantly negatively correlated svg genes  
 # Figure 2J - Rate of Significance for SVGs 
 fig_2j <- kidneyCorrelation %>%
@@ -557,6 +573,25 @@ fig_2j <- kidneyCorrelation %>%
   ggplot2::labs(x = "Correlation" , y = "-log10(p-value)", title = "Rate of Significance for SVGs")
 fig_2j
 
+#visualize the correlation coefficient for the significantly positively correlated, significantly negatively correlated, and not significantly correlated svg genes as violin plots with all points overlaid
+fig_2j <- kidneyCorrelation %>%
+  dplyr::mutate(Sig = dplyr::case_when(rownames(kidneyCorrelation) %in% svgSigPos ~ "SigPos",
+                                       rownames(kidneyCorrelation) %in% svgSigNeg ~ "SigNeg",
+                                       .default = "")) %>%
+  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
+                                                   .default = pValuePermuteX)) %>%
+  dplyr::mutate(pValueEmpiricalRound = dplyr::case_when(pValueEmpirical == 0 ~ 0.001,
+                                                        .default = pValueEmpirical)) %>%
+  ggplot2::ggplot(ggplot2::aes(x= Sig, y = correlationCoef, color = Sig)) +
+  ggplot2::geom_boxplot() +
+  #ggplot2::geom_jitter(width = 0.2, alpha = 0.1) +
+  ggplot2::ylim(-1,1) +
+  ggplot2::scale_color_manual(values = c("SigPos" = "green", "SigNeg" = "blue", "NotSig" = "grey")) +
+  ggplot2::theme_classic() +
+  ggplot2::labs(x = "Significance", y = "Correlation Coefficient", title = "Correlation Coefficient for Significantly Positively, Negatively, and Not Significantly Correlated SVGs")
+fig_2j
+
+#visualize the correlation coefficient and similarity for the significantly positively correlated and significantly negatively correlated svg genes
 sim_corr_plt <- sim_corr %>%
   dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
                                 gene %in% svgSigNeg ~ "SigNeg",
@@ -573,6 +608,13 @@ sim_corr_plt <- sim_corr %>%
 
 sim_corr_plt
 
+file_name = paste0("~/ST_compare/plots/figure2_kidney_pvalues_similarity_20260322.pdf")
+pdf(file = file_name, width = 2, height = 4, onefile=FALSE)
+gridExtra::grid.arrange(gridExtra::arrangeGrob(fig_2j + ggplot2::theme(legend.position="none"),
+                                               sim_corr_plt + ggplot2::theme(legend.position="none"),  ncol=1, nrow = 2, widths = c(2)))
+dev.off()
+
+# for the significantly positively correlated svg genes, get gene with the highest correlation coefficient and lowest similarity 
 gene1 <- sim_corr %>%
   dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
                                 gene %in% svgSigNeg ~ "SigNeg",
@@ -580,9 +622,11 @@ gene1 <- sim_corr %>%
   dplyr::filter(Sig %in% c("SigPos")) %>%
   dplyr::arrange(desc(correlation)) %>%
   dplyr::arrange(similar) %>%
+  #dplyr::arrange(desc(percentDissimilarityY)) %>%
   dplyr::pull(gene) %>%
   head(1)
 
+# for the significantly negatively correlated svg genes, get gene with the lowest correlation coefficient and smallest difference in percent dissimilarity
 gene2 <- sim_corr %>%
   dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
                                 gene %in% svgSigNeg ~ "SigNeg",
@@ -592,6 +636,65 @@ gene2 <- sim_corr %>%
   dplyr::arrange(diff) %>%
   dplyr::pull(gene) %>%
   head(1)
+
+sim_corr %>%
+  dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
+                                gene %in% svgSigNeg ~ "SigNeg",
+                                .default = "NotSig")) %>%
+  dplyr::filter(Sig %in% c("SigNeg")) %>%
+  dplyr::arrange(correlation) 
+
+gene1 <- svgSigNeg[6]
+gene2 <- svgSigNeg[7]
+
+sim_corr %>%
+  dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
+                                gene %in% svgSigNeg ~ "SigNeg",
+                                .default = "NotSig")) %>%
+  dplyr::filter(Sig %in% c("SigPos")) %>%
+  dplyr::arrange(desc(correlation)) %>%
+  dplyr::arrange(desc(similar))
+
+sim_corr %>%
+  dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
+                                gene %in% svgSigNeg ~ "SigNeg",
+                                .default = "NotSig")) %>%
+  dplyr::filter(Sig %in% c("SigPos")) %>%
+  dplyr::mutate(
+    rank_similar = rank(similar),
+    rank_corr = rank(correlation),
+    combined_rank = rank_similar + rank_corr
+  ) %>%
+  dplyr::arrange(desc(combined_rank)) %>%
+  head(10)
+
+c("Rpl21", "Rpl41", "Acsm2", "Slc34a1", "Nox4", "Gpx1", "Vnn1", "Nbl1") %in% svgSigPos
+
+gene1 <- "Rpl35a"
+gene2 <- "Rpl41"
+
+sim_corr %>%
+  dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
+                                gene %in% svgSigNeg ~ "SigNeg",
+                                .default = "NotSig")) %>%
+  dplyr::filter(Sig %in% c("SigPos")) %>%
+  dplyr::arrange(desc(percentDissimilarityX ))
+
+gene1 <- "Acsm2"
+gene2 <- "Slc34a1"
+
+gene1 <- "Nox4"
+gene2 <- "Gpx1"
+
+sim_corr %>%
+  dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
+                                gene %in% svgSigNeg ~ "SigNeg",
+                                .default = "NotSig")) %>%
+  dplyr::filter(Sig %in% c("SigPos")) %>%
+  dplyr::arrange(desc(percentDissimilarityY ))
+
+gene1 <- "Spp1"
+gene2 <- "Tmsb10"
 
 # plot spatial patterns of example genes
 sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast$AKI_ctrl)),
@@ -628,13 +731,14 @@ gene1_corr <- plotCorrelationGeneExp(
   spatialCorrelation = kidneyCorrelation, 
   geneName = gene1, 
   assayName = "CPM"
-)
+) + ggplot2::coord_fixed() 
+
 gene2_corr <- plotCorrelationGeneExp(
   speList = input, 
   spatialCorrelation = kidneyCorrelation, 
   geneName = gene2, 
   assayName = "CPM"
-)
+) + ggplot2::coord_fixed() 
 
 
 gene1_plt_ctrl | gene1_plt_aki | gene1_corr
@@ -650,24 +754,16 @@ gene2_pc <- pixelClass(ss, gene=gene2, assayName = "CPM")
 gene1_lr | gene1_pc
 gene2_lr | gene2_pc
 
-# figure 2f 
-file_name = paste0("~/ST_compare/plots/figure2_kidney_spots_regions_20260320.pdf")
-pdf(file = file_name, width = 4, height = 4, onefile=FALSE)
-gridExtra::grid.arrange(gridExtra::arrangeGrob(p9, ncol=1, nrow=1),
-                        gridExtra::arrangeGrob(p10, ncol=1, nrow=1))
-dev.off()
-
-# supplemental figure 
-file_name = paste0("~/ST_compare/plots/figure2_kidney_tSNE_20260320.pdf")
-pdf(file = file_name, width = 8, height = 8, onefile=FALSE)
-gridExtra::grid.arrange(gridExtra::arrangeGrob(pctrl, paki, ncol=2, nrow=1),
-                        gridExtra::arrangeGrob(ptSNEregion, ptSNEdataset, ncol=2, nrow=1))
-dev.off()
 
 #figure 2ghi
-
-
-file_name = paste0("~/ST_compare/plots/kidney_plots_20251121_Vnn1_Nbl1.pdf")
+file_name = paste0("~/ST_compare/plots/kidney_plots_20260322_Spp1_Tmsb10.pdf")
+file_name = paste0("~/ST_compare/plots/kidney_plots_20260322_Nox4_Gpx1.pdf")
+file_name = paste0("~/ST_compare/plots/kidney_plots_20260322_Acsm2_Slc34a1.pdf")
+file_name = paste0("~/ST_compare/plots/kidney_plots_20260322_Rpl35a_Rpl41.pdf")
+file_name = paste0("~/ST_compare/plots/kidney_plots_20260322_Ndufs6_Csad.pdf")
+file_name = paste0("~/ST_compare/plots/kidney_plots_20260322_Vamp8_Ech1.pdf")
+file_name = paste0("~/ST_compare/plots/kidney_plots_20260322_Mpc2_Nceh1.pdf")
+file_name = paste0("~/ST_compare/plots/kidney_plots_20260322_Sord_Gstm1.pdf")
 pdf(file = file_name, width = 17, height = 4, onefile=FALSE)
 
 #grab  legends from plots
