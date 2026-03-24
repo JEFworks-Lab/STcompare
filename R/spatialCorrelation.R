@@ -822,10 +822,10 @@ spatialCorrelationGeneExp <- function(input, alpha = 0.05,
   correctedCorrelation$pValuePermuteY <- p.adjust(correctedCorrelation$pValuePermuteY)
   
   # if there are significantly correlated genes with p-value < alpha and if the 2nd entry in the list of nPermutations is greater than the 1st entry
-  if(sum(kidneyCorrelation$pValuePermuteX < alpha & kidneyCorrelation$pValuePermuteY < alpha) & nPermutations[2] > nPermutations[1]){
+  if(sum(correctedCorrelation$pValuePermuteX < alpha & correctedCorrelation$pValuePermuteY < alpha) & nPermutations[2] > nPermutations[1]){
     
     # return the genes that have an adjusted p-value less than alpha so can recalculate empirical p-value with more permutations
-    genesPermuteAgain <- rownames(correctedCorrelation)[kidneyCorrelation$pValuePermuteX < alpha & kidneyCorrelation$pValuePermuteY < alpha]
+    genesPermuteAgain <- rownames(correctedCorrelation)[correctedCorrelation$pValuePermuteX < alpha & correctedCorrelation$pValuePermuteY < alpha]
     
     # use those genes to subset the gene-by-pixel datasets
     sourcePermuteAgain <- source[genesPermuteAgain,]
