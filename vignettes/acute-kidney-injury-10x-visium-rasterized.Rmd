@@ -270,19 +270,21 @@ p1 + p2
 
 # Identify SVGs 
 
-Of the "good genes" that have expression in at least 5% of spots, we now want to identify which of those genes are spatially variable genes (SVG). 
-
-Existing SVG analysis methods can identify genes that change from spatially variable to not or vice versa across conditions. However, genes that are classified as spatially variable in both conditions can still vary in the specific spatial pattern in each condition. 
+We now want to identify which genes are spatially variable genes (SVG). Existing SVG analysis methods can identify genes that change from spatially variable to not or vice versa across conditions. However, genes that are classified as spatially variable in both conditions can still vary in the specific spatial pattern in each condition. 
 
 Unlike previous methods, `STcompare` is to be able to identify SVGs that change in spatial pattern across datasets.
 To demonstrate this ability to identify that a gene's spatial pattern changed even if the gene is spatially variable in both datasets, we limit the analysis here to only genes that are spatially variable in both control and AKI. However, `STcompare` can be run without filtering for SVGs. 
 
 We use Moran's I to identify SVGs and use the implementation from `MERINGUE`. Here we choose a `filterDist` size that is 2x the size of our rasterization resolution to achieve a neighbor-relationship graph that looks like the image below with connectivity to adjacent neighbors.
 
-```{r include_image, echo=FALSE, fig.cap="A connectivity graph for filterDist = 10", out.width="50%"}
-knitr::include_graphics("acute-kidney-injury-10x-visium/neighbor-relationship-filterDist10.png")
+``` {r moransI}
+  # use MERINGUE to get the neighbor-relationships 
+  w <- MERINGUE::getSpatialNeighbors(SpatialExperiment::spatialCoords(rast$AKI_ctrl), filterDist = 10)
+  par(mfrow=c(1,1))
+  MERINGUE::plotNetwork(SpatialExperiment::spatialCoords(rast$AKI_ctrl), w)
 ```
 
+Define a function to calculate Moran's I for a given SpatialExperiment (optionally specify assay name) and filter distance.
 ``` {r moransI1}
 # Returns a dataframe with these columns: 
 # observed: Observed Moran's I statistic measuring spatial autocorrelation
@@ -303,17 +305,22 @@ moransI <- function(SE_temp, filterDist, assayName=1){
   return(I)
 }
 
+
+```
+
+Run Moran's I for control and AKI datasets separately to identify SVGs in each dataset. We specify the assay name as "CPM" to use the CPM normalized assay for this analysis.
+``` {r moransI2}
 moransI_ctrl <- moransI(rast$AKI_ctrl, filterDist = 10, assayName = "CPM")
 head(moransI_ctrl)
 ```
 
-``` {r moransI2}
+``` {r moransI3}
 moransI_aki <- moransI(rast$AKI_aki, filterDist = 10, assayName = "CPM")
 head(moransI_aki)
 ```
 
 Here we get the list of shared SVGs, those genes which are significantly spatially autocorrelated in both control and AKI
-``` {r moransI3}
+``` {r moransI4}
 # Filter for the genes that are statistically significantly autocorrelated 
 svg_ctrl <- moransI_ctrl %>% filter(p.adj == 0) %>% rownames()
 svg_aki <- moransI_aki %>% filter(p.adj == 0) %>% rownames()
@@ -333,6 +340,7 @@ length(svg_int)
 # there are 2863 genes that are SVGs in either datasets 
 length(svg_uni)
 ```
+
 The functions we used in `MERINGUE` changed the gene names to be syntactically valid for R (prepending the character "X" if a name starts with number and replacing the "-" with "." ). Here we will return the names to the original form.
 ```{r}
 #return names in `svg_int` that are not in `rownames(rast$AKI_ctrl)`
@@ -347,7 +355,7 @@ svg_int <- gsub("\\.", "-", svg_int)
 setdiff(svg_int, rownames(rast$AKI_ctrl))
 ```
 
-#Filter lowly expression genes
+# Filter lowly expression genes
 
 In the case that you run `STcompare` without filtering for SVGs, you do need to apply some alternative filtering. STcompare's `SpatialCorrelation` does not work when there is zero expression of a gene expression as it cannot create permutations for the empirical p-value from zero expression so we must at least remove genes with zero expression. Furthermore, rarely-expressed genes that have noisy expression are not likely to be significantly similarly or differently spatially patterned across datasets. To reduce the computational time of creating permutations for these genes, we can for example use the code below to filter to only include genes that are detected in at least 5% of pixels in both samples in downstream analyses.
 
@@ -365,177 +373,108 @@ length(good.genes)
 
 Next we use STcompare to calculate Pearson's correlation coefficient for genes that were SVGs in both conditions to investigate whether there was a change in the spatial patterning of expression. 
 
+`deltaX` and `deltaY` are the parameters that controlling the degree of smoothing in permutations of datasets X and Y, respectively. 
+Delta is a proportion calculated by dividing k neighbors by N total observations in X, where k is the number of neighbors in the permutation of X that should be within the radius smoothed by the Gaussian kernel to achieve the amount ofautocorrelation present in the original X. 
+If a single delta is not known, a sequence of deltas can be inputted and the best delta will be found such that it minimizes the sum of squares of the residuals between the variogram of the permutation generated from the delta and the variogram of the target.  By default, `STcompare` sets this sequence to `seq(0.1, 0.9, .1)` but here we add two smaller values to the sequence to have finer smoothing options for the permutations. 
+
+`nPermutations` is the parameter that controls how many permutations to create for the empirical p-value estimation. The more permutations, the more accurate the p-value estimation but the longer the runtime. To balance this tradeoff, we can set `STcompare` to first create a smaller number of permutations and then only create a larger number of permutations for genes that have an empirical p-value less than 0.05 based on the smaller number of permutations.
+
 ``` {r spatial-correlation1}
+# set up parameters for spatialCorrelationGeneExp
+
 # choosing the genes that are SVGs in both conditions 
 genes_chosen <- svg_int
 
 ## alternative: choosing the genes that are expressed in greater than 5% of all spots
 # genes_chosen <- good.genes
 
-# The input is the spatial experiment for the genes that are SVGs in both conditions 
+# The input is the spatial experiments subset to the chosen genes of interest
 input <- list('AKI_ctrl'= rast$AKI_ctrl[genes_chosen,],
              'AKI_aki'= rast$AKI_aki[genes_chosen,])
 
+# `deltaX` and `deltaY` are the parameters that controlling the degree of smoothing in permutations of datasets X and Y, respectively
+deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
+
+# creates 100 permutations and then if a gene has an empirical p-value is less than 0.05, creates 1000 permutations for more accurate p-value estimation
+nPermutations <- c(100,1000)
+
 # running spatialCorrelationGeneExp 
-set.seed(0)
 start_time <- Sys.time()
 deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
 kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
   input, 
-  #nPermutations = c(100,1000), # increased the number of permutations to account for stochasticity 
+  nPermutations = nPermutations, 
   deltaX = deltaList, 
   deltaY = deltaList, 
-  returnPermutations = FALSE, 
-  assayName = "CPM", 
-  nThreads = 5,
-  verbose = TRUE
-)
+  assayName = "CPM", # use the CPM normalized assay for this analysis
+  nThreads = 5, # parallelize genes across threads
+  BPPARAM = BiocParallel::MulticoreParam(), #setting up parallel-execution back-end
+  verbose = TRUE, # prints name of gene as progress updates, which is helpful for long runs
+  seed = 0) # set seed for reproducibility of the permutation results
 end_time <- Sys.time()
 print(end_time - start_time) 
 ```
 
-[Jean to Vivien and Kalen: need explanation of what you're doing here]
-Now we can look at the results (explain multiple testing correction and why you're evaluating both permutX and permuteY)
+Now we can look at the results. 
+
+`STcompare::spatialCorrelationGeneExp` returns two adjusted empirical p-values, `pValuePermuteX` from creating an empirical null from permutations
+of observations in X and `pValuePermuteY` from creating an empirical null from permutations of observations in Y. We require both adjusted empirical p-values to be less than 0.05 to consider the gene statistically significantly correlated. 
+
+The `correlationCoef` column contains the Pearson's correlation coefficient for the gene's spatial pattern across the two samples. A positive correlation coefficient indicates that the gene has a similar spatial pattern in both samples, while a negative correlation coefficient indicates that the gene has an opposite spatial pattern in the two samples. The magnitude of the correlation coefficient indicates how similar or different the spatial patterns are, with values closer to 1 or -1 indicating more similar or more different patterns, respectively.
+
+We will save the names of the significantly positively correlated genes and significantly negatively correlated genes in separate vectors to use for downstream analyses. 
 
 ``` {r, spatial-correlation2}
 # look at results
 head(kidneyCorrelation)
 
-# saving the significantly positively correlated svg genes 
+# saving names of the significantly positively correlated svg genes 
 svgSigPos <- kidneyCorrelation %>%
-  dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
-  dplyr::filter(p.adjust(pValuePermuteX) < 0.05 & p.adjust(pValuePermuteY) < 0.05) %>%  
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
   dplyr::filter(correlationCoef > 0) %>% 
   rownames()
 # 360 genes are SVGs that are significantly positively correlated 
 length(svgSigPos)
 
-# saving the significantly negatively correlated svg genes 
+# saving names of the significantly negatively correlated svg genes 
 svgSigNeg <- kidneyCorrelation %>%
-  dplyr::filter(rownames(kidneyCorrelation) %in% svg_int) %>%
-  dplyr::filter(p.adjust(pValuePermuteX) < 0.05 & p.adjust(pValuePermuteY) < 0.05) %>%  
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
   dplyr::filter(correlationCoef < 0) %>% 
   rownames()
 # 5 genes are SVGs that are significantly negatively correlated 
 length(svgSigNeg)
 ```
 
-[Jean to Vivien and Kalen: need explanation of what you're doing here, need to be updated to consider multiple testing]
+Here, we visualize the distribution of correlation coefficients for significantly positively correlated, significantly negatively correlated, and not significantly correlated genes.
 
 ```{r, spatial-correlation3}
+
 # visualize the significantly positively correlate and significantly negatively correlated svg genes  
 # Figure 2J - Rate of Significance for SVGs 
+# add a column for significance category (SigPos, SigNeg, NotSig) based on the svgSigPos and svgSigNeg vectors
 fig_2j <- kidneyCorrelation %>%
   dplyr::mutate(Sig = dplyr::case_when(rownames(kidneyCorrelation) %in% svgSigPos ~ "SigPos",
-                         rownames(kidneyCorrelation) %in% svgSigNeg ~ "SigNeg",
-                         .default = "")) %>%
-  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
-                                     .default = pValuePermuteX)) %>%
-  dplyr::mutate(pValueEmpiricalRound = dplyr::case_when(pValueEmpirical == 0 ~ 0.01,
-                                    .default = pValueEmpirical)) %>%
-  ggplot2::ggplot(ggplot2::aes(x= correlationCoef, 
-                               y = -log10(pValueEmpiricalRound), 
-                               color = Sig)) + 
-  ggplot2::geom_point(alpha = 0.25, size = 1) +
-  ggplot2::xlim(NA,1) +
-  ggplot2::scale_color_manual(values = c("SigPos" = "green", "SigNeg" = "blue")) +
+                                       rownames(kidneyCorrelation) %in% svgSigNeg ~ "SigNeg",
+                                       .default = "NotSig")) %>%
+  ggplot2::ggplot(ggplot2::aes(x= Sig, y = correlationCoef, color = Sig)) +
+  ggplot2::geom_violin() +
+  ggplot2::geom_jitter(width = 0.2, alpha = 0.1) +
+  ggplot2::ylim(-1,1) +
+  ggplot2::scale_color_manual(values = c("SigPos" = "green", "SigNeg" = "blue", "NotSig" = "grey")) +
   ggplot2::theme_classic() +
-  ggplot2::geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  + 
-  ggplot2::labs(x = "Correlation" , y = "-log10(p-value)", title = "Rate of Significance for SVGs")
+  ggplot2::labs(x = "Significance", 
+                y = "Correlation Coefficient", 
+                title = "Correlation Coefficient for Significantly Positively, Negatively, and Not Significantly Correlated SVGs")
 fig_2j
 
-# Adding a column for the empirical p-value (pValueEmpirical) 
-# defined as the larger of the two x and y permuted p-values (greater of pValuePermuteX and pValuePermuteY)
-kidneyCorrelationEmpirical <- kidneyCorrelation %>%
-  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
-                                     .default = pValuePermuteX))
-```
-
-# Spatial Correlation and Fold Change Similarity 
-
-[Jean to Vivien and Kalen: how did you choose these genes? Better to take data driven approach]
-
-Here we show two examples of the significantly correlated SVG genes. Cbr1 is negatively correlated while Acsm2 is positively correlated.
-
-In Crb1, for the control, gene expression closer to the center of the tissue (inner medulla), while in the AKI sample, gene expression was closer the edge of the issue (cortex). 
-1. The **correlation metric** was used to show that there is a significantly negative correlation between the two samples. 
-2. The **fold change similarity metric** was used to show that samples are not similar based on fold change. 
-
-In Acsm2, gene expression was concentrated around the edge of the issue (cortex) in both cases, but 
-1. The **correlation metric** was used to show that there is a significantly positive correlation between the two samples. 
-2. Even though expression pattern remained the same, **fold change similarity metric** was used to show that there is higher overall expression in the control. 
-
-
-``` {r correlation-plots1}
-# kidneyCorrPos <- kidneyCorrelation[svgSigPos,]
-# head(kidneyCorrPos[order(kidneyCorrPos$correlationCoef, decreasing=TRUE),])
-# gene1 <- 'Slc5a3'
-# kidneyCorrNeg <- kidneyCorrelation[svgSigNeg,]
-# head(kidneyCorrNeg[order(kidneyCorrNeg$correlationCoef, decreasing=FALSE),])
-# gene2 <- 'Ech1'
-
-#filter the correlation dataframe to only the genes that are significantly positively correlated
-kidneyCorrPos <- kidneyCorrelation[svgSigPos,]
-#arrange this resulting dataframe in descending order for the correlation coefficient 
-kidneyCorrPos %>% arrange(desc(correlationCoef))
-#save the name of the significantly positively correlated gene with the highest correlation coefficient
-gene1 <- kidneyCorrPos %>% arrange(desc(correlationCoef)) %>% rownames() %>% head(1)
-
-#filter the correlation dataframe to only the genes that are significantly negatively correlated
-kidneyCorrNeg <- kidneyCorrelation[svgSigNeg,]
-#arrange this resulting dataframe in ascending order for the correlation coefficient 
-kidneyCorrNeg %>% arrange(correlationCoef)
-#save the name of the significantly negatively correlated gene with the lowest correlation coefficient
-gene2 <- kidneyCorrNeg %>% arrange(correlationCoef) %>% rownames() %>% head(1)
 
 ```
 
+# Spatial Fold Change Similarity 
 
-[Jean to Vivien and Kalen: what is each code chunk doing? if someone wants to run on their own data, how do they know what they can copy and paste? Note this function does not work if input[[1]] is not the same as AKI_ctrl_SE so I've modified it]
+Next, we use `STcompare::spatialSimilarity` to calculate the fold change similarity metric for the same genes that were SVGs in both conditions to investigate whether there is a magnitude change in the spatial patterning of expression.
 
-
-``` {r correlation-plots2}
-
-# plot spatial patterns of example genes
-sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast$AKI_ctrl)),
-                           rownames(SpatialExperiment::spatialCoords(rast$AKI_aki)))
-
-gene1_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene1, sharedPixels], assay_name = "CPM", name = "CPM expression")
-gene1_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene1, sharedPixels], assay_name = "CPM", name = "CPM expression")
-
-gene1_plt_ctrl + gene1_plt_aki
-
-gene2_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene2, sharedPixels], assay_name = "CPM", name = "CPM expression")
-gene2_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene2, sharedPixels], assay_name = "CPM", name = "CPM expression")
-
-gene2_plt_ctrl + gene2_plt_aki
-
-# Figure 2h - example of correlation visualization 
-# use the plotCorrelationGeneExp function to generate the correlation plots 
-
-gene1_corr <- plotCorrelationGeneExp(
-  speList = input, 
-  spatialCorrelation = kidneyCorrelation, 
-  geneName = gene1, 
-  assayName = "CPM"
-  )
-gene2_corr <- plotCorrelationGeneExp(
-  speList = input, 
-  spatialCorrelation = kidneyCorrelation, 
-  geneName = gene2, 
-  assayName = "CPM"
-  )
-
-gene1_corr
-
-gene1_plt_ctrl | gene1_plt_aki | gene1_corr
-
-gene2_plt_ctrl | gene2_plt_aki | gene2_corr
-```
-
-[Jean to Vivien and Kalen - STcompare::spatialSimilarity andSTcompare::linearRegression are still giving me issues so I am not able to run this]
-
-```{r correlation-plots3}
+```{r spatial-similarity}
 
 # Finding the spatial similarity
 # If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
@@ -543,23 +482,9 @@ start_time <- Sys.time()
 ss <- STcompare::spatialSimilarity(input, foldChange = 1, assayName = "CPM", t1 = NULL, t2 = NULL)
 end_time <- Sys.time()
 print(end_time-start_time)
-
-
-# Figure 2I - fold change linear regression and spot classification 
-gene1_lr <- STcompare::linearRegression(ss, gene=gene1, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
-cbr1_lr <- STcompare::linearRegression(ss, gene=gene2, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
-
-gene1_pc <- pixelClass(ss, gene=gene1, assayName = "CPM")
-gene2_pc <- pixelClass(ss, gene=gene2, assayName = "CPM")
-
- gene1_lr | gene1_pc
-gene2_plt_ctrl + gene2_plt_aki + gene2_corr + gene2_lr + gene2_pc
-
-
 ```
 
-
-Finally, we compare the correlation and similarity metrics for each gene and showed that the compare the correlation and similarity metrics offer orthogonal insights. 
+We compare the correlation and similarity metrics for only the significantly correlated genes and showed that the correlation and similarity metrics offer orthogonal insights as both significantly positively and significantly negatively correlated genes can have a range of similarity values.
 
 ``` {r fig2k}
 
@@ -588,6 +513,90 @@ sim_corr_plt <- sim_corr %>%
 sim_corr_plt
 
 ```
+
+# Visualization of Example Genes
+
+Lastly, we visualize the correlation and similarity metrics for two example genes, 
+
+1) one significantly positively correlated gene but with low similarity because expression in one condition is greater than the other for all pixels and
+2) one significantly negatively correlated gene with the smallest difference in number of pixels for which expression in AKI is twice as much as control (y > 2x; `percentDissimilarityY`) and number of pixels for which expression in control is twice as much as AKI (x > 2y; `percentDissimilarityX`). 
+
+```{r correlation-plots3}
+# for the significantly positively correlated svg genes, get gene with lowest similarity (if tied break tie by highest correlation coefficient)
+gene1 <- sim_corr %>%
+  dplyr::filter(gene %in% svgSigPos) %>% # filter to only significantly positively correlated genes
+  dplyr::arrange(desc(correlation)) %>% # if there are ties in similarity, the gene with the highest correlation coefficient will be at the top
+  dplyr::arrange(similar) %>% # arrange in ascending order of similarity so that the gene with the lowest similarity is at the top, 
+  dplyr::pull(gene) %>%
+  head(1)
+
+# for the significantly negatively correlated svg genes, get gene with smallest difference in percent dissimilarity
+gene2 <- sim_corr %>%
+  dplyr::filter(gene %in% svgSigNeg) %>% # filter to only significantly negatively correlated genes
+  dplyr::mutate(diff = abs(percentDissimilarityX - percentDissimilarityY)) %>% # create a new column for the absolute difference between percentDissimilarityX and percentDissimilarityY
+  dplyr::arrange(diff) %>% # arrange in ascending order of the difference column so that the gene with the smallest difference is at the top
+  dplyr::pull(gene) %>%
+  head(1)
+```
+
+[Jean to Vivien and Kalen: what is each code chunk doing? if someone wants to run on their own data, how do they know what they can copy and paste? Note this function does not work if input[[1]] is not the same as AKI_ctrl_SE so I've modified it]
+Next, we use `SEraster::plotRaster` to plot gene expression for the two example genes in control and AKI samples to visualize the spatial patterns of expression. 
+Then, we use `STcompare::plotCorrelationGeneExp` to visualize the correlation of the spatial patterns across the two samples for each gene. 
+
+
+``` {r correlation-plots2}
+
+# plot gene expression spatial patterns of example genes
+
+#get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast$AKI_ctrl)),
+                           rownames(SpatialExperiment::spatialCoords(rast$AKI_aki)))
+
+#use SEraster::plotRaster to plot the spatial pattern of gene expression for each gene in each sample for only the shared pixels
+gene1_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene1, sharedPixels], assay_name = "CPM", name = "CPM expression")
+gene1_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene1, sharedPixels], assay_name = "CPM", name = "CPM expression")
+
+gene2_plt_ctrl  <- SEraster::plotRaster(rast$AKI_ctrl[gene2, sharedPixels], assay_name = "CPM", name = "CPM expression")
+gene2_plt_aki <- SEraster::plotRaster(rast$AKI_aki[gene2, sharedPixels], assay_name = "CPM", name = "CPM expression")
+
+
+# use the plotCorrelationGeneExp function to generate the correlation plots 
+
+gene1_corr <- plotCorrelationGeneExp(
+  speList = input, 
+  spatialCorrelation = kidneyCorrelation, 
+  geneName = gene1, 
+  assayName = "CPM"
+  )
+gene2_corr <- plotCorrelationGeneExp(
+  speList = input, 
+  spatialCorrelation = kidneyCorrelation, 
+  geneName = gene2, 
+  assayName = "CPM"
+  )
+
+# use patchwork to put three plots together for each gene
+gene1_plt_ctrl | gene1_plt_aki | gene1_corr
+gene2_plt_ctrl | gene2_plt_aki | gene2_corr
+```
+
+Lastly, we use `STcompare::linearRegression` to visualize the fold change relationship across pixels and classifications for eache pixel for each gene as a scatter plot and `STcompare::pixelClass` to show the spatial pattern of the pixel classification. In both cases, pixels are classified into categories based on whether they have higher expression in control, higher expression in AKI, or similar expression in both samples.
+
+```{r correlation-plots3}
+# Figure 2I - fold change linear regression and spot classification 
+gene1_lr <- STcompare::linearRegression(ss, gene=gene1, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+cbr1_lr <- STcompare::linearRegression(ss, gene=gene2, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+
+gene1_pc <- pixelClass(ss, gene=gene1, assayName = "CPM")
+gene2_pc <- pixelClass(ss, gene=gene2, assayName = "CPM")
+
+# use patchwork to put two plots together for each gene
+gene1_lr | gene1_pc
+gene2_lr | gene2_pc
+
+```
+
+
 
 
 
