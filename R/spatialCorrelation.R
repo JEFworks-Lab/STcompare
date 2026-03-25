@@ -521,7 +521,7 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
     #estimate and naive p-value assuming independence
     corDF <- cor.test(dataForward$X, dataForward$Y)
 
-    ## Calculate corrected p-value for Pearson's correlation with nPermutationsMin
+    ## Calculate corrected p-value for Pearson's correlation with nPermutations
     resultsPermuteX <- viladomatCorrelation(dataForward, delta = deltaX,
                                             maxDistPrctile = maxDistPrctile,
                                             nPermutations = nPermutations,
