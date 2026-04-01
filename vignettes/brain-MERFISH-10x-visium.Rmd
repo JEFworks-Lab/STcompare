@@ -32,6 +32,7 @@ library(patchwork)
 library(BiocGenerics)
 library(SEraster)
 library(rjson)
+library(scatterbar)
 
 ```
 
@@ -76,6 +77,8 @@ names(annot) <- names(df)
 vi <- annot > 0.95
 MERFISH.pos.good <- pos.aligned[vi,]
 colnames(MERFISH.pos.good) <- c("y", "x")
+
+MERFISH.pos.good <- MERFISH.pos.good[,c("x", "y")]
 
 #plot
 MERINGUE::plotEmbedding(MERFISH.pos.good, col=colSums(MERFISH.gexp[, rownames(MERFISH.pos.good)]))
@@ -134,6 +137,7 @@ convert <- fromJSON(file = scale_path)
 range(Visium.pos.good*convert$tissue_hires_scalef)
 Visium.pos.good <- Visium.pos.good*convert$tissue_hires_scalef
 colnames(Visium.pos.good) <- c("y", "x")
+Visium.pos.good <- Visium.pos.good[,c("x", "y")]
 
 ## plot
 Visium.gexp.raw <- as.matrix(Visium.gexp.raw)
@@ -539,8 +543,7 @@ vizAllTopics(deconProp, pos,
 load('~/IV_LDDMM/dev/fig2_ct_clean.RData')
 ```
 
-``` {r loading_cell_types}
-## search for exemplary alignments to showcase
+``` {r plot_cell_types}
 
 set.seed(111111)
 #ccols <- sample(rainbow(16), 16)
@@ -548,25 +551,28 @@ ccols <- rep('#eeeeee', nrow(cmat))
 names(ccols) <- rownames(cmat)
 ccols[best.cts] <- sample(rainbow(length(best.cts)), length(best.cts))
 ccols
+names(ccols) <- make.names(names(ccols))
 
-par(mfrow=c(2,1), mar=rep(1,4))
+#plot the cell type labels for MERFISH
+par(mfrow=c(1,1), mar=rep(1,4))
 MERINGUE::plotEmbedding(MERFISH.pos.good, groups=ct.align, group.level.colors = ccols, cex=0.5) ## on tissue
-MERINGUE::plotEmbedding(Visium.pos.good, col=deconProp.align, cex=1)
 
-#use scatterbar to visualize the proportion of each region in each sample
-library(scatterbar)
+#plot the deconvolved cell type proportions for Visium
 dfproportions <- data.frame(deconProp.align)
 dfcoords <- data.frame(SpatialExperiment::spatialCoords(Visium_SE))
 
 p9 <- scatterbar::scatterbar(data = dfproportions, 
                               xy = dfcoords, 
-                              size_x = 4, size_y = 4, 
+                              size_x = 15, size_y = 15, 
+                              colors = ccols,
                               padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
                               ggplot2::theme(legend.position="none")
 
+p9
 head(ct.align)
 head(deconProp.align)
 
+# plot the cell type labels for MERFISH and the deconvolved cell type proportions for Visium side by side for each cell type and plot the correlation between the two
 par(mfrow=c(9,3), mar=rep(1,4))
 lapply(c(best.cts), function(g) {
   MERINGUE::plotEmbedding(Visium.pos.good[as.numeric(levels(as.factor(idx2))),], col=MERFISH.spot.ct.prop[,g], main=paste0('MERFISH spot:', g), cex=0.2)
@@ -576,17 +582,196 @@ lapply(c(best.cts), function(g) {
 ```
 
 ``` {r loading_cell_types}
-# save the cluster labels in spatial experiments
-MERFISH_SE$ct <- ct.align[colnames(MERFISH_SE)]
-Visium_SE$ct <- deconProp.align[colnames(Visium_SE)]
+
+# make new spatial experiments with cluster labels as the assay
+temp_Visium_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(celltypes = t(deconProp.align)),
+  spatialCoords = as.matrix(Visium.pos.good)
+
+)
+# make new spatial experiment for MERFISH with one-hot encoded cluster labels as the assay
+one_hot <- model.matrix(~ x - 1, data = data.frame( x = ct.align[intersect(colnames(MERFISH_SE), names(ct.align))]))
+colnames(one_hot) <- gsub("x", "", colnames(one_hot))
+
+temp_MERFISH_SE_ct <- SpatialExperiment::SpatialExperiment(
+  assays = list(celltypes = t(one_hot)),
+  spatialCoords = as.matrix(MERFISH.pos.good[intersect(colnames(MERFISH_SE), names(ct.align)), ])
+)
+
+#MERFISH_SE$ct <- ct.align[intersect(colnames(MERFISH_SE), names(ct.align))]
+#Visium_SE$ct <- deconProp.align[colnames(Visium_SE)]
+
 ```
 
 ``` {r rasterize_cell_types}
-# rasterize the cell type labels for both samples using rasterizeCellType
-rast_clusters <- SEraster::rasterizeCellType(input, 
+
+# try saving the cluster labels in spatial experiments in the colData
+intersect(colnames(MERFISH_SE), names(ct.align))
+dim(MERFISH_SE[, intersect(colnames(MERFISH_SE), names(ct.align))])
+
+temp_MERFISH_SE <- MERFISH_SE[, intersect(colnames(MERFISH_SE), names(ct.align))]
+temp_MERFISH_SE$ct <- ct.align[intersect(colnames(MERFISH_SE), names(ct.align))]
+
+# rasterize the cell type labels for MERFISH using rasterizeCellType
+rast_clusters <- SEraster::rasterizeCellType(temp_MERFISH_SE, 
   col_name = "ct", 
   resolution = resolution, 
   fun = "mean", 
   square = FALSE,
   BPPARAM = BiocParallel::MulticoreParam())
+
+
+#use scatterbar to visualize the proportion of each region in each sample
+dfproportions_MERFISH <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_clusters))))
+dfcoords_MERFISH <- data.frame(SpatialExperiment::spatialCoords(rast_clusters))
+
+p9 <- scatterbar::scatterbar(data = dfproportions_MERFISH, 
+                              xy = dfcoords_MERFISH, 
+                              size_x = 15, size_y = 15,
+                              colors = ccols, 
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+p9
+
+#get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast$MERFISH)),
+                           rownames(SpatialExperiment::spatialCoords(rast_clusters)))
+
+SEraster::plotRaster(rast$MERFISH[geneSig, sharedPixels], assay_name = "lognorm", name = "log-normalized expression")
+SEraster::plotRaster(rast_clusters[, sharedPixels], assay_name = "lognorm", name = "log-normalized expression")
+```
+
+``` {r rasterize_cell_types_as_genes}
+# rasterize the cell type labels for Visium using rasterizeGeneExpression since we have the deconvolved proportions for Visium rather than discrete cluster labels
+
+input <- list(Visium = temp_Visium_SE, MERFISH = temp_MERFISH_SE_ct)
+rast_clusters_ct <- SEraster::rasterizeGeneExpression(input, 
+  assay_name = "celltypes", 
+  resolution = resolution, 
+  fun = "mean", 
+  square = FALSE,
+  BPPARAM = BiocParallel::MulticoreParam())
+
+
+#get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast_clusters_ct$Visium)),
+                           rownames(SpatialExperiment::spatialCoords(rast_clusters_ct$MERFISH)))
+
+#use scatterbar to visualize the proportion of each region in each sample
+dfproportions_Visium <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_clusters_ct$Visium)[, sharedPixels])))
+dfcoords_Visium <- data.frame(SpatialExperiment::spatialCoords(rast_clusters_ct$Visium)[sharedPixels, ])
+
+p10 <- scatterbar::scatterbar(data = dfproportions_Visium, 
+                              xy = dfcoords_Visium, 
+                              size_x = 15, size_y = 15,
+                              colors = ccols, 
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+p10
+
+#use scatterbar to visualize the proportion of each region in each sample
+dfproportions_MERFISH <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_clusters_ct$MERFISH)[, sharedPixels])))
+dfcoords_MERFISH <- data.frame(SpatialExperiment::spatialCoords(rast_clusters_ct$MERFISH)[sharedPixels, ])
+
+p11 <- scatterbar::scatterbar(data = dfproportions_MERFISH, 
+                              xy = dfcoords_MERFISH, 
+                              size_x = 15, size_y = 15,
+                              colors = ccols, 
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+p11
+
+p10 + p11
+
+```
+
+``` {r spatial_correlation_cell_types}
+# running spatialCorrelationGeneExp 
+deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
+
+set.seed(0)
+start_time <- Sys.time()
+ctCorrelation <- STcompare::spatialCorrelationGeneExp(
+  rast_clusters_ct, 
+  deltaX = deltaList, 
+  deltaY = deltaList, 
+  nPermutations = 100, 
+  returnPermutations = FALSE,
+  nThreads = 5
+)
+end_time <- Sys.time()
+print(end_time - start_time) #Time difference of 3.342462 mins
+
+```
+
+``` {r spatial-correlation2}
+
+# saving the significantly positively correlated svg genes 
+ctSigPos <- ctCorrelation %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef > 0) %>%
+  dplyr::arrange(desc(correlationCoef)) %>% 
+  rownames()
+
+# number of cell types that are significantly positively correlated 
+length(ctSigPos)
+
+# saving the significantly negatively correlated svg genes 
+ctSigNeg <- ctCorrelation %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef < 0) %>% 
+  rownames()
+
+# number of cell types that are significantly negatively correlated 
+length(ctSigNeg)
+
+# saving the not significantly correlated non-svg genes
+ctNotSig <- ctCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(ctCorrelation)) %>% 
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  dplyr::arrange(correlationCoef) %>% 
+  rownames()
+
+# number of cell types that are not significantly correlated
+length(ctNotSig)
+```
+
+```{r}
+# Visualization of example cell types
+
+# plot gene expression spatial patterns of example genes
+ctSig <- ctSigPos[1]
+ctNotSig <- ctNotSig[1]
+
+#use SEraster::plotRaster to plot the spatial pattern of gene expression for each gene in each sample for only the shared pixels
+ctSigPltMERFISH  <- SEraster::plotRaster(rast_clusters_ct$MERFISH[ctSig, sharedPixels], name = "cell type proportion")
+ctSigPltVisium <- SEraster::plotRaster(rast_clusters_ct$Visium[ctSig, sharedPixels], name = "cell type proportion")
+
+ctNotSigPltMERFISH  <- SEraster::plotRaster(rast_clusters_ct$MERFISH[ctNotSig, sharedPixels], name = "cell type proportion")
+ctNotSigPltVisium <- SEraster::plotRaster(rast_clusters_ct$Visium[ctNotSig, sharedPixels], name = "cell type proportion")
+
+# use the plotCorrelationGeneExp function to generate the correlation plots 
+
+ct_corr_Sig <- plotCorrelationGeneExp(
+  speList = rast_clusters_ct,
+  spatialCorrelation = ctCorrelation, 
+  geneName = ctSig
+  )
+
+ctSigPltMERFISH + ctSigPltVisium + ct_corr_Sig
+
+
+ct_corr_NotSig <- plotCorrelationGeneExp(
+  speList = rast_clusters_ct,
+  spatialCorrelation = ctCorrelation, 
+  geneName = ctNotSig
+  )
+
+ctNotSigPltMERFISH + ctNotSigPltVisium + ct_corr_NotSig
+
+(ctSigPltMERFISH | ctSigPltVisium | ct_corr_Sig) / (ctNotSigPltMERFISH | ctNotSigPltVisium  | ct_corr_NotSig)
+
 ```
