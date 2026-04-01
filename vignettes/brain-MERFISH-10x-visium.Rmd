@@ -38,10 +38,11 @@ library(scatterbar)
 
 # Introduction 
 
-This tutorial demonstrate comparing two previously published murine brain sections assayed by two different ST technologies: single cell resolution MERFISH and spot-resolution 10x Visium. 
+This tutorial demonstrate comparing two previously published murine brain sections assayed by two different ST technologies: single cell resolution MERFISH and spot-resolution 10x Visium. We will quantify the spatial correspondence of both gene expression and cell type patterns across the two technologies.
 
 # Load files
 
+The MERFISH data, Slice 2 Replicate 3 (S2R3), aligned to the Visium data with STalign can be found at Zenodo: https://zenodo.org/records/10724029. We will download the gene expression and position matrix.
 ```{r load-data}
 
 # The MERFISH data can be found at Zenodo: https://zenodo.org/records/10724029
@@ -61,13 +62,6 @@ MERFISH.gexp <- as.matrix(t(MERFISH.gexp))
 head(MERFISH.gexp)
 
 # MERFISH positions #################################################
-# url <- "https://github.com/JEFworks-Lab/STalign/raw/refs/heads/main/docs/merfish_data/mouse_brain_map_BrainReceptorShowcase_Slice2_Replicate3_STalign_to_Slice2_Replicate2_STalign_to_Visium_tissue_hires_image_with_point_annotator_filtered.csv.gz"
-# temp <- tempfile(fileext = ".csv.gz")
-# download.file(url, temp, mode = "wb")
-# 
-# #Read the csv file
-# pos <- read.csv(gzfile(temp), row.names = 2)
-# head(pos)
 
 #subset area most informative (had high weight) in mapping with Visium
 pos.aligned <- df[, c("STalign_y", "STalign_x")]
@@ -78,12 +72,14 @@ vi <- annot > 0.95
 MERFISH.pos.good <- pos.aligned[vi,]
 colnames(MERFISH.pos.good) <- c("y", "x")
 
+#switch x and y to match the convention of scatterbar
 MERFISH.pos.good <- MERFISH.pos.good[,c("x", "y")]
 
 #plot
 MERINGUE::plotEmbedding(MERFISH.pos.good, col=colSums(MERFISH.gexp[, rownames(MERFISH.pos.good)]))
 ```
 
+The Visium data, FFPE-preserved adult mouse brain section, can be found at 10X Genomics: https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0. We will download the raw counts for the Visium data first.
 ```{r load-data2}
 # The Visium can be found on 10X Genomics:https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0 
 
@@ -114,6 +110,7 @@ colnames(Visium.gexp.raw) <- Visium.barcodes[,1]
 head(Visium.gexp.raw)
 ```
 
+Next, we will download the position information for the Visium data, which includes the spatial coordinates of each spot and the scale factor to convert those coordinates to microns.
 ```{r load-data3}
 # Visium positions #############################################################
 
@@ -143,9 +140,9 @@ Visium.pos.good <- Visium.pos.good[,c("x", "y")]
 Visium.gexp.raw <- as.matrix(Visium.gexp.raw)
 par(mfrow=c(1,1))
 MERINGUE::plotEmbedding(Visium.pos.good, col=colSums(Visium.gexp.raw))
-#MERINGUE::plotEmbedding(Visium.pos.good, col=Visium.gexp.raw[gene,])
 ```
 
+We will only be able to compare genes that are shared across the two technologies, so we will subset to the genes that are shared across the two datasets.
 ```{r}
 genes.have <- intersect(rownames(Visium.gexp.raw), rownames(MERFISH.gexp))
 length(genes.have)
@@ -155,7 +152,7 @@ length(genes.have)
 
 Now that both the counts and the position matrices have been loaded, the input to `STcompare` is a [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html"). They are objects that store spatial transcriptomics data, in this case, combining gene expression matrices with the spatial coordinates of each spatial location. 
 
-To control for detection efficiency differences between the two technologies, we performed the same counts-per-million normalization on the Visium spot gene expression measurements and the MERFISH cell gene expression measurements.
+To control for detection efficiency differences between the two technologies, we perform the same counts-per-million normalization on the Visium spot gene expression measurements and the MERFISH cell gene expression measurements.
 
 ```{r create_spatial_experiment1}
 MERFISH_SE <- SpatialExperiment::SpatialExperiment(
@@ -178,39 +175,37 @@ Visium_SE <- SpatialExperiment::SpatialExperiment(
 `STcompare` takes a list of [`SpatialExperiment`]("https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") objects and requires them to have matched spatial locations. Use `SEraster` to rasterize multiple samples onto the same coordinate system, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial]("https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html")
 
 ```{r}
+# Create a list of SpatialExperiment objects to rasterize
 spe_list <- list(MERFISH = MERFISH_SE, Visium = Visium_SE)
-resolution = 10
+# Choose a rasterization resolution that is appropriate for the data. The resolution should be large enough to capture the spatial patterns of interest but not too large that it smooths out important details. 
 resolution = 20
+# Rasterize the gene expression data for each sample onto the same coordinate system. This will create a new list of SpatialExperiment objects that contains the rasterized gene expression values.
 rast <- SEraster::rasterizeGeneExpression(spe_list, 
                                             resolution = resolution,
                                             assay_name = 'libnorm',
                                             fun = "mean",
                                             square = FALSE,
                                             BPPARAM = BiocParallel::MulticoreParam())
-gene <- "Baiap2"
-gene <- "Gabbr2"
-plt1 <- SEraster::plotRaster(rast[["MERFISH"]][gene,], name = paste0(gene, " normalized expression")) + ggplot2::theme_void()
-plt2 <- SEraster::plotRaster(rast[["Visium"]][gene,], name = paste0(gene, " normalized expression")) + ggplot2::theme_void()
 
-plt1 + plt2
-
-#do log transformation after mean-rasterization
+# add an assay that computes log transformation after mean-rasterization
 SummarizedExperiment::assay(rast[["MERFISH"]], "lognorm") <- log10(SummarizedExperiment::assay(rast[["MERFISH"]]) + 1)
 SummarizedExperiment::assay(rast[["Visium"]], "lognorm") <- log10(SummarizedExperiment::assay(rast[["Visium"]]) + 1)
 
-
-plt3 <- SEraster::plotRaster(rast[["MERFISH"]][gene,], assay_name = "lognorm", name = paste0(gene, " log normalized expression")) + ggplot2::theme_void()
-plt4 <- SEraster::plotRaster(rast[["Visium"]][gene,], assay_name = "lognorm", name = paste0(gene, " log normalized expression")) + ggplot2::theme_void()
-
-plt3
-plt4
-
-plt3 + plt4
-
 ```
+
+Visualize the spatial patterns of gene expression for example genes in the rasterized data. We expect to see similar spatial patterns of gene expression across the two technologies for the same gene.
+```{r}
+gene <- "Baiap2"
+
+plt1 <- SEraster::plotRaster(rast[["MERFISH"]][gene,], assay_name = "lognorm", name = paste0(gene, " log normalized expression")) + ggplot2::theme_void()
+plt2 <- SEraster::plotRaster(rast[["Visium"]][gene,], assay_name = "lognorm", name = paste0(gene, " log normalized expression")) + ggplot2::theme_void()
+
+plt1 + plt2
+```
+
 #Filter lowly expression genes
 
-STcompare's `SpatialCorrelation` does not work when there is zero expression of a gene expression as cannot create permutations for the empirical p-value from zero expression.
+STcompare's `SpatialCorrelation` does not work when there is zero expression of a gene expression as it cannot create permutations for the empirical p-value from zero expression.
 ```{r}
 # gene is expressed in greater than 1% of all spots 
 # this has to be true in both datasets to be considered a "good gene" 
@@ -240,6 +235,7 @@ moransI <- function(SE_temp, filterDist, assayName=1){
   # Identify significantly spatially auto-correlated genes
   I <- MERINGUE::getSpatialPatterns(SummarizedExperiment::assays(SE_temp)[[assayName]], w)
   
+  # filter for significant spatially auto-correlated genes with multiple testing correction and a minimum percentage of cells driving the pattern
   results.filter <- MERINGUE::filterSpatialPatterns(mat = SummarizedExperiment::assays(SE_temp)[[assayName]],
                                           I = I,
                                           w = w,
@@ -263,23 +259,6 @@ Calculate Moran's I on the non-rasterized Visium data.
 moransI_Visium <- moransI(Visium_SE, filterDist = 25, assayName = "libnorm")
 head(moransI_Visium)
 
-# "moransI_MERFISH" and "moransI_Visium" are dataframes these columns: 
-# observed: Observed Moran's I statistic measuring spatial autocorrelation
-#           Positive values = spatially clustered expression pattern
-#           Values range from -1 to 1
-
-# expected: Expected Moran's I under null hypothesis of random distribution
-#           Typically close to zero
-
-# sd: Standard deviation of Moran's I under the null hypothesis
-#     Used to calculate the test statistic
-
-# p.value: Statistical significance of the spatial pattern
-#          Lower values = stronger evidence of non-random spatial expression
-
-# p.adj: Adjusted p-value (FDR-corrected) for multiple testing correction
-
-# minPercentCells: Minimum percent of cells/spots that must be driving spatial pattern as calculated by LISA
 ```
 
 ``` {r moransI3}
@@ -601,45 +580,6 @@ temp_MERFISH_SE_ct <- SpatialExperiment::SpatialExperiment(
 #MERFISH_SE$ct <- ct.align[intersect(colnames(MERFISH_SE), names(ct.align))]
 #Visium_SE$ct <- deconProp.align[colnames(Visium_SE)]
 
-```
-
-``` {r rasterize_cell_types}
-
-# try saving the cluster labels in spatial experiments in the colData
-intersect(colnames(MERFISH_SE), names(ct.align))
-dim(MERFISH_SE[, intersect(colnames(MERFISH_SE), names(ct.align))])
-
-temp_MERFISH_SE <- MERFISH_SE[, intersect(colnames(MERFISH_SE), names(ct.align))]
-temp_MERFISH_SE$ct <- ct.align[intersect(colnames(MERFISH_SE), names(ct.align))]
-
-# rasterize the cell type labels for MERFISH using rasterizeCellType
-rast_clusters <- SEraster::rasterizeCellType(temp_MERFISH_SE, 
-  col_name = "ct", 
-  resolution = resolution, 
-  fun = "mean", 
-  square = FALSE,
-  BPPARAM = BiocParallel::MulticoreParam())
-
-
-#use scatterbar to visualize the proportion of each region in each sample
-dfproportions_MERFISH <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_clusters))))
-dfcoords_MERFISH <- data.frame(SpatialExperiment::spatialCoords(rast_clusters))
-
-p9 <- scatterbar::scatterbar(data = dfproportions_MERFISH, 
-                              xy = dfcoords_MERFISH, 
-                              size_x = 15, size_y = 15,
-                              colors = ccols, 
-                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
-                              ggplot2::theme(legend.position="none")
-
-p9
-
-#get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
-sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast$MERFISH)),
-                           rownames(SpatialExperiment::spatialCoords(rast_clusters)))
-
-SEraster::plotRaster(rast$MERFISH[geneSig, sharedPixels], assay_name = "lognorm", name = "log-normalized expression")
-SEraster::plotRaster(rast_clusters[, sharedPixels], assay_name = "lognorm", name = "log-normalized expression")
 ```
 
 ``` {r rasterize_cell_types_as_genes}
