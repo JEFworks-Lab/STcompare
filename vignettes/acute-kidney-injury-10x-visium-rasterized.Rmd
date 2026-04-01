@@ -187,6 +187,12 @@ pos_rot_plot
 
 Since we want to eventually attribute spatial changes in gene expression patterns to AKI by comparing the same spatial locations in the control and AKI, it is important that we use an alignment method to make the matched spatial locations contain the same regions within the tissue and remove structural differences that could be confounding.  If we do not minimize structural misalignment, then we can less confidently conclude that the gene expression variation that we observe is due AKI.
 
+Here, we used STalign to perform an affine-only alignment based on one-hot encoding of region labels: cortex, outer medulla, and inner medulla.
+```{r, align}
+
+```
+
+
 Here, we attempt to minimize structural misalignment using an affine alignment by 
 1) mean-centering the control and AKI x-positions via subtracting the respective mean x-positions from each of the x-positions
 2) stretching the y-positions of AKI to the max y-position of the control via max scaling the AKI x-positions then multiplying by the max y-position of the control 
