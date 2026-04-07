@@ -1,8 +1,9 @@
 # TODO: new block that implements iterative permutations
+
+
 # iterative permutations with BH default MHT ###################################
 
 # helper ---------------------------------------------------------------
-
 .run_spatial_correlation_iteration <- function(
     genes,
     source,
@@ -25,6 +26,8 @@
   }
 
   res_list <- lapply(seq_along(genes), function(j) {
+
+    # store the gene name
     gene <- genes[j]
 
     if (verbose) {
@@ -56,27 +59,10 @@
   do.call(rbind, res_list)
 }
 
-.get_genes_to_repermute <- function(results_df, alpha) {
-  keep <- results_df$pValuePermuteX < alpha & results_df$pValuePermuteY < alpha
+.get_genes_to_repermute <- function(results_df, alpha, nPermutes) {
+  t <- alpha / nPermutes
+  keep <- results_df$pValuePermuteX < t & results_df$pValuePermuteY < t
   rownames(results_df)[keep]
-}
-
-
-.apply_mht_correction <- function(results_df, total_hypotheses_tested,
-                                  method = "BH") {
-  results_df$pValuePermuteXAdj <- p.adjust(
-    results_df$pValuePermuteX,
-    method = method,
-    n = total_hypotheses_tested
-  )
-
-  results_df$pValuePermuteYAdj <- p.adjust(
-    results_df$pValuePermuteY,
-    method = method,
-    n = total_hypotheses_tested
-  )
-
-  results_df
 }
 
 
@@ -85,7 +71,7 @@
 spatialCorrelationGeneExp <- function(
     input,
     alpha = 0.05,
-    nPermutations = c(100, 1000),
+    nPermutations = c(1e2, 1e3),
     deltaX = NULL,
     deltaY = NULL,
     maxDistPrctile = 0.25,
@@ -129,16 +115,16 @@ spatialCorrelationGeneExp <- function(
   }
 
 
-  #Determine the positions of shared pixels between two rasterized spatial
-  #experiments
+  # Determine the positions of shared pixels between two rasterized spatial
+  # experiments
   source <- input[[1]]
   target <- input[[2]]
   shared_pixels <- intersect(rownames(SpatialExperiment::spatialCoords(source)),
                              rownames(SpatialExperiment::spatialCoords(target)))
   pos <- SpatialExperiment::spatialCoords(source)[shared_pixels,]
 
-  ## if name of assay to use in the SpatialExperiment object is not provided,
-  ## use the first assay as a default
+  # if name of assay to use in the SpatialExperiment object is not provided,
+  # use the first assay as a default
   if (is.null(assayName)) {
     assayName <- 1
   }
@@ -152,13 +138,6 @@ spatialCorrelationGeneExp <- function(
 
   # storage for latest result per gene
   final_results <- NULL
-
-  # for each iteration in nPermutations, store the num of genes
-  # that are tested
-  hypotheses_tested_per_iteration <- integer(length(nPermutations))
-
-  # num of genes for next iteration, kept for debugging purposes
-  n_repermuted_per_iteration <- integer(length(nPermutations))
 
   # genes to test in current iteration
   genes_current <- genes_all
@@ -174,13 +153,8 @@ spatialCorrelationGeneExp <- function(
           k, length(nPermutations), nPermutations[k]
         ))
       }
-
-      hypotheses_tested_per_iteration[k] <- 0L
-      n_repermuted_per_iteration[k] <- 0L
       next
     }
-
-    hypotheses_tested_per_iteration[k] <- length(genes_current)
 
     iter_res <- .run_spatial_correlation_iteration(
       genes = genes_current,
@@ -197,7 +171,7 @@ spatialCorrelationGeneExp <- function(
       nThreads = nThreads,
       BPPARAM = BPPARAM,
       verbose = verbose,
-      seed = seed + k + 1L # TODO: seed shouldn't change
+      seed = seed
     )
 
     # overwrite previous results for genes rerun at this iteration
@@ -210,21 +184,16 @@ spatialCorrelationGeneExp <- function(
     # if there are more iterations left
     # decide which genes needs more permutations
     if (k < length(nPermutations)) {
-      genes_next <- .get_genes_to_repermute(iter_res, alpha = alpha)
-      n_repermuted_per_iteration[k] <- length(genes_next)
+      genes_next <- .get_genes_to_repermute(iter_res, alpha = alpha, nPermutes = k)
       genes_current <- genes_next
     } else {
       n_repermuted_per_iteration[k] <- 0L
     }
   }
 
-  total_hypotheses_tested <- sum(hypotheses_tested_per_iteration)
-
-  final_results <- .apply_mht_correction(
-    results_df = final_results,
-    total_hypotheses_tested = total_hypotheses_tested,
-    method = adjustMethod
-  )
+  # mht correct for pValuePermuteX and pValuePermuteY seperately
+  final_results <- stats::p.adjust(final_results$pValuePermuteX)
+  final_results <- stats::p.adjust(final_results$pValuePermuteY)
 
   # order rows back to original gene order
   final_results <- final_results[genes_all, , drop = FALSE]
@@ -234,9 +203,100 @@ spatialCorrelationGeneExp <- function(
 # testing  ---------------------------------------------------------------
 
 ## 100 random dataset   --------------------------------------------------
+# code from file:
+# system.file("extdata", "simRanPatternResults.RData", package = "STcompare")
+
 data("simRanPatternRasts")
 
+set.seed(0)
+t <- Sys.time()
+
+pvalueCorrected <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(i) {
+  sapply(1:length(simRanPatternRasts), function(j) {
+
+    print(paste0(i,":", j))
+    # shared pixels between rasters i and j
+    vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
+                    rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
+
+    g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
+    g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
+
+    test <- cor.test(g1, g2)
+
+    if (i != j) {
+      rastGexpListAB <- list(i = simRanPatternRasts[[i]],
+                             j = simRanPatternRasts[[j]])
+      results <- spatialCorrelationGeneExp(
+        rastGexpListAB,
+        nPermutations = c(1e2, 1e3),
+        nThreads = 5,
+        verbose = FALSE,
+        BPPARAM = BiocParallel::MulticoreParam()
+      )
+      return(results$pValuePermuteX)
+    } else {
+      return(test$p.value)
+    }
+  })
+}))
+
+diag(pvalueCorrected) <- NA
+tf <- Sys.time() - t
+print(tf)
+
+cors <- matrix(NA, nrow = length(simRanPatternRasts), ncol = length(simRanPatternRasts))
+corspv <- cors
+
+for (i in 1:length(simRanPatternRasts)) {
+  for (j in 1:length(simRanPatternRasts)) {
+    vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
+                    rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
+
+    g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
+    g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
+
+    ctest <- cor.test(g1, g2)
+    cors[i, j] <- ctest$estimate
+    corspv[i, j] <- ctest$p.value
+  }
+}
+
+library(reshape2)
+cors.df <- reshape2::melt(cors, value.name = "cors")
+corspv.df <- reshape2::melt(corspv, value.name = "corspv")
+pvalueCorrected.df <- reshape2::melt(pvalueCorrected, value.name = "corspv_corrected")
+
+cors_df <- data.frame(cors.df,
+                      corspv = corspv.df$corspv,
+                      corspv_corrected = pvalueCorrected.df$corspv_corrected)
+
+
+
+cors_df$corspv_corrected[cors_df$corspv_corrected == 0] <- 0.01
+
+test_df <- na.omit(cors_df)
+
+corrected <- ggplot(test_df) +
+  geom_point(aes(x =cors, y = -log10(corspv)), alpha = 0.1, size = 0.5, color = "blue") +
+  geom_point(aes(x =cors, y = -log10(corspv_corrected)), alpha = 0.1, size = 0.5, color = "green") +
+  theme_classic() +
+  labs(x = "Correlation", y = "-log10(p-value)",
+       title = "Naïve vs Spatially Corrected p-values") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  +
+  ylim(min(-log10(test_df$corspv), na.rm = TRUE), max(-log10(test_df$corspv), na.rm = TRUE)) +
+  labs(x = "Correlation" , y = "-log10(p-value)")
+corrected
+
+save(cors_df, corrected,
+     file = file.path("inst", "extdata", "simRanPatternResultsTestingCorrection.RData"))
+
+
+
 ## kidney datasets    --------------------------------------------------
+
+# TODO: this should be on the rasterized and aligned?
+# TODO: before or after figuring out STalign?
 
 
 
