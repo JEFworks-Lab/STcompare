@@ -29,6 +29,7 @@
 
     # store the gene name
     gene <- genes[j]
+    gene_idx <- match(gene, rownames(source))
 
     if (verbose) {
       message(sprintf(
@@ -43,8 +44,8 @@
     out <- spatialCorrelation(
       X, Y, pos,
       nPermutations = nPermutations,
-      deltaX = deltaX,
-      deltaY = deltaY,
+      deltaX = deltaX[[gene_idx]],
+      deltaY = deltaY[[gene_idx]],
       maxDistPrctile = maxDistPrctile,
       returnPermutations = returnPermutations,
       nThreads = nThreads,
@@ -108,9 +109,12 @@ spatialCorrelationGeneExp_test <- function(
   # experiments
   source <- input[[1]]
   target <- input[[2]]
+  shared_pixels <- intersect(rownames(SpatialExperiment::spatialCoords(source)),
+                             rownames(SpatialExperiment::spatialCoords(target)))
+  pos <- SpatialExperiment::spatialCoords(source)[shared_pixels,]
 
-  #If lists of deltas to test are not supplied, try 0.1 to 0.9 for both datasets
-  #for each gene
+  # If lists of deltas to test are not supplied, try 0.1 to 0.9 for both datasets
+  # for each gene
   if (is.null(deltaX)){
     deltaX <- rep(list(seq(0.1,0.9,0.1)), length(rownames(source)))
   }
@@ -119,11 +123,6 @@ spatialCorrelationGeneExp_test <- function(
     deltaY <- rep(list(seq(0.1,0.9,0.1)), length(rownames(source)))
   }
 
-
-  shared_pixels <- intersect(rownames(SpatialExperiment::spatialCoords(source)),
-                             rownames(SpatialExperiment::spatialCoords(target)))
-  pos <- SpatialExperiment::spatialCoords(source)[shared_pixels,]
-
   # if name of assay to use in the SpatialExperiment object is not provided,
   # use the first assay as a default
   if (is.null(assayName)) {
@@ -131,12 +130,8 @@ spatialCorrelationGeneExp_test <- function(
   }
 
   genes_all <- rownames(source)
-  n_genes <- length(genes_all)
-
 
   # creates an index for each gene name
-  gene_index <- stats::setNames(seq_along(genes_all), genes_all)
-
   # storage for latest result per gene
   final_results <- NULL
 
@@ -185,9 +180,9 @@ spatialCorrelationGeneExp_test <- function(
     # if there are more iterations left
     # decide which genes needs more permutations
     if (k < length(nPermutations)) {
-      genes_current <- .get_genes_to_repermute(iter_res, alpha = alpha, nPermutes = nPermutations[k])
-    }
-
+      genes_next <- .get_genes_to_repermute(iter_res, alpha = alpha, nPermutes = nPermutations[k])
+      genes_current <- genes_next
+    } 
   }
 
   # mht correct for pValuePermuteX and pValuePermuteY seperately
@@ -206,74 +201,99 @@ spatialCorrelationGeneExp_test <- function(
 # system.file("extdata", "simRanPatternResults.RData", package = "STcompare")
 
 data("simRanPatternRasts")
-
 set.seed(0)
+library(STcompare)
+
+
+# simple 1 iteration tests 
+
+rastGexpListAB <- list(simRanPatternRasts[[1]], simRanPatternRasts[[2]])
+
+# test thread of 1 on test
+test_1 <- spatialCorrelationGeneExp_test(
+  rastGexpListAB,
+  nPermutations = c(1e2, 1e3),
+  nThreads = 1,
+  verbose = FALSE,
+  BPPARAM = BiocParallel::MulticoreParam()
+)
+
+# make sure test matches that of old (no premutation function)
+test_2 <- STcompare::spatialCorrelationGeneExp(
+  rastGexpListAB,
+  nThreads = 1,
+  verbose = FALSE,
+  BPPARAM = BiocParallel::MulticoreParam()
+)
+
+# Franklin can handle nThreads = 22 
+test_3 <- spatialCorrelationGeneExp_test(
+  rastGexpListAB,
+  nPermutations = c(1e2, 1e3),
+  nThreads = 22,
+  verbose = FALSE,
+  BPPARAM = BiocParallel::MulticoreParam()
+)
+
+
+
 t <- Sys.time()
 
-testOneIteration <- isTRUE(get0("testOneIteration", ifnotfound = FALSE))
-nSimRanPatternRasts <- length(simRanPatternRasts)
-simRanPatternRastPairs <- if (testOneIteration) {
-  data.frame(i = 1L, j = min(2L, nSimRanPatternRasts))
-} else {
-  expand.grid(i = seq_len(nSimRanPatternRasts), j = seq_len(nSimRanPatternRasts))
-}
-pvalueCorrected <- matrix(NA_real_, nrow = nSimRanPatternRasts, ncol = nSimRanPatternRasts)
+pvalueCorrected <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(i) {
+  sapply(1:length(simRanPatternRasts), function(j) {
 
-for (idx in seq_len(nrow(simRanPatternRastPairs))) {
-  i <- simRanPatternRastPairs$i[idx]
-  j <- simRanPatternRastPairs$j[idx]
+    print(paste0(i,":", j))
+    # shared pixels between rasters i and j
+    vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
+                    rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
 
-  print(paste0(i,":", j))
-  # shared pixels between rasters i and j
-  vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
-                  rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
+    g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
+    g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
 
-  g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
-  g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
+    test <- cor.test(g1, g2)
 
-  test <- cor.test(g1, g2)
-
-  if (i != j) {
-    rastGexpListAB <- list(i = simRanPatternRasts[[i]],
-                           j = simRanPatternRasts[[j]])
-    results <- spatialCorrelationGeneExp_test(
-      rastGexpListAB,
-      nPermutations = c(1e2, 1e3),
-      # nThreads = parallel::detectCores() - 4, # should be 20 on franklin 
-      nThreads = 1, 
-      verbose = FALSE,
-      BPPARAM = BiocParallel::MulticoreParam()
-    )
-    pvalueCorrected[i, j] <- results$pValuePermuteX
-  } else {
-    pvalueCorrected[i, j] <- test$p.value
-  }
-}
+    if (i != j) {
+      rastGexpListAB <- list(i = simRanPatternRasts[[i]],
+                             j = simRanPatternRasts[[j]])
+      results <- spatialCorrelationGeneExp_test(
+        rastGexpListAB,
+        nPermutations = c(1e2, 1e3),
+        nThreads = 22,
+        verbose = FALSE,
+        BPPARAM = BiocParallel::MulticoreParam()
+      )
+      return(results$pValuePermuteX)
+    } else {
+      return(test$p.value)
+    }
+  })
+}))
 
 diag(pvalueCorrected) <- NA
 tf <- Sys.time() - t
 print(tf)
+save(pvalueCorrected, file = "simRanPatternRasts_permuted_test.RData")
+
+
 
 cors <- matrix(NA, nrow = length(simRanPatternRasts), ncol = length(simRanPatternRasts))
 corspv <- cors
 
-for (idx in seq_len(nrow(simRanPatternRastPairs))) {
-  i <- simRanPatternRastPairs$i[idx]
-  j <- simRanPatternRastPairs$j[idx]
-  vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
-                  rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
+for (i in 1:length(simRanPatternRasts)) {
+  for (j in 1:length(simRanPatternRasts)) {
+    vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
+                    rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
 
-  g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
-  g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
+    g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
+    g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
 
-  ctest <- cor.test(g1, g2)
-  cors[i, j] <- ctest$estimate
-  corspv[i, j] <- ctest$p.value
+    ctest <- cor.test(g1, g2)
+    cors[i, j] <- ctest$estimate
+    corspv[i, j] <- ctest$p.value
+  }
 }
 
-library(ggplot2)
 library(reshape2)
-
 cors.df <- reshape2::melt(cors, value.name = "cors")
 corspv.df <- reshape2::melt(corspv, value.name = "corspv")
 pvalueCorrected.df <- reshape2::melt(pvalueCorrected, value.name = "corspv_corrected")
@@ -299,8 +319,8 @@ corrected <- ggplot(test_df) +
   labs(x = "Correlation" , y = "-log10(p-value)")
 corrected
 
-# save(cors_df, corrected,
-#      file = file.path("inst", "extdata", "simRanPatternResultsTestingCorrection.RData"))
+save(cors_df, corrected,
+     file = file.path("inst", "extdata", "simRanPatternResultsTestingCorrection.RData"))
 
 
 
@@ -308,6 +328,10 @@ corrected
 
 # TODO: this should be on the rasterized and aligned?
 # TODO: before or after figuring out STalign?
+
+
+
+
 
 
 
