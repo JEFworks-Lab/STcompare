@@ -189,25 +189,21 @@ Since we want to eventually attribute spatial changes in gene expression pattern
 
 Here, we used STalign to perform an affine-only alignment based on one-hot encoding of region labels: cortex, outer medulla, and inner medulla.
 ```{r, align}
+# read the csv which has the AKI positions aligned to control via STalign
+zenodo_url <- "https://zenodo.org/records/19486091/files/aki_region_onehot_STalign_to_ctrl_region_onehot_affine_only.csv.gz?download=1"
+aki_STalign <- read.csv(zenodo_url, header = TRUE, row.names =1)
 
-```
+# store the aligned positions
+aki_pos_aligned <- aki_STalign[,c("aligned_x", "aligned_y")]
 
-
-Here, we attempt to minimize structural misalignment using an affine alignment by 
-1) mean-centering the control and AKI x-positions via subtracting the respective mean x-positions from each of the x-positions
-2) stretching the y-positions of AKI to the max y-position of the control via max scaling the AKI x-positions then multiplying by the max y-position of the control 
-
-```{r, align}
-# center align X coordinates
-ctrl_pos_aligned <- ctrl_pos_rot
-ctrl_pos_aligned[,1] <- ctrl_pos_aligned[,1] - mean(ctrl_pos_aligned[,1])
+#rename columns and add group for consistency with ctrl_pos_rot
+colnames(aki_pos_aligned) <- c("x", "y")
+aki_pos_aligned$group  <- "AKI"
+# rotate the tissue by 90-degrees for consistency with the paper 
+aki_pos_rot <- transform(aki_pos_aligned, x = y, y = -x + max(aki_pos_aligned$x))
 aki_pos_aligned <- aki_pos_rot
-aki_pos_aligned[,1] <- aki_pos_aligned[,1] - mean(aki_pos_aligned[,1])
-# simply stretch Y positions to align
-aki_pos_aligned[,2] <- aki_pos_aligned[,2]*max(ctrl_pos_aligned[,2])/max(aki_pos_aligned[,2])
 
-# visualize to assess alignment
-df_aligned <- rbind(ctrl_pos_aligned, aki_pos_aligned)
+df_aligned <- rbind(ctrl_pos_rot, aki_pos_aligned)
 pos_aligned_plot <- ggplot(df_aligned, aes(x = x, y = y, color = group)) +
   geom_point(size=0.5) +
   scale_color_manual(values = c("Control" = "blue", "AKI" = "red")) +
@@ -224,7 +220,7 @@ Now that we have created counts matrices and aligned positions matrices we need 
 ``` {r create_spatial_experiment1}
 AKI_ctrl_SE <- SpatialExperiment::SpatialExperiment(
   assays = list(counts = control_counts),
-  spatialCoords = as.matrix(ctrl_pos_aligned[,1:2]),
+  spatialCoords = as.matrix(ctrl_pos_rot[,1:2]),
 )
 
 AKI_aki_SE <- SpatialExperiment::SpatialExperiment(
@@ -545,7 +541,6 @@ gene2 <- sim_corr %>%
   head(1)
 ```
 
-[Jean to Vivien and Kalen: what is each code chunk doing? if someone wants to run on their own data, how do they know what they can copy and paste? Note this function does not work if input[[1]] is not the same as AKI_ctrl_SE so I've modified it]
 Next, we use `SEraster::plotRaster` to plot gene expression for the two example genes in control and AKI samples to visualize the spatial patterns of expression. 
 Then, we use `STcompare::plotCorrelationGeneExp` to visualize the correlation of the spatial patterns across the two samples for each gene. 
 
