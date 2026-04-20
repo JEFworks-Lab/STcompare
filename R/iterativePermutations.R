@@ -1,9 +1,6 @@
-# TODO: new block that implements iterative permutations
-
-
-# iterative permutations with BH default MHT ###################################
-
-# helper ---------------------------------------------------------------
+# Helper to run `spatialCorrelation()` for a subset of genes at a fixed
+# permutation count while keeping the outer loop focused on the iterative
+# rerun logic.
 .run_spatial_correlation_iteration <- function(
     genes,
     source,
@@ -60,6 +57,9 @@
   do.call(rbind, res_list)
 }
 
+# Helper to decide which genes should be rerun with a larger number of
+# permutations. Only genes with both empirical permutation p-values below the
+# current screening threshold are carried forward.
 .get_genes_to_repermute <- function(results_df, alpha, nPermutes) {
   t <- alpha / nPermutes
   keep <- results_df$pValuePermuteX < t & results_df$pValuePermuteY < t
@@ -67,9 +67,163 @@
 }
 
 
-# main ----------------------------------------------------------------
-
-spatialCorrelationGeneExp_test <- function(
+#' spatialCorrelationGeneExpIterPermutations
+#'
+#' @description Function to calculate Pearson's correlation between assays from
+#'   two SpatialExperiment datasets using an iterative permutation strategy. It
+#'   first evaluates all genes with a smaller number of permutations, then only
+#'   reruns genes that remain potentially significant with progressively larger
+#'   permutation counts to refine their empirical p-values while accounting for
+#'   original degree of autocorrelation.
+#'
+#' @param input \code{list} List of two SpatialExperiment objects with matched
+#'   spatial locations. The first element corresponds to the first
+#'   SpatialExperiment (`X`), and the second to the second SpatialExperiment
+#'   (`Y`). The SpatialCoords of the two SpatialExperiment objects should be on
+#'   the same coordinate framework and observations at the same coordinate
+#'   location in both datasets should have the same row names. If the
+#'   SpatialExperiment objects do not have shared locations, use
+#'   `SEraster::rasterizeGeneExpression()` to generate SpatialExperiment objects
+#'   with shared pixel locations. See \code{assayName} parameter if the
+#'   SpatialExperiment objects have more than one assay.
+#'
+#' @param alpha \code{numeric}: significance threshold used to decide which genes
+#'   should be rerun at the next permutation level. After each iteration, a gene
+#'   is carried forward only when both \code{pValuePermuteX} and
+#'   \code{pValuePermuteY} are less than \code{alpha / nPermutations[k]}.
+#'   Default is \code{0.05}.
+#'
+#' @param nPermutations \code{numeric vector}: numbers of permutations to use
+#'   across iterative rounds. The vector is applied from smallest to largest.
+#'   All genes are first tested with \code{nPermutations[1]}; genes passing the
+#'   screening rule defined by \code{alpha} are rerun with
+#'   \code{nPermutations[2]}, and so on. Default is \code{c(100, 1000)}.
+#'
+#' @param deltaX \code{list}: List of single numerics or list of numeric vectors
+#'   to use for delta, the parameter controlling the degree of smoothing in
+#'   permutations of X. The length of the list should be the same as the number
+#'   of rows in the SpatialExperiment. Delta is a proportion calculated by
+#'   dividing k neighbors by N total observations (columns) in X, where k is the
+#'   number of neighbors in the permutation of X that should be within the
+#'   radius smoothed by the Gaussian kernel to achieve the amount of
+#'   autocorrelation present in the original X. If a single delta is not known,
+#'   a sequence of deltas can be inputted and the best delta will be found such
+#'   that it minimizes the sum of squares of the residuals between the variogram
+#'   of the permutation generated from the delta and the variogram of the
+#'   target. Default is \code{NULL}. If no value is supplied for \code{deltaX},
+#'   \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from 0.1 to 0.9, will be
+#'   used to find the best delta for each row (gene) in X.
+#'
+#' @param deltaY \code{list}: List of single numerics or list of numeric vectors
+#'   to use for delta, the parameter controlling the degree of smoothing in
+#'   permutations of Y. \code{deltaY} is like \code{deltaX} but for permuting
+#'   data in Y instead of X. Default is \code{NULL}. If no value is supplied for
+#'   \code{deltaY}, \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from 0.1
+#'   to 0.9, will be used to find the best delta for permutations for each row
+#'   (gene) in Y.
+#'
+#' @param maxDistPrctile \code{numeric}: percentile of distances between pixels
+#'   to use as max distance in when calculating variograms. Default = 0.25. At
+#'   greater distances the variogram is less precise because there are fewer
+#'   pairs of points with that distance between them. Therefore, since the goal
+#'   is to minimize the difference between the variogram of X and those of its
+#'   permutations, the variogram should be subsetted to the percentile that is
+#'   more robust.
+#'
+#' @param returnPermutations \code{logical}: indicate whether the dataframe
+#'   returned as output will have columns with the values of the permutations
+#'   used to calculate the null correlations and empirical p-values. Default is
+#'   \code{FALSE}.
+#'
+#' @param assayName \code{character} or \code{integer} A character string or
+#'   numeric specifying the assay in the SpatialExperiment to use. Default is
+#'   \code{NULL}. If no value is supplied for \code{assayName}, then the first
+#'   assay is used as a default.
+#'
+#' @param nThreads \code{integer}: Number of threads for parallelization.
+#'   Default = 1. Inputting this argument when the \code{BPPARAM} argument is
+#'   \code{NULL} would set parallel execution back-end to be
+#'   \code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
+#'   setting this argument to be the number of cores available
+#'   (\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
+#'   is not \code{NULL}, the \code{BPPARAM} argument would override
+#'   \code{nThreads} argument.
+#'
+#' @param BPPARAM \code{BiocParallelParam}: Optional additional argument for
+#'   parallelization. This argument is provided for advanced users of
+#'   \code{BiocParallel} for further flexibility for setting up
+#'   parallel-execution back-end. Default is NULL. If provided, this is assumed
+#'   to be an instance of \code{BiocParallelParam}.
+#'
+#' @param verbose \code{logical}: indicate whether to print the current
+#'   permutation level together with the row number and name to show progress as
+#'   the function iterates through genes.
+#'
+#' @param seed \code{integer}: Seed for the random number generator used to
+#'   generate noise in the variogram matching step. Ensures reproducibility of
+#'   empirical p-values regardless of parallelization back-end. Default is
+#'   \code{0}.
+#'
+#' @param adjustMethod \code{character}: multiple-testing correction method
+#'   passed to \code{stats::p.adjust()} for the final \code{pValuePermuteX} and
+#'   \code{pValuePermuteY} columns separately. Must be one of
+#'   \code{p.adjust.methods}. Default is \code{"BH"}.
+#'
+#' @return The output is returned as a \code{data.frame}. The rownames are the
+#'   rownames of the SpatialExperiments, and each row reflects the last
+#'   permutation round in which that gene was evaluated. The columns and their
+#'   contents are as follows:
+#' \itemize{
+#'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
+#'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
+#'   observations}
+#'   \item{\code{pValuePermuteX}}{multiple-testing-adjusted p-value from an
+#'   empirical null generated by permutations of observations in X}
+#'   \item{\code{pValuePermuteY}}{multiple-testing-adjusted p-value from an
+#'   empirical null generated by permutations of observations in Y}
+#'   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
+#'   minimizes the difference between the variogram of the permutation and the
+#'   variogram of observations) across permutations of X}
+#'   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
+#'   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
+#'   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
+#'   \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all
+#'   permutations of X}
+#'   \item{\code{nullCorrelationsY}}{correlation coefficients for X and all
+#'   permutations of Y}
+#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
+#'   length of X and B is the final \code{nPermutations} used for that gene.
+#'   Each column is the resulting values of a permutation of X}
+#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the
+#'   length of Y and B is the final \code{nPermutations} used for that gene.
+#'   Each column is the resulting values of a permutation of Y}
+#'   }
+#'
+#' @export
+#'
+#' @examples
+#' data(speKidney)
+#' \dontrun{
+#' rastKidney <- SEraster::rasterizeGeneExpression(
+#'   speKidney,
+#'   assay_name = "counts",
+#'   resolution = 0.2,
+#'   fun = "mean",
+#'   BPPARAM = BiocParallel::MulticoreParam(),
+#'   square = FALSE
+#' )
+#'
+#' rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
+#'
+#' corr <- spatialCorrelationGeneExpIterPermutations(
+#'   rastGexpListAB,
+#'   nPermutations = c(100, 1000),
+#'   nThreads = 5
+#' )
+#'
+#' negCorrelation
+#' }
+spatialCorrelationGeneExpIterPermutations <- function(
     input,
     alpha = 0.05,
     nPermutations = c(1e2, 1e3),
@@ -193,144 +347,6 @@ spatialCorrelationGeneExp_test <- function(
   final_results <- final_results[genes_all, , drop = FALSE]
   final_results
 }
-
-# testing  ---------------------------------------------------------------
-
-## 100 random dataset   --------------------------------------------------
-# code from file:
-# system.file("extdata", "simRanPatternResults.RData", package = "STcompare")
-
-data("simRanPatternRasts")
-set.seed(0)
-library(STcompare)
-
-
-# simple 1 iteration tests 
-
-rastGexpListAB <- list(simRanPatternRasts[[1]], simRanPatternRasts[[2]])
-
-# test thread of 1 on test
-test_1 <- spatialCorrelationGeneExp_test(
-  rastGexpListAB,
-  nPermutations = c(1e2, 1e3),
-  nThreads = 1,
-  verbose = FALSE,
-  BPPARAM = BiocParallel::MulticoreParam()
-)
-
-# make sure test matches that of old (no premutation function)
-test_2 <- STcompare::spatialCorrelationGeneExp(
-  rastGexpListAB,
-  nThreads = 1,
-  verbose = FALSE,
-  BPPARAM = BiocParallel::MulticoreParam()
-)
-
-# Franklin can handle nThreads = 22 
-test_3 <- spatialCorrelationGeneExp_test(
-  rastGexpListAB,
-  nPermutations = c(1e2, 1e3),
-  nThreads = 22,
-  verbose = FALSE,
-  BPPARAM = BiocParallel::MulticoreParam()
-)
-
-
-
-t <- Sys.time()
-
-pvalueCorrected <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(i) {
-  sapply(1:length(simRanPatternRasts), function(j) {
-
-    print(paste0(i,":", j))
-    # shared pixels between rasters i and j
-    vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
-                    rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
-
-    g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
-    g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
-
-    test <- cor.test(g1, g2)
-
-    if (i != j) {
-      rastGexpListAB <- list(i = simRanPatternRasts[[i]],
-                             j = simRanPatternRasts[[j]])
-      results <- spatialCorrelationGeneExp_test(
-        rastGexpListAB,
-        nPermutations = c(1e2, 1e3),
-        nThreads = 22,
-        verbose = FALSE,
-        BPPARAM = BiocParallel::MulticoreParam()
-      )
-      return(results$pValuePermuteX)
-    } else {
-      return(test$p.value)
-    }
-  })
-}))
-
-diag(pvalueCorrected) <- NA
-tf <- Sys.time() - t
-print(tf)
-save(pvalueCorrected, file = "simRanPatternRasts_permuted_test.RData")
-
-
-
-cors <- matrix(NA, nrow = length(simRanPatternRasts), ncol = length(simRanPatternRasts))
-corspv <- cors
-
-for (i in 1:length(simRanPatternRasts)) {
-  for (j in 1:length(simRanPatternRasts)) {
-    vi <- intersect(rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[i]])),
-                    rownames(SpatialExperiment::spatialCoords(simRanPatternRasts[[j]])))
-
-    g1 <- SummarizedExperiment::assay(simRanPatternRasts[[i]], "pixelval")[1, vi]
-    g2 <- SummarizedExperiment::assay(simRanPatternRasts[[j]], "pixelval")[1, vi]
-
-    ctest <- cor.test(g1, g2)
-    cors[i, j] <- ctest$estimate
-    corspv[i, j] <- ctest$p.value
-  }
-}
-
-library(reshape2)
-cors.df <- reshape2::melt(cors, value.name = "cors")
-corspv.df <- reshape2::melt(corspv, value.name = "corspv")
-pvalueCorrected.df <- reshape2::melt(pvalueCorrected, value.name = "corspv_corrected")
-
-cors_df <- data.frame(cors.df,
-                      corspv = corspv.df$corspv,
-                      corspv_corrected = pvalueCorrected.df$corspv_corrected)
-
-
-
-cors_df$corspv_corrected[cors_df$corspv_corrected == 0] <- 0.01
-
-test_df <- na.omit(cors_df)
-
-corrected <- ggplot(test_df) +
-  geom_point(aes(x =cors, y = -log10(corspv)), alpha = 0.1, size = 0.5, color = "blue") +
-  geom_point(aes(x =cors, y = -log10(corspv_corrected)), alpha = 0.1, size = 0.5, color = "green") +
-  theme_classic() +
-  labs(x = "Correlation", y = "-log10(p-value)",
-       title = "Naïve vs Spatially Corrected p-values") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  +
-  ylim(min(-log10(test_df$corspv), na.rm = TRUE), max(-log10(test_df$corspv), na.rm = TRUE)) +
-  labs(x = "Correlation" , y = "-log10(p-value)")
-corrected
-
-save(cors_df, corrected,
-     file = file.path("inst", "extdata", "simRanPatternResultsTestingCorrection.RData"))
-
-
-
-## kidney datasets    --------------------------------------------------
-
-# TODO: this should be on the rasterized and aligned?
-# TODO: before or after figuring out STalign?
-
-
-
 
 
 

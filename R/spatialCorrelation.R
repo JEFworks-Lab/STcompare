@@ -621,8 +621,6 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 
 }
 
-# TODO: remove this old block
-
 #' spatialCorrelationGeneExp
 #'
 #' @description Function to calculate Pearson's correlation between assays from
