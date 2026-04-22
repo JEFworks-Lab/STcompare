@@ -711,6 +711,11 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   generate noise in the variogram matching step. Ensures reproducibility of
 #'   empirical p-values regardless of parallelization back-end. Default is
 #'   \code{0}.
+#' 
+#' @param adjustMethod \code{character}: multiple-testing correction method
+#'   passed to \code{stats::p.adjust()} for the final \code{pValuePermuteX} and
+#'   \code{pValuePermuteY} columns separately. Must be one of
+#'   \code{p.adjust.methods}. Default is \code{"BH"}.
 #'
 #' @return The output is returned as a \code{data.frame}. The rownames are the
 #'   rownames of the SpatialExperiments. The names of the columns and their
@@ -765,7 +770,8 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
                                       assayName = NULL,
                                       nThreads = 1, BPPARAM = NULL,
                                       verbose = TRUE,
-                                      seed = 0){
+                                      seed = 0,
+                                      adjustMethod = "BH"){
 
   ## set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
@@ -827,6 +833,13 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
     #name row of dataframe with gene name
     row.names(output) <- g
 
+    # mht correct for pValuePermuteX and pValuePermuteY seperately
+    output$pValuePermuteX <- stats::p.adjust(
+      output$pValuePermuteX, method = adjustMethod
+    )
+    output$pValuePermuteY <- stats::p.adjust(
+      output$pValuePermuteY, method = adjustMethod
+    )
     return(output)
 
   }))
