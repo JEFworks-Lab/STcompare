@@ -140,7 +140,6 @@ sig_prev$key <- paste(sig_prev$Var1, sig_prev$Var2, sep = "_")
 
 # Rows in sig_iter but NOT in sig_prev
 only_in_iter <- sig_iter[!(sig_iter$key %in% sig_prev$key), ]
-
 # Rows in sig_prev but NOT in sig_iter
 only_in_prev <- sig_prev[!(sig_prev$key %in% sig_iter$key), ]
 
@@ -151,7 +150,13 @@ only_in_prev
 dim(only_in_iter)
 dim(only_in_prev)
 
+# TODO: see pairs that were in both
+common_keys <- intersect(sig_iter$key, sig_prev$key)
+both_in_iter <- sig_iter[match(common_keys, sig_iter$key), ]
+both_in_prev <- sig_prev[match(common_keys, sig_prev$key), ]
 
+dim(both_in_iter)
+dim(both_in_prev)
 
 ## kidney datasets    --------------------------------------------------
 
