@@ -1,8 +1,9 @@
 
-set.seed(0)
+data(simRanPatternRasts)
+
 t <- Sys.time()
 
-pvalueCorrected <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(i) {
+pvalueCorrected_iter <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(i) {
   sapply(1:length(simRanPatternRasts), function(j) {
 
     print(paste0(i,":", j))
@@ -18,10 +19,10 @@ pvalueCorrected <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(
     if (i != j) {
       rastGexpListAB <- list(i = simRanPatternRasts[[i]],
                              j = simRanPatternRasts[[j]])
-      results <- spatialCorrelationGeneExp(
+      results <- spatialCorrelationGeneExp_test(
         rastGexpListAB,
-        nPermutations = 100,
-        nThreads = 5,
+        nPermutations = c(1e2, 1e3),
+        nThreads = 22,
         verbose = FALSE,
         BPPARAM = BiocParallel::MulticoreParam()
       )
@@ -32,7 +33,7 @@ pvalueCorrected <- do.call(rbind, lapply(1:length(simRanPatternRasts), function(
   })
 }))
 
-diag(pvalueCorrected) <- NA
+diag(pvalueCorrected_iter) <- NA
 tf <- Sys.time() - t
 print(tf)
 
@@ -56,7 +57,7 @@ for (i in 1:length(simRanPatternRasts)) {
 library(reshape2)
 cors.df <- reshape2::melt(cors, value.name = "cors")
 corspv.df <- reshape2::melt(corspv, value.name = "corspv")
-pvalueCorrected.df <- reshape2::melt(pvalueCorrected, value.name = "corspv_corrected")
+pvalueCorrected.df <- reshape2::melt(pvalueCorrected_iter, value.name = "corspv_corrected")
 
 cors_df <- data.frame(cors.df,
                       corspv = corspv.df$corspv,
@@ -65,39 +66,7 @@ cors_df <- data.frame(cors.df,
 
 
 cors_df$corspv_corrected[cors_df$corspv_corrected == 0] <- 0.01
+cors_df <- na.omit(cors_df)
 
-
-# TODO: remove below
-
-# corrected <- ggplot(cors_df) +
-#   geom_point(aes(x = cors, y = -log10(corspv)),
-#              alpha = 0.1, size = 0.5, color = "blue") +
-#   geom_point(aes(x = cors, y = -log10(corspv_corrected)),
-#              alpha = 0.1, size = 0.5, color = "green") +
-#   geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
-#   theme_classic() +
-#   labs(x = "Correlation", y = "-log10(p-value)",
-#        title = "Naïve vs Spatially Corrected p-values") +
-#   ylim(min(-log10(cors_df$corspv), na.rm = TRUE),
-#        max(-log10(cors_df$corspv), na.rm = TRUE))
-# corrected
-
-
-
-test_df <- na.omit(cors_df)
-
-corrected <- ggplot(test_df) +
-  geom_point(aes(x =cors, y = -log10(corspv)), alpha = 0.1, size = 0.5, color = "blue") +
-  geom_point(aes(x =cors, y = -log10(corspv_corrected)), alpha = 0.1, size = 0.5, color = "green") +
-  theme_classic() +
-  labs(x = "Correlation", y = "-log10(p-value)",
-       title = "Naïve vs Spatially Corrected p-values") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  +
-  ylim(min(-log10(test_df$corspv), na.rm = TRUE), max(-log10(test_df$corspv), na.rm = TRUE)) +
-  labs(x = "Correlation" , y = "-log10(p-value)")
-corrected
-
-save(cors_df, corrected,
-     file = file.path("inst", "extdata", "simRanPatternResults.RData"))
-
+save(cors_df, file = file.path("inst", "extdata", "simRanPatternResults.RData"))
 
