@@ -60,7 +60,7 @@ library(SEraster)
 library(ggplot2)
 library(patchwork)
 library(viridis)
-
+library(reshape2)
 
 ```
 
@@ -314,7 +314,7 @@ However, based on the way the kidneys are simulated (simulated to have no correl
 Unlike the naive p-value, the permuted p-values do not show significant correlation.
 
 
-Additionally, for each pairwise kidney SpatialExperiment object in the list of 100 random simulations, the corrected p-value can be computed using `spatialCorrelationGeneExp` for each pair. To reduce runtime for the tutorial, we provide the output from running this function as `simRanPatternResults.RData`. 
+Additionally, for each pairwise kidney SpatialExperiment object in the list of 100 random simulations, the corrected p-value can be computed using `spatialCorrelationGeneExpIterPermutation` for each pair. To reduce runtime for the tutorial, we provide the output from running this function as `simRanPatternResults.RData`. 
 
 ```{r load-results, eval=TRUE, echo=TRUE, message=FALSE}
 
@@ -322,8 +322,7 @@ Additionally, for each pairwise kidney SpatialExperiment object in the list of 1
 # system.file("scripts", "simRanPatternSpatialCorrelation.R", package = "STcompare")
 
 # load data 
-data_path <- system.file("extdata", "simRanPatternResults.RData", package = "STcompare")
-load(data_path)
+load(system.file("extdata", "simRanPatternResults.RData", package = "STcompare"))
 
 # Var1 and Var2 is every pairwise combination between the 100 kidneys 
 # cors is the correlation coefficient of that pair 
@@ -331,28 +330,57 @@ load(data_path)
 # corspv_correct is the permuted p-value for that pair (chosen to be the higher of pValuePermuteY and pValuePermuteX)
 head(cors_df)
 
-# remove the na values 
-cors_df <- na.omit(cors_df)
+# apply BH correction for the naive p-value 
+# to have a consistent comparision since the spatialCorrelationIterPermutation 
+# output has BH correction 
+cors_df$corspv_bh <- p.adjust(cors_df$corspv, method = "BH")
 
-naive_vs_correct_p_value <- ggplot(cors_df) +
-  geom_point(aes(x =cors, y = -log10(corspv)), alpha = 0.1, size = 0.5, color = "blue") +
-  geom_point(aes(x =cors, y = -log10(corspv_corrected)), alpha = 0.1, size = 0.5, color = "green") +
+# Avoid log(0)
+cors_df$corspv_bh[cors_df$corspv_bh == 0] <- 1e-10
+cors_df$corspv_corrected[cors_df$corspv_corrected == 0] <- 1e-10
+
+# -log10
+cors_df$log_bh <- -log10(cors_df$corspv_bh)
+cors_df$log_corrected <- -log10(cors_df$corspv_corrected)
+
+plot_df <- data.frame(
+  niave_neglog_pval_bh_correct = cors_df$log_bh,
+  emperical_neglog_pva_pval = cors_df$log_corrected
+)
+plot_df_long <- melt(plot_df, variable.name = "type", value.name = "neglog10_pval")
+
+plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval)) +
+  geom_boxplot() +
+  geom_hline(
+    yintercept = -log10(0.05),
+    linetype = "dashed",
+    linewidth = 0.5
+  ) +
   theme_classic() +
-  labs(x = "Correlation", y = "-log10(p-value)",
-       title = "Naïve vs Spatially Corrected p-values") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  +
-  ylim(min(-log10(cors_df$corspv), na.rm = TRUE), max(-log10(cors_df$corspv), na.rm = TRUE)) +
-  labs(x = "Correlation" , y = "-log10(p-value)")
-naive_vs_correct_p_value
+  labs(
+    y = "-log10(p-value)"  
+  )
+plt
+
+# percentage of signficant pairs based on the BH corrected niave p-value
+niave_sig <- plot_df[plot_df$niave_neglog_pval_bh_correct > -log10(0.05), ]
+niave_sig_per <- dim(niave_sig)[1] / dim(plot_df)[1]
+niave_sig_per
+dim(niave_sig)[1]
+
+emperical_sig <- plot_df[plot_df$emperical_neglog_pva_pval > -log10(0.05), ]
+emperical_per <- dim(emperical_sig)[1] / dim(plot_df)[1]
+emperical_per
+dim(emperical_sig)[1]
 
 
 ```
 
-The blue is the naive p-value for a given pair and the green is the permuted p-value for a given pair. 
-Without p-value correction, we observe that 50% of these analytical p-values are less than 0.05, 
-while after correcting for p-value only 4% of the empirical p-values are less than 0.05. 
-
-Therefore, the permuted p-value is needed to more accurately capture true correlation significance. 
+Based on the boxplot, the dotted line represent the significance (p-value < 0.05).
+The median for the niave p-value is higher than the corrected one and there are pairs that are above the significance line 
+in the niave p-value plot than in the correct one. 
+Without p-value correction, we observe that ~43% of these analytical p-values are less than 0.05, 
+while after correcting for p-value only ~4% of the empirical p-values are less than 0.05. 
 
 ## Spatial fold change 
 
