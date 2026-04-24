@@ -19,7 +19,7 @@ pvalueCorrected_iter <- do.call(rbind, lapply(1:length(simRanPatternRasts), func
     if (i != j) {
       rastGexpListAB <- list(i = simRanPatternRasts[[i]],
                              j = simRanPatternRasts[[j]])
-      results <- spatialCorrelationGeneExp_test(
+      results <- spatialCorrelationGeneExpIterPermutations(
         rastGexpListAB,
         nPermutations = c(1e2, 1e3),
         nThreads = 22,
