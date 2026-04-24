@@ -12,7 +12,8 @@ matchingVariograms(
   target_variog,
   prctile,
   ids,
-  i
+  i,
+  seed = 0
 )
 }
 \arguments{
@@ -40,6 +41,8 @@ the points and then calculating a specified quantile. Input to
 dataset X}
 
 \item{i}{\code{integer} the number indicating the ith permutation}
+
+\item{seed}{\code{integer} Seed for the random number generator. Default \code{0}.}
 }
 \value{
 The output is returned as a list.

@@ -13,7 +13,8 @@ spatialCorrelationGeneExpWithinSample(
   assayName = NULL,
   nThreads = 1,
   BPPARAM = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  seed = 0
 )
 }
 \arguments{
@@ -21,9 +22,9 @@ spatialCorrelationGeneExpWithinSample(
 \code{assayName} parameter if the SpatialExperiment object has more than
 one assay.}
 
-\item{nPermutations}{\code{integer}: Number of permutations to generate to
-build the empirical null distribution. This number will determine the
-precision of the p-value. For example, if \code{nPermutations <- 100}, then
+\item{nPermutations}{\code{integer} or \code{double}: number of permutations
+to generate to build the empirical null distribution. This number will
+determine the precision of the p-value. Default is \code{100}, such that
 the smallest p-value is 0.01}
 
 \item{maxDistPrctile}{\code{numeric}: percentile of distances between pixels
@@ -63,6 +64,11 @@ to be an instance of \code{BiocParallelParam}.}
 to show progress as the function iterates through the rows of the
 SpatialExperiments to calculate a correlation coefficient and empirical
 p-value for each row}
+
+\item{seed}{\code{integer}: Seed for the random number generator used to
+generate noise in the variogram matching step. Ensures reproducibility of
+empirical p-values regardless of parallelization back-end. Default is
+\code{0}.}
 
 \item{deltaX}{\code{list}: List of single numerics or list of numeric vectors
 to use for delta, the parameter controlling the degree of smoothing in
