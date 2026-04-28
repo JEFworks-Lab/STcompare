@@ -330,6 +330,8 @@ load(system.file("extdata", "simRanPatternResults.RData", package = "STcompare")
 # corspv_correct is the permuted p-value for that pair (chosen to be the higher of pValuePermuteY and pValuePermuteX)
 head(cors_df)
 
+cors_df <- na.omit(cors_df)
+
 # apply BH correction for the naive p-value 
 # to have a consistent comparision since the spatialCorrelationIterPermutation 
 # output has BH correction 
@@ -344,12 +346,13 @@ cors_df$log_bh <- -log10(cors_df$corspv_bh)
 cors_df$log_corrected <- -log10(cors_df$corspv_corrected)
 
 plot_df <- data.frame(
-  niave_neglog_pval_bh_correct = cors_df$log_bh,
-  emperical_neglog_pva_pval = cors_df$log_corrected
+  analytical_pval  = cors_df$log_bh,
+  emperical_pval = cors_df$log_corrected
 )
 plot_df_long <- melt(plot_df, variable.name = "type", value.name = "neglog10_pval")
 
-plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval)) +
+
+plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval, color = type)) +
   geom_boxplot() +
   geom_hline(
     yintercept = -log10(0.05),
@@ -358,21 +361,31 @@ plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval)) +
   ) +
   theme_classic() +
   labs(
-    y = "-log10(p-value)"  
+    x = "P-value type",
+    y = "-log10(p-value)",
+    title = "BH-corrected Analytical p-value (pA) vs BH-corrected Emperical p-value (pE)"
+  ) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    plot.title = element_text(size = 15)
   )
 plt
 
 # percentage of signficant pairs based on the BH corrected niave p-value
-niave_sig <- plot_df[plot_df$niave_neglog_pval_bh_correct > -log10(0.05), ]
+niave_sig <- plot_df[plot_df$analytical_pval > -log10(0.05), ]
 niave_sig_per <- dim(niave_sig)[1] / dim(plot_df)[1]
 niave_sig_per
 dim(niave_sig)[1]
 
-emperical_sig <- plot_df[plot_df$emperical_neglog_pva_pval > -log10(0.05), ]
+emperical_sig <- plot_df[plot_df$emperical_pval > -log10(0.05), ]
 emperical_per <- dim(emperical_sig)[1] / dim(plot_df)[1]
 emperical_per
 dim(emperical_sig)[1]
 
+dim(plot_df)
 
 ```
 
@@ -380,7 +393,7 @@ Based on the boxplot, the dotted line represent the significance (p-value < 0.05
 The median for the niave p-value is higher than the corrected one and there are pairs that are above the significance line 
 in the niave p-value plot than in the correct one. 
 Without p-value correction, we observe that ~43% of these analytical p-values are less than 0.05, 
-while after correcting for p-value only ~4% of the empirical p-values are less than 0.05. 
+while after correcting for p-value only ~5% of the empirical p-values are less than 0.05. 
 
 ## Spatial fold change 
 
