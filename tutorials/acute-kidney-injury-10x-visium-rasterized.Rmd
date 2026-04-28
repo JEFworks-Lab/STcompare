@@ -280,10 +280,10 @@ To demonstrate this ability to identify that a gene's spatial pattern changed ev
 We use Moran's I to identify SVGs and use the implementation from `MERINGUE`. Here we choose a `filterDist` size that is 2x the size of our rasterization resolution to achieve a neighbor-relationship graph that looks like the image below with connectivity to adjacent neighbors.
 
 ``` {r moransI}
-  # use MERINGUE to get the neighbor-relationships 
-  w <- MERINGUE::getSpatialNeighbors(SpatialExperiment::spatialCoords(rast$AKI_ctrl), filterDist = 10)
-  par(mfrow=c(1,1))
-  MERINGUE::plotNetwork(SpatialExperiment::spatialCoords(rast$AKI_ctrl), w)
+# use MERINGUE to get the neighbor-relationships 
+w <- MERINGUE::getSpatialNeighbors(SpatialExperiment::spatialCoords(rast$AKI_ctrl), filterDist = 10)
+par(mfrow=c(1,1))
+MERINGUE::plotNetwork(SpatialExperiment::spatialCoords(rast$AKI_ctrl), w)
 ```
 
 Define a function to calculate Moran's I for a given SpatialExperiment (optionally specify assay name) and filter distance.

@@ -8,7 +8,8 @@ devtools::load_all()
 load("test/time_benchmarks/inputs/spe_list.Rdata")
 
 # resolutions <- c(50, 100, 200, 250, 300, 500)
-resolutions <- c(600, 500, 400, 300, 200, 100, 50)
+# resolutions <- c(600, 500, 400, 300, 200, 100, 50)
+resolutions <- c(200, 100, 50)
 n_runs <- 5
 nThreads <- 22
 
