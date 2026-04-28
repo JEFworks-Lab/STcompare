@@ -61,7 +61,7 @@
 # permutations. Only genes with both empirical permutation p-values below the
 # current screening threshold are carried forward.
 .get_genes_to_repermute <- function(results_df, alpha, nPermutes) {
-  t <- alpha / nPermutes
+  t <- (alpha / nPermutes) * 100 
   keep <- results_df$pValuePermuteX < t & results_df$pValuePermuteY < t
   rownames(results_df)[keep]
 }
