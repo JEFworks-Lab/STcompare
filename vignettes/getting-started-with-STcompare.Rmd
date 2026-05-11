@@ -335,7 +335,7 @@ cors_df <- na.omit(cors_df)
 # apply BH correction for the naive p-value 
 # to have a consistent comparision since the spatialCorrelationIterPermutation 
 # output has BH correction 
-cors_df$corspv_bh <- p.adjust(cors_df$corspv, method = "bonferroni")
+cors_df$corspv_bh <- p.adjust(cors_df$corspv, method = "BH")
 
 # Avoid log(0)
 cors_df$corspv_bh[cors_df$corspv_bh == 0] <- 1e-10
@@ -363,7 +363,7 @@ plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval, color = type)) +
   labs(
     x = "P-value type",
     y = "-log10(p-value)",
-    title = "Bonferroni-corrected Analytical p-value (pA) vs Emperical p-value (pE)"
+    title = "BH-corrected Analytical p-value (pA) vs BH-corrected Emperical p-value (pE)"
   ) +
   theme(
     legend.position = "none",
@@ -373,14 +373,6 @@ plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval, color = type)) +
     plot.title = element_text(size = 15)
   )
 plt
-
-ggsave(
-  plt, 
-  filename = "plots/bon.png", 
-  dpi = 300, 
-  height = 6, 
-  width = 8
-)
 
 
 # percentage of signficant pairs based on the BH corrected niave p-value
