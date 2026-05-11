@@ -492,7 +492,7 @@ Acsm2_corr <- plotCorrelationGeneExp(
 # Finding the spatial similarity
 # If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
 start_time <- Sys.time()
-ss <- STcompare::spatialSimilarity(input, foldChange = 1, assayName = "libnorm", t1 = NULL, t2 = NULL)
+ss <- STcompare::`spatialSimilarity`(input, foldChange = 1, assayName = "libnorm", t1 = NULL, t2 = NULL)
 end_time <- Sys.time()
 print(end_time-start_time)
 

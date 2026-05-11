@@ -316,12 +316,14 @@ Unlike the naive p-value, the permuted p-values do not show significant correlat
 
 Additionally, for each pairwise kidney SpatialExperiment object in the list of 100 random simulations, the corrected p-value can be computed using `spatialCorrelationGeneExpIterPermutation` for each pair. To reduce runtime for the tutorial, we provide the output from running this function as `simRanPatternResults.RData`. 
 
+
+
 ```{r load-results, eval=TRUE, echo=TRUE, message=FALSE}
 
 # Full script to generate the precomputed vignette results available at:
 # system.file("scripts", "simRanPatternSpatialCorrelation.R", package = "STcompare")
 
-# load data 
+# load data generated from the script 
 load(system.file("extdata", "simRanPatternResults.RData", package = "STcompare"))
 
 # Var1 and Var2 is every pairwise combination between the 100 kidneys 
@@ -333,8 +335,6 @@ head(cors_df)
 cors_df <- na.omit(cors_df)
 
 # apply BH correction for the naive p-value 
-# to have a consistent comparision since the spatialCorrelationIterPermutation 
-# output has BH correction 
 cors_df$corspv_bh <- p.adjust(cors_df$corspv, method = "BH")
 
 # Avoid log(0)

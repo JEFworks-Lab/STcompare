@@ -191,7 +191,7 @@ Here, we used STalign to perform an affine-only alignment based on one-hot encod
 ```{r, align}
 # read the csv which has the AKI positions aligned to control via STalign
 zenodo_url <- "https://zenodo.org/records/19486091/files/aki_region_onehot_STalign_to_ctrl_region_onehot_affine_only.csv.gz?download=1"
-aki_STalign <- read.csv(zenodo_url, header = TRUE, row.names =1)
+aki_STalign <- read.csv(gzcon(url(zenodo_url, open = "rb"), text = TRUE), header = TRUE, row.names =1)
 
 # store the aligned positions
 aki_pos_aligned <- aki_STalign[,c("aligned_x", "aligned_y")]
@@ -234,7 +234,7 @@ In order to use `STcompare` we need paired data to make one-to-one comparisons. 
 
 So far we do not have true paired data because there is a different number of spots in control and AKI datasets and because the alignment caused the same barcode name in the control and AKI datasets no longer refer to the same x,y-coordinate.
 
-Therefore, we need to create a new shared unit system that we can use to make one-to-one comparisons
+Therefore, we need to create a new shared unit system that we can use to make one-to-one comparisons. 
 
 In order to have units that we can use to make one-to-one comparisons, we need to aggregate the position and count matrices of control and AKI datasets to create a new share unit system in which each unit gets a unique identifier that refers to the same x,y coordinate in control and AKI. This aggregation process is also refered to as rasterization.
 
@@ -329,17 +329,17 @@ svg_aki <- moransI_aki %>% filter(p.adj == 0) %>% rownames()
 svg_int <- intersect(svg_ctrl, svg_aki) # genes that are SVGs in both conditions 
 svg_uni <- union(svg_ctrl, svg_aki) # genes that are SVG in one condition but not the other 
 
-# Out of 13638 genes: 
-# there are 1498 genes that are SVGs in the control dataset 
+# Out of 32285 genes: 
+# there are 1669 genes that are SVGs in the control dataset 
 length(svg_ctrl)
 
-# there are 2308 genes that are SVGs in the aki dataset  
+# there are 2319 genes that are SVGs in the aki dataset  
 length(svg_aki)
 
-# there are 943 genes that are SVGs in both datasets   
+# there are 1044 genes that are SVGs in both datasets   
 length(svg_int)
 
-# there are 2863 genes that are SVGs in either datasets 
+# there are 2944 genes that are SVGs in either datasets 
 length(svg_uni)
 ```
 
@@ -348,13 +348,20 @@ The functions we used in `MERINGUE` changed the gene names to be syntactically v
 #return names in `svg_int` that are not in `rownames(rast$AKI_ctrl)`
 setdiff(svg_int, rownames(rast$AKI_ctrl))
 
-# remove leading X only if followed by a number
-svg_int <- sub("^X(?=[0-9])", "", svg_int, perl = TRUE)
-# replace . with -
-svg_int <- gsub("\\.", "-", svg_int)
+rownames(rast$AKI_ctrl) <- make.names(rownames(rast$AKI_ctrl), unique = TRUE)
+rownames(rast$AKI_aki)  <- make.names(rownames(rast$AKI_aki),  unique = TRUE)
 
 #check if any differences remain
 setdiff(svg_int, rownames(rast$AKI_ctrl))
+
+svg_test_2 <- svg_int
+
+setdiff(svg_test_2, svg_test1)
+setdiff(svg_test1, svg_test_2)
+
+length(svg_test1)
+length(svg_test_2)
+
 ```
 
 # Filter lowly expression genes
@@ -379,7 +386,9 @@ Next we use STcompare to calculate Pearson's correlation coefficient for genes t
 Delta is a proportion calculated by dividing k neighbors by N total observations in X, where k is the number of neighbors in the permutation of X that should be within the radius smoothed by the Gaussian kernel to achieve the amount ofautocorrelation present in the original X. 
 If a single delta is not known, a sequence of deltas can be inputted and the best delta will be found such that it minimizes the sum of squares of the residuals between the variogram of the permutation generated from the delta and the variogram of the target.  By default, `STcompare` sets this sequence to `seq(0.1, 0.9, .1)` but here we add two smaller values to the sequence to have finer smoothing options for the permutations. 
 
-`nPermutations` is the parameter that controls how many permutations to create for the empirical p-value estimation. The more permutations, the more accurate the p-value estimation but the longer the runtime. To balance this tradeoff, we can set `STcompare` to first create a smaller number of permutations and then only create a larger number of permutations for genes that have an empirical p-value less than 0.05 based on the smaller number of permutations.
+`nPermutations` is the parameter that controls how many permutations to create for the empirical p-value estimation. The more permutations, the more accurate the p-value estimation but the longer the runtime. To balance this tradeoff, we can set `STcompare` to first create a smaller number of permutations and then only create a larger number of permutations for genes that have an empirical p-value less than 0.05 based on the smaller number of permutations. 
+
+After computing the permutations for each gene, Multiple Hypothesis Testing (MHT) correction is used to correct for the false positives that arise from chance. The default MHT correction used is BH correction. To reduce the runtime for this tutorial, the results are precomputed.  
 
 ``` {r spatial-correlation1}
 # set up parameters for spatialCorrelationGeneExp
@@ -393,6 +402,10 @@ genes_chosen <- svg_int
 # The input is the spatial experiments subset to the chosen genes of interest
 input <- list('AKI_ctrl'= rast$AKI_ctrl[genes_chosen,],
              'AKI_aki'= rast$AKI_aki[genes_chosen,])
+
+```
+
+``` {r spatial-correlation2 eval=FALSE}
 
 # `deltaX` and `deltaY` are the parameters that controlling the degree of smoothing in permutations of datasets X and Y, respectively
 deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
@@ -409,7 +422,7 @@ kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
   deltaX = deltaList, 
   deltaY = deltaList, 
   assayName = "CPM", # use the CPM normalized assay for this analysis
-  nThreads = 5, # parallelize genes across threads
+  nThreads = 22, # parallelize genes across threads
   BPPARAM = BiocParallel::MulticoreParam(), #setting up parallel-execution back-end
   verbose = TRUE, # prints name of gene as progress updates, which is helpful for long runs
   seed = 0) # set seed for reproducibility of the permutation results
@@ -427,6 +440,13 @@ The `correlationCoef` column contains the Pearson's correlation coefficient for 
 We will save the names of the significantly positively correlated genes and significantly negatively correlated genes in separate vectors to use for downstream analyses. 
 
 ``` {r, spatial-correlation2}
+
+# Full script to generate the precomputed vignette results available at:
+# system.file("scripts", "visiumKidneySpatialCorrelation.R", package = "STcompare")
+
+# load data generated from the script 
+load(system.file("extdata", "kidneyCorrelation.RData", package = "STcompare"))
+
 # look at results
 head(kidneyCorrelation)
 
@@ -435,7 +455,7 @@ svgSigPos <- kidneyCorrelation %>%
   dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
   dplyr::filter(correlationCoef > 0) %>% 
   rownames()
-# 360 genes are SVGs that are significantly positively correlated 
+# 707 genes are SVGs that are significantly positively correlated 
 length(svgSigPos)
 
 # saving names of the significantly negatively correlated svg genes 
@@ -443,7 +463,7 @@ svgSigNeg <- kidneyCorrelation %>%
   dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
   dplyr::filter(correlationCoef < 0) %>% 
   rownames()
-# 5 genes are SVGs that are significantly negatively correlated 
+# 24 genes are SVGs that are significantly negatively correlated 
 length(svgSigNeg)
 ```
 
@@ -481,7 +501,13 @@ Next, we use `STcompare::spatialSimilarity` to calculate the fold change similar
 # Finding the spatial similarity
 # If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
 start_time <- Sys.time()
-ss <- STcompare::spatialSimilarity(input, foldChange = 1, assayName = "CPM", t1 = NULL, t2 = NULL)
+ss <- STcompare::spatialSimilarity(
+  input = input, 
+  foldChange = 1, 
+  assayName = "CPM", 
+  t1 = NULL, 
+  t2 = NULL
+)
 end_time <- Sys.time()
 print(end_time-start_time)
 ```
@@ -523,7 +549,7 @@ Lastly, we visualize the correlation and similarity metrics for two example gene
 1) one significantly positively correlated gene but with low similarity because expression in one condition is greater than the other for all pixels and
 2) one significantly negatively correlated gene with the smallest difference in number of pixels for which expression in AKI is twice as much as control (y > 2x; `percentDissimilarityY`) and number of pixels for which expression in control is twice as much as AKI (x > 2y; `percentDissimilarityX`). 
 
-```{r correlation-plots3}
+```{r correlation-plots1}
 # for the significantly positively correlated svg genes, get gene with lowest similarity (if tied break tie by highest correlation coefficient)
 gene1 <- sim_corr %>%
   dplyr::filter(gene %in% svgSigPos) %>% # filter to only significantly positively correlated genes
