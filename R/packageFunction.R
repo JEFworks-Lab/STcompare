@@ -151,7 +151,16 @@ threshold <- function (genePixelDF, t1, t2) {
 #'
 #' s <- spatialSimilarity(list(rastKidney$A, rastKidney$C))
 #'
-spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, minPixels = 0.1, foldChange = 1, assayName = NULL) {
+spatialSimilarity <- function (
+    input,
+    t1 = NULL,
+    t2 = NULL,
+    minQuantile = 0.05,
+    minPixels = 0.1,
+    foldChange = 1,
+    assayName = NULL,
+    verbose = FALSE
+    ) {
 
   if (is.null(assayName)) {
     assayName <- 1
@@ -182,11 +191,25 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
   y = input[[2]]
 
   shared_genes <- intersect(rownames(x), rownames(y))
-  
+
   t1Global <- t1
   t2Global <- t2
 
-  for (gene in shared_genes) {
+
+  for (i in seq_along(shared_genes)) {
+
+    gene <- shared_genes[i]
+
+    if (verbose) {
+      message(
+        sprintf(
+          "[%d/%d] Processing gene: %s",
+          i,
+          length(shared_genes),
+          gene
+        )
+      )
+    }
 
     # gene to pixel matrix
     genePixel <- getGenePixelDF(x = x, y = y, gene = gene, assayName = assayName);
