@@ -392,9 +392,9 @@ dim(plot_df)
 
 Based on the boxplot, the dotted line represent the significance (p-value < 0.05).
 The median for the niave p-value is higher than the corrected one and there are pairs that are above the significance line 
-in the niave p-value plot than in the correct one. 
+in the niave p-value plot than in the emperical p-value. 
 Without p-value correction, we observe that ~43% of these analytical p-values are less than 0.05, 
-while after correcting for p-value only ~5% of the empirical p-values are less than 0.05. 
+while after correcting for p-value only ~4% of the empirical p-values are less than 0.05. 
 
 ## Spatial fold change 
 
