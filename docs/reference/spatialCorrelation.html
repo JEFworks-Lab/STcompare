@@ -29,6 +29,7 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-tutorials" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Tutorials</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-tutorials"><li><a class="dropdown-item" href="../articles/getting-started-with-STcompare.html">Getting Started with STcompare</a></li>
+    <li><a class="dropdown-item" href="../tutorials/acute-kidney-injury-10x-visium-rasterized.html">Acute Kidney Injury 10x Visium</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Functions</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -67,7 +68,8 @@
 <span>  maxDistPrctile <span class="op">=</span> <span class="fl">0.25</span>,</span>
 <span>  returnPermutations <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  nThreads <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  BPPARAM <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  BPPARAM <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">0</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -156,6 +158,10 @@ parallelization. This argument is provided for advanced users of
 parallel-execution back-end. Default is NULL. If provided, this is assumed
 to be an instance of <code>BiocParallelParam</code>.</p></dd>
 
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p><code>integer</code>: Seed for the random number generator. Default <code>0</code>.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -197,11 +203,11 @@ to be an instance of <code>BiocParallelParam</code>.</p></dd>
 <span class="r-in"><span>                          pos <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="va">quakes_data</span><span class="op">$</span><span class="va">lat</span>, <span class="va">quakes_data</span><span class="op">$</span><span class="va">long</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">cor</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     correlationCoef  pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> cor       -0.230266 1.779041e-13           0.05           0.09              0.8</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> cor       -0.230266 1.779041e-13           0.03           0.13              0.8</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> cor              0.5 0.5, 0.6.... 0.6, 0.7....      0.190177....</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> cor              0.5 0.9, 0.8.... 0.3, 0.7....      -0.15504....</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     nullCorrelationsY</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> cor      -0.08056....</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> cor      -0.10144....</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># plot the delta star (the delta which minimizes the difference between the</span></span></span>
 <span class="r-in"><span><span class="co"># variogram of the permutation and the variogram of observations) for all</span></span></span>
@@ -226,11 +232,11 @@ to be an instance of <code>BiocParallelParam</code>.</p></dd>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">cor2</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     correlationCoef  pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> cor       -0.230266 1.779041e-13           0.04           0.01             0.75</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> cor       -0.230266 1.779041e-13           0.03           0.02             0.75</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> cor             0.24 0.9, 0.9.... 0.42, 0.....      -0.17102....</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> cor             0.26 0.9, 0.8.... 0.5, 0.1....      -0.15141....</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     nullCorrelationsY</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> cor      0.060023....</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> cor      -0.10726....</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html" class="external-link">hist</a></span><span class="op">(</span><span class="va">cor2</span><span class="op">$</span><span class="va">deltaStarX</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="spatialCorrelation-5.png" alt="" width="700" height="433"></span>

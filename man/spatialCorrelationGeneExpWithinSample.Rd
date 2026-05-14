@@ -13,7 +13,8 @@ spatialCorrelationGeneExpWithinSample(
   assayName = NULL,
   nThreads = 1,
   BPPARAM = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  seed = 0
 )
 }
 \arguments{
@@ -63,6 +64,11 @@ to be an instance of \code{BiocParallelParam}.}
 to show progress as the function iterates through the rows of the
 SpatialExperiments to calculate a correlation coefficient and empirical
 p-value for each row}
+
+\item{seed}{\code{integer}: Seed for the random number generator used to
+generate noise in the variogram matching step. Ensures reproducibility of
+empirical p-values regardless of parallelization back-end. Default is
+\code{0}.}
 
 \item{deltaX}{\code{list}: List of single numerics or list of numeric vectors
 to use for delta, the parameter controlling the degree of smoothing in

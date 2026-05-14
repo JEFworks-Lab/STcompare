@@ -2,7 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
-.Rdata
+# .Rdata
 .httr-oauth
 .DS_Store
 .quarto
@@ -11,3 +11,9 @@ inst/doc
 /Meta/
 
 *.Rproj
+*.log
+*.png
+
+test/*
+
+tutorials/*_cache/

@@ -14,7 +14,8 @@ spatialCorrelation(
   maxDistPrctile = 0.25,
   returnPermutations = FALSE,
   nThreads = 1,
-  BPPARAM = NULL
+  BPPARAM = NULL,
+  seed = 0
 )
 }
 \arguments{
@@ -79,6 +80,8 @@ parallelization. This argument is provided for advanced users of
 \code{BiocParallel} for further flexibility for setting up
 parallel-execution back-end. Default is NULL. If provided, this is assumed
 to be an instance of \code{BiocParallelParam}.}
+
+\item{seed}{\code{integer}: Seed for the random number generator. Default \code{0}.}
 }
 \value{
 The output is returned as a \code{data.frame} containing the columns:

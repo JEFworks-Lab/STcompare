@@ -151,7 +151,16 @@ threshold <- function (genePixelDF, t1, t2) {
 #'
 #' s <- spatialSimilarity(list(rastKidney$A, rastKidney$C))
 #'
-spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, minPixels = 0.1, foldChange = 1, assayName = NULL) {
+spatialSimilarity <- function (
+    input,
+    t1 = NULL,
+    t2 = NULL,
+    minQuantile = 0.05,
+    minPixels = 0.1,
+    foldChange = 1,
+    assayName = NULL,
+    verbose = FALSE
+    ) {
 
   if (is.null(assayName)) {
     assayName <- 1
@@ -183,7 +192,24 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
 
   shared_genes <- intersect(rownames(x), rownames(y))
 
-  for (gene in shared_genes) {
+  t1Global <- t1
+  t2Global <- t2
+
+
+  for (i in seq_along(shared_genes)) {
+
+    gene <- shared_genes[i]
+
+    if (verbose) {
+      message(
+        sprintf(
+          "[%d/%d] Processing gene: %s",
+          i,
+          length(shared_genes),
+          gene
+        )
+      )
+    }
 
     # gene to pixel matrix
     genePixel <- getGenePixelDF(x = x, y = y, gene = gene, assayName = assayName);
@@ -191,11 +217,15 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
     # threshold the gene to pixel matrix and
     # and remove NA values and make approximations for 0 numbers
 
-    if (is.null(t1)) {
-      t1 <- quantile(genePixel$x, minQuantile)
+    if (is.null(t1Global)) {
+      t1 <- unname(quantile(genePixel$x, minQuantile))
+    } else {
+      t1 <- t1Global
     }
-    if (is.null(t2)) {
-      t2 <- quantile(genePixel$y, minQuantile)
+    if (is.null(t2Global)) {
+      t2 <- unname(quantile(genePixel$y, minQuantile))
+    } else {
+      t2 <- t2Global
     }
 
     thresh <- threshold(genePixel, t1, t2)
@@ -244,10 +274,6 @@ spatialSimilarity <- function (input, t1 = NULL, t2 = NULL, minQuantile = 0.05, 
 
     dissimilarityX <- dim(dissimilarPixelsX)[1] / dim(logTrans)[1]
     dissimilarityY <- dim(dissimilarPixelsY)[1] / dim(logTrans)[1]
-
-    # remove the name of the threshold from the index
-    t1 <- unname(quantile(genePixel$x, minQuantile))
-    t2 <- unname(quantile(genePixel$y, minQuantile))
 
     output <- rbind(output, data.frame(
       gene = gene,

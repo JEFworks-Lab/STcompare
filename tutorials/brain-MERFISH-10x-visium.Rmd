@@ -1,0 +1,879 @@
+---
+title: "Comparison of MERFISH and Visium for Mouse Brain"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{brain-MERFISH-10x-visium}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  cache = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 6,
+  dpi = 72,
+  dev = "png",
+  fig.path = "brain-MERFISH-10x-visium/"
+
+)
+```
+
+```{r setup}
+library(STcompare)
+library(rhdf5)
+library(Matrix)
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+library(BiocGenerics)
+library(SEraster)
+library(rjson)
+library(scatterbar)
+```
+
+# Introduction 
+
+This tutorial demonstrate comparing two previously published murine brain sections assayed by two different ST technologies: single cell resolution MERFISH and spot-resolution 10x Visium. We will quantify the spatial correspondence of both gene expression and cell type patterns across the two technologies.
+
+# Load files
+
+The MERFISH data, Slice 2 Replicate 3 (S2R3), aligned to the Visium data with STalign can be found at Zenodo: https://zenodo.org/records/10724029. We will download the gene expression and position matrix.
+```{r load-data}
+
+# The MERFISH data can be found at Zenodo: https://zenodo.org/records/10724029
+# S2R3 - Slice 2 Replicate 3
+
+# MERFISH counts #################################################
+zenodo_url <- "https://zenodo.org/records/10724029/files/STalign_S2R3_to_Visium.csv.gz?download=1"
+
+temp <- tempfile(fileext = ".csv.gz")
+download.file(zenodo_url, destfile = temp, mode = "wb")
+df <- read.csv(gzfile(temp), row.names = 1)
+
+head(df)
+
+MERFISH.gexp <- df[, -(1:5)]
+MERFISH.gexp <- as.matrix(t(MERFISH.gexp))
+head(MERFISH.gexp)
+
+# MERFISH positions #################################################
+
+#subset area most informative (had high weight) in mapping with Visium
+pos.aligned <- df[, c("STalign_y", "STalign_x")]
+rownames(pos.aligned) <- rownames(df)
+annot <- df[, c("Pmatch")]
+names(annot) <- names(df)
+vi <- annot > 0.95
+MERFISH.pos.good <- pos.aligned[vi,]
+colnames(MERFISH.pos.good) <- c("y", "x")
+
+#rotate 90 clockwise to match the conventional orientation
+MERFISH.pos.good <- cbind(MERFISH.pos.good[,"x"], -MERFISH.pos.good[,"y"])
+rownames(MERFISH.pos.good) <- rownames(pos.aligned[vi,])
+
+#switch names of x and y to match the convention of scatterbar
+colnames(MERFISH.pos.good) <- c("x", "y")
+
+#plot
+MERINGUE::plotEmbedding(MERFISH.pos.good, col=colSums(MERFISH.gexp[, rownames(MERFISH.pos.good)]))
+```
+
+The Visium data, FFPE-preserved adult mouse brain section, can be found at 10X Genomics: https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0. We will download the raw counts for the Visium data first.
+```{r load-data2}
+# The Visium can be found on 10X Genomics:https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0 
+
+# Visium counts  ###############################################################
+
+url <- "https://cf.10xgenomics.com/samples/spatial-exp/1.3.0/Visium_FFPE_Mouse_Brain/Visium_FFPE_Mouse_Brain_filtered_feature_bc_matrix.tar.gz"
+
+temp_tar <- tempfile(fileext = ".tar.gz")
+download.file(url, destfile = temp_tar, mode = "wb")
+
+temp_dir <- tempdir()
+untar(temp_tar, exdir = temp_dir)
+
+matrix_path <- file.path(temp_dir, "filtered_feature_bc_matrix", "matrix.mtx.gz")
+barcodes_path <- file.path(temp_dir, "filtered_feature_bc_matrix", "barcodes.tsv.gz")
+features_path <- file.path(temp_dir, "filtered_feature_bc_matrix", "features.tsv.gz")
+
+Visium.gexp.raw <- Matrix::readMM(matrix_path)
+Visium.barcodes <- read.csv(barcodes_path, header=FALSE)
+Visium.genenames <- read.csv(features_path, sep='\t', header=FALSE)
+
+
+dim(Visium.gexp.raw)
+length(Visium.barcodes[,1])
+length(Visium.genenames[,2])
+rownames(Visium.gexp.raw) <- Visium.genenames[,2]
+colnames(Visium.gexp.raw) <- Visium.barcodes[,1]
+head(Visium.gexp.raw)
+```
+
+Next, we will download the position information for the Visium data, which includes the spatial coordinates of each spot and the scale factor to convert those coordinates to microns.
+```{r load-data3}
+# Visium positions #############################################################
+
+url <- "https://cf.10xgenomics.com/samples/spatial-exp/1.3.0/Visium_FFPE_Mouse_Brain/Visium_FFPE_Mouse_Brain_spatial.tar.gz"
+
+temp_tar <- tempfile(fileext = ".tar.gz")
+download.file(url, destfile = temp_tar, mode = "wb")
+
+temp_dir <- tempdir()
+untar(temp_tar, exdir = temp_dir)
+
+pos_path <- file.path(temp_dir, "spatial", "tissue_positions_list.csv")
+scale_path <- file.path(temp_dir, "spatial", "scalefactors_json.json")
+
+Visium.pos.info <- read.csv(pos_path, header = FALSE, row.names = 1)
+head(Visium.pos.info)
+Visium.pos <- Visium.pos.info[, 4:5]
+Visium.pos.good <- Visium.pos[colnames(Visium.gexp.raw),]
+
+convert <- fromJSON(file = scale_path)
+range(Visium.pos.good*convert$tissue_hires_scalef)
+Visium.pos.good <- Visium.pos.good*convert$tissue_hires_scalef
+colnames(Visium.pos.good) <- c("y", "x")
+
+#rotate 90 clockwise to match the conventional orientation
+Visium.pos.good  <- cbind(Visium.pos.good[,"x"], -Visium.pos.good[,"y"])
+rownames(Visium.pos.good) <- colnames(Visium.gexp.raw)
+
+#switch names of x and y to match the convention of scatterbar
+colnames(Visium.pos.good) <- c("x", "y")
+
+## plot
+Visium.gexp.raw <- as.matrix(Visium.gexp.raw)
+par(mfrow=c(1,1))
+MERINGUE::plotEmbedding(Visium.pos.good, col=colSums(Visium.gexp.raw))
+```
+
+We will only be able to compare genes that are shared across the two technologies, so we will subset to the genes that are shared across the two datasets.
+```{r}
+genes.have <- intersect(rownames(Visium.gexp.raw), rownames(MERFISH.gexp))
+length(genes.have)
+```
+
+# Create SpatialExperiment 
+
+Now that both the counts and the position matrices have been loaded, the input to `STcompare` is a [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html"). They are objects that store spatial transcriptomics data, in this case, combining gene expression matrices with the spatial coordinates of each spatial location. 
+
+To control for detection efficiency differences between the two technologies, we perform the same counts-per-million normalization on the Visium spot gene expression measurements and the MERFISH cell gene expression measurements.
+
+```{r create_spatial_experiment1}
+MERFISH_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = MERFISH.gexp[genes.have, rownames(MERFISH.pos.good)],
+                libnorm = MERINGUE::normalizeCounts(MERFISH.gexp[genes.have, rownames(MERFISH.pos.good)], log = FALSE)),
+  spatialCoords = as.matrix(MERFISH.pos.good),
+  
+)
+
+Visium_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = Visium.gexp.raw[genes.have,],
+                libnorm = MERINGUE::normalizeCounts(Visium.gexp.raw[genes.have,], log=FALSE)),
+  spatialCoords = as.matrix(Visium.pos.good)
+
+)
+```
+
+# Rasterize Gene Expression
+
+`STcompare` takes a list of [`SpatialExperiment`]("https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") objects and requires them to have matched spatial locations. Use `SEraster` to rasterize multiple samples onto the same coordinate system, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial]("https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html")
+
+```{r}
+# Create a list of SpatialExperiment objects to rasterize
+spe_list <- list(MERFISH = MERFISH_SE, Visium = Visium_SE)
+# Choose a rasterization resolution that is appropriate for the data. The resolution should be large enough to capture the spatial patterns of interest but not too large that it smooths out important details. 
+resolution = 20
+# Rasterize the gene expression data for each sample onto the same coordinate system. This will create a new list of SpatialExperiment objects that contains the rasterized gene expression values.
+rast <- SEraster::rasterizeGeneExpression(spe_list, 
+                                            resolution = resolution,
+                                            assay_name = 'libnorm',
+                                            fun = "mean",
+                                            square = FALSE,
+                                            BPPARAM = BiocParallel::MulticoreParam())
+
+# add an assay that computes log transformation after mean-rasterization
+SummarizedExperiment::assay(rast[["MERFISH"]], "lognorm") <- log10(SummarizedExperiment::assay(rast[["MERFISH"]]) + 1)
+SummarizedExperiment::assay(rast[["Visium"]], "lognorm") <- log10(SummarizedExperiment::assay(rast[["Visium"]]) + 1)
+
+```
+
+Visualize the spatial patterns of gene expression for example genes in the rasterized data. We expect to see similar spatial patterns of gene expression across the two technologies for the same gene.
+```{r}
+gene <- "Baiap2"
+
+plt1 <- SEraster::plotRaster(rast[["MERFISH"]][gene,], assay_name = "lognorm", name = paste0(gene, " log normalized expression")) + ggplot2::theme_void()
+plt2 <- SEraster::plotRaster(rast[["Visium"]][gene,], assay_name = "lognorm", name = paste0(gene, " log normalized expression")) + ggplot2::theme_void()
+
+plt1 + plt2
+```
+
+# Filter lowly expression genes
+
+STcompare's `SpatialCorrelation` does not work when there is zero expression of a gene expression as it cannot create permutations for the empirical p-value from zero expression.
+```{r}
+# gene is expressed in greater than 1% of all spots 
+# this has to be true in both datasets to be considered a "good gene" 
+good.genes <- names(which(
+  (Matrix::rowSums(SummarizedExperiment::assay(rast[["MERFISH"]], "lognorm") > 0) / dim(rast[["MERFISH"]])[2]*100 > 1) &
+  (Matrix::rowSums(SummarizedExperiment::assay(rast[["Visium"]], "lognorm") > 0) / dim(rast[["Visium"]])[2]*100 > 1)))
+length(good.genes)
+
+# Reduced the number of genes from 466 --> 325 genes 
+rast[["MERFISH"]] <- rast[["MERFISH"]][good.genes,]
+rast[["Visium"]] <- rast[["Visium"]][good.genes,]
+```
+
+# Identify SVGs 
+
+Of the "good genes" that have expression in at least 1% of spots, we now want to identify which of those genes are then spatially variable (SVG). We use Moran's I to identify SVGs. 
+
+``` {r moransI1}
+
+moransI <- function(SE_temp, filterDist, assayName=1){
+  
+  # use MERINGUE to get the neighbor-relationships 
+  w <- MERINGUE::getSpatialNeighbors(SpatialExperiment::spatialCoords(SE_temp), filterDist = filterDist)
+  par(mfrow=c(1,1))
+  MERINGUE::plotNetwork(SpatialExperiment::spatialCoords(SE_temp), w)
+  
+  # Identify significantly spatially auto-correlated genes
+  I <- MERINGUE::getSpatialPatterns(SummarizedExperiment::assays(SE_temp)[[assayName]], w)
+  
+  # filter for significant spatially auto-correlated genes with multiple testing correction and a minimum percentage of cells driving the pattern
+  results.filter <- MERINGUE::filterSpatialPatterns(mat = SummarizedExperiment::assays(SE_temp)[[assayName]],
+                                          I = I,
+                                          w = w,
+                                          adjustPv = TRUE,
+                                          alpha = 0.05,
+                                          minPercentCells = 0.01,
+                                          verbose = TRUE, details = TRUE)
+
+  return(results.filter)
+}
+```
+
+Calculate Moran's I on the rasterized MERFISH data to reduce computational time.
+``` {r moransI2}
+moransI_MERFISH <- moransI(rast[["MERFISH"]], filterDist = resolution + 1, assayName = "lognorm")
+head(moransI_MERFISH)
+```
+
+Calculate Moran's I on the non-rasterized Visium data.
+``` {r moransI3}
+moransI_Visium <- moransI(Visium_SE, filterDist = 25, assayName = "libnorm")
+head(moransI_Visium)
+
+```
+
+Next, we make one list of genes that are spatially variable in both datasets and another list of genes that are not spatially variable in both datasets. 
+``` {r moransI3}
+# Running the function `moransI` above already filtered the dataframe to only the genes that are statistically significantly autocorrelated so we can just take the rownames of the resulting dataframes to get the list of spatially variable genes in each dataset.
+svg_MERFISH <- moransI_MERFISH %>% rownames()
+svg_Visium <- moransI_Visium %>% rownames()
+
+# genes that are SVGs in both conditions 
+svg_int <- intersect(svg_MERFISH, svg_Visium) 
+
+# genes that are not SVGs in both conditions
+non_svg <- good.genes[!(good.genes %in% svg_int)] 
+
+# Out of 325 genes: 
+# there are 324 genes that are SVGs in the MERFISH dataset 
+length(svg_MERFISH)
+
+# there are 230 genes that are SVGs in the Visium dataset  
+length(svg_Visium)
+
+# there are 230 genes that are SVGs in both datasets   
+length(svg_int)
+
+# there are 95 genes that are not SVGs in both datasets 
+length(non_svg)
+```
+
+
+## Spatial correlation of gene expression across technologies
+Use STcompare to calculate Pearson's correlation coefficient for genes in both technologies to investigate if there is spatial correspondence of gene expression. 
+
+``` {r spatial-correlation1}
+
+# running spatialCorrelationGeneExp 
+deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
+
+start_time <- Sys.time()
+brainCorrelation <- STcompare::spatialCorrelationGeneExp(
+  rast,
+  assayName = "lognorm", 
+  deltaX = deltaList, 
+  deltaY = deltaList, 
+  nPermutations = 100, 
+  returnPermutations = FALSE,
+  nThreads = 5,
+  seed = 0
+)
+end_time <- Sys.time()
+print(end_time - start_time) #Time difference of 1.405566 hours
+```
+
+We expect spatially variable genes to be significantly positively correlated and expect non-spatially variable genes to not be significantly correlated.
+``` {r spatial-correlation2}
+
+# saving the significantly positively correlated svg genes 
+svgSigPos <- brainCorrelation %>%
+  dplyr::filter(rownames(brainCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef > 0) %>%
+  dplyr::arrange(desc(correlationCoef)) %>% 
+  rownames()
+
+# % genes that are significantly positively correlated 
+length(svgSigPos)/length(svg_int)
+
+# saving the significantly negatively correlated svg genes 
+svgSigNeg <- brainCorrelation %>%
+  dplyr::filter(rownames(brainCorrelation) %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef < 0) %>% 
+  rownames()
+
+# % genes that are significantly negatively correlated 
+length(svgSigNeg)/length(svg_int)
+
+# saving the not significantly correlated non-svg genes
+nonsvgNotSig <- brainCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(brainCorrelation)) %>% 
+  dplyr::filter(rownamesCol %in% non_svg) %>%
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  dplyr::arrange(correlationCoef) %>% 
+  rownames()
+
+# % non svgs that are not significantly correlated
+length(nonsvgNotSig)/length(non_svg)
+```
+
+56% (126/226) of spatially variable genes identified as significantly positively correlated. No spatially variable genes identified as significantly negatively correlated. 90% (89/99) of non-spatially variable genes identified as not significantly correlated.
+
+We can visualize the spatial patterns of gene expression for example genes that are significantly positively correlated and not significantly correlated across the two technologies. We expect to see similar spatial patterns of gene expression across the two technologies for the same gene for significantly positively correlated genes and different spatial patterns of gene expression across the two technologies for not significantly correlated genes. We can also visualize the correlation plot for each gene to show the relationship between the two samples for each gene.
+```{r}
+# Visualization of example genes
+
+# plot gene expression spatial patterns of example genes
+geneSig <- svgSigPos[1]
+geneNotSig <- nonsvgNotSig[1]
+
+#get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast$MERFISH)),
+                           rownames(SpatialExperiment::spatialCoords(rast$Visium)))
+
+#use SEraster::plotRaster to plot the spatial pattern of gene expression for each gene in each sample for only the shared pixels
+geneSigPltMERFISH  <- SEraster::plotRaster(rast$MERFISH[geneSig, sharedPixels], assay_name = "lognorm", name = "log-normalized expression")
+geneSigPltVisium <- SEraster::plotRaster(rast$Visium[geneSig, sharedPixels], assay_name = "lognorm", name = "log-normalized expression")
+
+geneNotSigPltMERFISH  <- SEraster::plotRaster(rast$MERFISH[geneNotSig, sharedPixels], assay_name = "lognorm", name = "log-normalized expression")
+geneNotSigPltVisium <- SEraster::plotRaster(rast$Visium[geneNotSig, sharedPixels], assay_name = "lognorm", name = "log-normalized expression")
+
+# use the plotCorrelationGeneExp function to generate the correlation plots 
+
+gene_corr_Sig <- plotCorrelationGeneExp(
+  speList = rast,
+  assayName = "lognorm",
+  spatialCorrelation = brainCorrelation, 
+  geneName = geneSig
+  )
+
+geneSigPltMERFISH + geneSigPltVisium + gene_corr_Sig
+
+
+gene_corr_NotSig <- plotCorrelationGeneExp(
+  speList = rast,
+  assayName = "lognorm",
+  spatialCorrelation = brainCorrelation, 
+  geneName = geneNotSig
+  )
+
+
+# make multi-panel visualization with the spatial patterns of gene expression in MERFISH and Visium plus the correlation plot for significantly positively correlated gene on the top row and not significantly correlated gene on the bottom row
+(geneSigPltMERFISH | geneSigPltVisium | gene_corr_Sig) / (geneNotSigPltMERFISH | geneNotSigPltVisium  | gene_corr_NotSig)
+
+```
+
+# Fold Change Similarity 
+
+We calculate the fold change similarity metric for each gene across the two technologies. 
+```{r}
+# Finding the spatial similarity
+# If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
+start_time <- Sys.time()
+ss <- spatialSimilarity(rast, assayName = "lognorm", foldChange = 1, t1 = NULL, t2 = NULL)
+end_time <- Sys.time()
+print(end_time-start_time)
+```
+
+We can visualize the spatial pattern of the fold change similarity classifications for the same example genes that are significantly positively correlated and not significantly correlated across the two technologies. 
+```{r}
+# visualization of fold change similarity classifications for significantly positively correlated gene
+lr_geneSig <- linearRegression(ss, gene=geneSig, assayName = "lognorm") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+pc_geneSig <- pixelClass(ss, gene=geneSig)
+
+(lr_geneSig | pc_geneSig)
+
+# visualization of fold change similarity classifications for not significantly correlated gene
+lr_geneNotSig <- linearRegression(ss, gene=geneNotSig, assayName = "lognorm") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+pc_geneNotSig <- pixelClass(ss, gene=geneNotSig)
+
+(lr_geneNotSig | pc_geneNotSig)
+
+
+# four panel visualization
+(lr_geneSig | pc_geneSig)/(lr_geneNotSig | pc_geneNotSig)
+```
+
+Finally, we compare the correlation and similarity metrics for each gene and showed that the compare the correlation and similarity metrics offer orthogonal insights. 
+
+``` {r fig2k}
+
+# 2k - Comparing Correlation Metric to Similiarty metric 
+
+# create a df of correlation and similarity values for each gene 
+sim_corr <- data.frame(gene = ss$similarityTable$gene,
+                  correlation = brainCorrelation[, "correlationCoef" ], 
+                  similar = ss$similarityTable$percentSimilarity)
+sim_corr
+
+sim_corr_plt <- sim_corr %>%
+  dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
+                         gene %in% svgSigNeg ~ "SigNeg",
+                         .default = "NotSig")) %>%
+  dplyr::filter(Sig %in% c("SigPos")) %>%
+  ggplot2::ggplot() + 
+  ggplot2::geom_point(ggplot2::aes(x = correlation, y = similar), alpha = 0.25, size = 1) +
+  ggplot2::xlim(NA,1) +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_classic() + 
+  ggplot2::labs(x = "Correlation" , y = "Similarity", 
+                title = "Similarity for significantly positively SVGs")
+
+sim_corr_plt
+
+```
+
+We note that this gene expression correspondence is lower than what was previously observed for biological replicates both assayed by MERFISH (93% of spatially variable genes identified as significantly positively correlated in https://doi.org/10.1101/2025.11.21.689847) most likely due to variation in detection efficiency across technologies in addition to variation in tissue preservation rather than poor spatial alignment. While MERFISH detects targeted genes at high sensitivity, Visium enables untargeted transcriptome-wide profiling though sensitivity for individual genes may be lower. Likewise, while the MERFISH dataset was generated with fresh, frozen tissue, the Visium dataset was generated with FFPE-preserved tissue. Still, we anticipate that while sensitivity to specific genes may vary across technologies and with different tissue preservation techniques, the underlying cell-types should be consistent.
+
+# Load cell type annotations for MERFISH and Visium  
+In "STalign: Alignment of spatial transcriptomics data using diffeomorphic metric mapping" (Clifton et al. 2023), cell type annotations were generated for the same MERFISH and Visium datasets used in this tutorial. To identify cell types, transcriptional clustering analysis was performed on the single cell resolution MERFISH data and deconvolution analysis on the multi-cellular pixel-resolution Visium data. The cell-types were matched across technologies based on transcriptional similarity between the cell clusters and the deconvolved cell-types.
+
+
+``` {r loading_MERFISH_cell_types}
+#load ctMERFISH: named vector of cell type annotations for MERFISH cells, names are cell ids
+zenodo_url <- "https://zenodo.org/records/19582556/files/STalign_S2R3_cell_type_annotations.csv.gz?download=1"
+temp <- tempfile(fileext = ".csv.gz")
+download.file(zenodo_url, destfile = temp, mode = "wb")
+
+ctMERFISH <- read.csv(gzfile(temp), row.names = 1, stringsAsFactors = FALSE)
+tempNames <- rownames(ctMERFISH)
+levelNames <- rownames(cmat)
+ctMERFISH <- factor(ctMERFISH$x, levels = levelNames)
+names(ctMERFISH) <- tempNames
+head(ctMERFISH)
+```
+
+``` {r loading_Visium_cell_types}
+#load ctVisium: matrix of deconvolved cell type proportions for Visium spots, rows are the spot barcodes and columns are cell type names
+zenodo_url <- "https://zenodo.org/records/19582556/files/STalign_Visium_cell_type_annotations.csv.gz?download=1"
+temp <- tempfile(fileext = ".csv.gz")
+download.file(zenodo_url, destfile = temp, mode = "wb")
+
+ctVisium <- read.csv(gzfile(temp), row.names = 1, stringsAsFactors = FALSE)
+colnames(ctVisium) <- rownames(cmat)
+head(ctVisium)
+
+```
+
+``` {r loading_transcriptional_similarity}
+
+#load cmat: matrix of spearman correlation coefficients for transcriptional similarity between MERFISH cell-types (rows) and deconvolved Visium cell-types (columns)
+zenodo_url <- "https://zenodo.org/records/19582556/files/STalign_cell_type_transcriptional_correlations.csv.gz?download=1"
+temp <- tempfile(fileext = ".csv.gz")
+download.file(zenodo_url, destfile = temp, mode = "wb")
+
+cmat <- read.csv(gzfile(temp), row.names = 1)
+colnames(cmat) <- rownames(cmat)
+head(cmat)
+```
+
+
+# Visualize the spatial patterns of cell types across the two technologies.
+
+We will limit to only the cell types that are mutually the most transcriptionally similar across the two technologies for visualization to highlight the shared cell types across the two technologies. We will use `MERINGUE::plotEmbedding` to visualize the cell type labels for MERFISH and `scatterbar::scatterbar` to visualize the deconvolved cell type proportions for Visium.
+``` {r plot_cell_types}
+
+#make list of the most transcriptionally similar cell types across the two technologies
+best.cts <- unlist(lapply(1:nrow(cmat), function(i) {
+  if (diag(cmat)[i] == max(cmat[i,]) & diag(cmat)[i] == max(cmat[,i])) {
+    return(rownames(cmat)[i])
+  }
+}))
+
+#assign colors to each cell type for visualization, prioritizing showing the best transcriptionally aligned cell types in color and the rest of the cell types in grey
+set.seed(111111)
+ccols <- rep('#eeeeee', nrow(cmat))
+names(ccols) <- rownames(cmat)
+ccols[best.cts] <- sample(rainbow(length(best.cts)), length(best.cts))
+ccols
+#names(ccols) <- make.names(names(ccols))
+
+#plot the cell type labels for MERFISH
+par(mfrow=c(1,1), mar=rep(1,4))
+MERINGUE::plotEmbedding(SpatialExperiment::spatialCoords(MERFISH_SE), groups=ctMERFISH, group.level.colors = ccols, cex=0.5) ## on tissue
+
+#plot the deconvolved cell type proportions for Visium
+dfproportions <- data.frame(ctVisium)
+colnames(dfproportions) <- names(ccols)
+dfcoords <- data.frame(SpatialExperiment::spatialCoords(Visium_SE))
+
+p9 <- scatterbar::scatterbar(data = dfproportions, 
+                              xy = dfcoords, 
+                              size_x = 15, size_y = 15, 
+                              colors = ccols,
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+p9
+```
+
+# Create new SpatialExperiment objects with cell type labels 
+To compare the spatial patterns of cell types across the two technologies, we can make new SpatialExperiment objects with the cell type labels as the assay and then run `STcompare::spatialCorrelationGeneExp` to calculate the spatial correlation of cell types across the two technologies.
+
+For single cell resolution data like MERFISH, we can input the cell type labels into the SpatialExperiment object as colData, since each column is a cell that gets a single cell type label. However, for spot resolution data like Visium, each column represents a spot and we have deconvolved cell type proportions for each spot rather than discrete cluster labels so we cannot input the cell type labels into the SpatialExperiment object as colData. 
+
+Instead, we can make new SpatialExperiment objects with the cell type labels as the assay. In this case, we will have each row as a cell type instead of a gene. 
+
+It is important that we input the cell type labels as the assay rather than colData for both datasets to make sure that the same function can be used to rasterize the cell type labels. If we input the cell type labels as colData for MERFISH and as an assay for Visium, then we would have to use `SEraster::rasterizeCellType` for MERFISH and `SEraster::rasterizeGeneExpression` for Visium to rasterize the cell type labels for each dataset and it would be harder to ensure that the same spatial locations are being compared across the two datasets because the rasterization grid would not be the same for both datasets and the pixel indices would not be shared.
+
+``` {r loading_cell_types}
+
+# make new spatial experiment for Visium with cluster labels as the assay
+Visium_SE_ct <- SpatialExperiment::SpatialExperiment(
+  assays = list(celltypes = t(ctVisium)),
+  spatialCoords = as.matrix(SpatialExperiment::spatialCoords(Visium_SE))
+
+)
+# make new spatial experiment for MERFISH with one-hot encoded cluster labels as the assay
+one_hot <- model.matrix(~ x - 1, data = data.frame( x = ctMERFISH[intersect(colnames(MERFISH_SE), names(ctMERFISH))]))
+colnames(one_hot) <- gsub("x", "", colnames(one_hot))
+
+MERFISH_SE_ct <- SpatialExperiment::SpatialExperiment(
+  assays = list(celltypes = t(one_hot)),
+  spatialCoords = as.matrix(SpatialExperiment::spatialCoords(MERFISH_SE)[intersect(colnames(MERFISH_SE), names(ctMERFISH)), ])
+)
+
+```
+
+# Rasterize the cell type labels 
+
+Since the cell type labels are in the assay for both the MERFISH and Visium SpatialExperiment objects, we can rasterize the cell type labels for both the MERFISH and Visium SpatialExperiment objects using `SEraster::rasterizeGeneExpression` instead of `SEraster::rasterizeCellType`. The resulting values in the rasterized pixels will be cell type proportions.
+``` {r rasterize_cell_types_as_genes}
+# rasterize the cell type labels for Visium using rasterizeGeneExpression since we have the deconvolved proportions for Visium rather than discrete cluster labels
+
+input <- list(Visium = Visium_SE_ct, MERFISH = MERFISH_SE_ct)
+rast_ct <- SEraster::rasterizeGeneExpression(input, 
+  assay_name = "celltypes", 
+  resolution = resolution, 
+  fun = "mean", 
+  square = FALSE,
+  BPPARAM = BiocParallel::MulticoreParam())
+
+```
+
+# Visualize the spatial patterns of cell types 
+
+We can use `scatterbar::scatterbar` to visualize the spatial patterns of cell type proportions across the two technologies. 
+
+``` {r plot_cell_types_rasterized}
+#get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast_ct$Visium)),
+                           rownames(SpatialExperiment::spatialCoords(rast_ct$MERFISH)))
+
+#For Visium, use scatterbar to visualize the proportion of each region in each sample
+dfproportions_Visium <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_ct$Visium)[, sharedPixels])))
+colnames(dfproportions_Visium) <- names(ccols)
+dfcoords_Visium <- data.frame(SpatialExperiment::spatialCoords(rast_ct$Visium)[sharedPixels, ])
+
+p10 <- scatterbar::scatterbar(data = dfproportions_Visium, 
+                              xy = dfcoords_Visium, 
+                              size_x = 15, size_y = 15,
+                              colors = ccols, 
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+#For MERFISH, use scatterbar to visualize the proportion of each region in each sample
+dfproportions_MERFISH <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_ct$MERFISH)[, sharedPixels])))
+colnames(dfproportions_MERFISH) <- names(ccols)
+dfcoords_MERFISH <- data.frame(SpatialExperiment::spatialCoords(rast_ct$MERFISH)[sharedPixels, ])
+
+p11 <- scatterbar::scatterbar(data = dfproportions_MERFISH, 
+                              xy = dfcoords_MERFISH, 
+                              size_x = 15, size_y = 15,
+                              colors = ccols, 
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+p10 + p11
+
+```
+
+# Calculate the spatial correlation of cell types 
+
+Now we use STcompare to calculate the spatial correlation of cell types across the two technologies. 
+``` {r spatial_correlation_cell_types}
+# running spatialCorrelationGeneExp 
+deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast_ct[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
+
+start_time <- Sys.time()
+ctCorrelation <- STcompare::spatialCorrelationGeneExp(
+  rast_ct, 
+  deltaX = deltaList, 
+  deltaY = deltaList, 
+  nPermutations = 100, 
+  returnPermutations = FALSE,
+  nThreads = 5
+)
+end_time <- Sys.time()
+print(end_time - start_time) #Time difference of 3.342462 mins
+
+```
+
+We can summarize the number of significantly positively correlated cell types, significantly negatively correlated cell types, and not significantly correlated cell types across the two technologies. We expect the most transcriptionally correlated cell types to all be significantly positively spatially correlated across the two technologies.
+
+``` {r spatial-correlation2}
+
+# saving the significantly positively spatially correlated cell types from best transcriptionally correlated cell types
+ctSigPos <- ctCorrelation %>%
+  dplyr::filter(rownames(ctCorrelation) %in% best.cts) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef > 0) %>%
+  dplyr::arrange(desc(correlationCoef)) %>% 
+  rownames()
+
+# number of cell types that are significantly positively correlated 
+length(ctSigPos)
+
+# percentage of transcriptionally correlated cell types that are significantly positively spatially correlated 
+length(ctSigPos)/length(best.cts) * 100
+
+# saving the significantly negatively correlated cell types from best transcriptionally correlated cell types
+ctSigNeg <- ctCorrelation %>%
+  dplyr::filter(rownames(ctCorrelation) %in% best.cts) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%  
+  dplyr::filter(correlationCoef < 0) %>% 
+  rownames()
+
+# number of cell types that are significantly negatively correlated 
+length(ctSigNeg)
+
+# saving the not significantly correlated cell types from best transcriptionally correlated cell types
+ctNotSig <- ctCorrelation %>%
+  dplyr::filter((rownames(ctCorrelation) %in% best.cts)) %>%
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  dplyr::arrange(correlationCoef) %>% 
+  rownames()
+
+# number of cell types that are not significantly correlated
+length(ctNotSig)
+```
+
+We can also visualize the spatial patterns of cell type proportions for the cell types that are significantly positively correlated across the two technologies. We expect to see similar spatial patterns of cell type proportions across the two technologies for significantly positively correlated cell types. We can also visualize the correlation plot for each cell type to show the relationship between the two samples for each cell type.
+
+```{r}
+# visualize the significantly positively correlated cell types
+pltlist <-lapply(rownames(ctSigPos, function(i) {
+  #use SEraster::plotRaster to plot the spatial pattern of cell type proportions for each chosen cell type in each sample for only the shared pixels
+  plt1 <- SEraster::plotRaster(rast_ct$MERFISH[i, sharedPixels], name = "cell type proportion") + ggplot2::labs(title = "MERFISH")
+  plt2 <- SEraster::plotRaster(rast_ct$Visium[i, sharedPixels], name = "cell type proportion") + ggplot2::labs(title = "Visium")
+  # use the plotCorrelationGeneExp function to generate the correlation plots 
+  plt3 <- plotCorrelationGeneExp(
+            speList = rast_ct,
+            spatialCorrelation = ctCorrelation, 
+            geneName = i)
+  return(c(plt1, plt2, plt3))
+  })
+
+#plot three visualizations of three genes
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[1]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[2]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[3]], ncol = 3)
+)
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[4]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[5]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[6]], ncol = 3)
+)
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[7]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[8]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[9]], ncol = 3)
+)
+
+```
+
+# Fold Change Similarity 
+
+We can calculate the fold change similarity metric for the cell types across the two technologies. We expect the same cell types to have high percentSimilarity across the two technologies.
+```{r}
+# Finding the spatial similarity
+# If t1 and t2 are null, then the default threshold is the 0.05 quantile of gene expression. 
+start_time <- Sys.time()
+ss_ct <- STcompare::spatialSimilarity(rast_ct, foldChange = 1, t1 = NULL, t2 = NULL)
+end_time <- Sys.time()
+print(end_time-start_time)
+```
+
+Lastly, we can visualize the results of the spatialSimilarity analysis for the cell types. For the significantly positively correlated cell type, we expect to see most of the pixels to be classified as "similar" and colored in blue. For the not significantly correlated cell type, we expect to see where the cell type is located in 
+```{r}
+pltlist <-lapply(ctSigPos, function(i) {
+  #plot the linear regression and pixel class plots for significantly positively correlated cell types
+  plt1 <- STcompare::linearRegression(ss_ct, gene=i) + ggplot2::theme_classic() + ggplot2::coord_fixed()
+  plt2 <- STcompare::pixelClass(ss_ct, gene=i)
+  return(c(plt1, plt2))
+  })
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[1]], ncol = 2),
+                        gridExtra::arrangeGrob(grobs = pltlist[[2]], ncol = 2),
+                        gridExtra::arrangeGrob(grobs = pltlist[[3]], ncol = 2)
+)
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[4]], ncol = 2),
+                        gridExtra::arrangeGrob(grobs = pltlist[[5]], ncol = 2),
+                        gridExtra::arrangeGrob(grobs = pltlist[[6]], ncol = 2)
+)
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[7]], ncol = 2),
+                        gridExtra::arrangeGrob(grobs = pltlist[[8]], ncol = 2),
+                        gridExtra::arrangeGrob(grobs = pltlist[[9]], ncol = 2)
+)
+
+```
+
+Remove below:
+
+``` {r loading_cell_types}
+
+# make new spatial experiment for Visium with cluster labels as the assay
+Visium_SE_ct <- SpatialExperiment::SpatialExperiment(
+  assays = list(celltypes = t(ctVisium)),
+  spatialCoords = as.matrix(SpatialExperiment::spatialCoords(Visium_SE))
+
+)
+# make new spatial experiment for MERFISH with one-hot encoded cluster labels as the assay
+one_hot <- model.matrix(~ x - 1, data = data.frame( x = ctMERFISH[intersect(colnames(MERFISH_SE), names(ctMERFISH))]))
+colnames(one_hot) <- gsub("x", "", colnames(one_hot))
+
+temp_one_hot <- one_hot[, sample(ncol(one_hot)) ]
+colnames(temp_one_hot) <- colnames(one_hot)
+
+MERFISH_SE_ct <- SpatialExperiment::SpatialExperiment(
+  assays = list(celltypes = t(temp_one_hot)),
+  spatialCoords = as.matrix(SpatialExperiment::spatialCoords(MERFISH_SE)[intersect(colnames(MERFISH_SE), names(ctMERFISH)), ])
+)
+
+```
+
+``` {r rasterize_cell_types_as_genes}
+# rasterize the cell type labels for Visium using rasterizeGeneExpression since we have the deconvolved proportions for Visium rather than discrete cluster labels
+
+input <- list(Visium = Visium_SE_ct, MERFISH = MERFISH_SE_ct)
+rast_ct <- SEraster::rasterizeGeneExpression(input, 
+  assay_name = "celltypes", 
+  resolution = resolution, 
+  fun = "mean", 
+  square = FALSE,
+  BPPARAM = BiocParallel::MulticoreParam())
+
+```
+
+``` {r plot_cell_types_rasterized}
+#get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
+sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast_ct$Visium)),
+                           rownames(SpatialExperiment::spatialCoords(rast_ct$MERFISH)))
+
+#For Visium, use scatterbar to visualize the proportion of each region in each sample
+dfproportions_Visium <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_ct$Visium)[, sharedPixels])))
+colnames(dfproportions_Visium) <- names(ccols)
+dfcoords_Visium <- data.frame(SpatialExperiment::spatialCoords(rast_ct$Visium)[sharedPixels, ])
+
+p10 <- scatterbar::scatterbar(data = dfproportions_Visium, 
+                              xy = dfcoords_Visium, 
+                              size_x = 15, size_y = 15,
+                              colors = ccols, 
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+#For MERFISH, use scatterbar to visualize the proportion of each region in each sample
+dfproportions_MERFISH <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_ct$MERFISH)[, sharedPixels])))
+colnames(dfproportions_MERFISH) <- names(ccols)
+dfcoords_MERFISH <- data.frame(SpatialExperiment::spatialCoords(rast_ct$MERFISH)[sharedPixels, ])
+
+p11 <- scatterbar::scatterbar(data = dfproportions_MERFISH, 
+                              xy = dfcoords_MERFISH, 
+                              size_x = 15, size_y = 15,
+                              colors = ccols, 
+                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
+                              ggplot2::theme(legend.position="none")
+
+p10 + p11
+
+```
+
+``` {r spatial_correlation_cell_types}
+# running spatialCorrelationGeneExp 
+deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast_ct[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
+
+start_time <- Sys.time()
+ctCorrelation <- STcompare::spatialCorrelationGeneExp(
+  rast_ct, 
+  deltaX = deltaList, 
+  deltaY = deltaList, 
+  nPermutations = 100, 
+  returnPermutations = FALSE,
+  nThreads = 5
+)
+end_time <- Sys.time()
+print(end_time - start_time) #Time difference of 3.342462 mins
+
+```
+
+```{r}
+# visualize the significantly positively correlated cell types
+pltlist <-lapply(rownames(rast_ct$MERFISH)[8:16], function(i) {
+  #use SEraster::plotRaster to plot the spatial pattern of cell type proportions for each chosen cell type in each sample for only the shared pixels
+  plt1 <- SEraster::plotRaster(rast_ct$MERFISH[i, sharedPixels], name = "cell type proportion") + ggplot2::labs(title = "MERFISH")
+  plt2 <- SEraster::plotRaster(rast_ct$Visium[i, sharedPixels], name = "cell type proportion") + ggplot2::labs(title = "Visium")
+  # use the plotCorrelationGeneExp function to generate the correlation plots 
+  plt3 <- plotCorrelationGeneExp(
+            speList = rast_ct,
+            spatialCorrelation = ctCorrelation, 
+            geneName = i)
+  return(c(plt1, plt2, plt3))
+  })
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[1]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[2]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[3]], ncol = 3)
+)
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[4]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[5]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[6]], ncol = 3)
+)
+
+gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[7]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[8]], ncol = 3),
+                        gridExtra::arrangeGrob(grobs = pltlist[[9]], ncol = 3)
+)
+
+```

@@ -29,6 +29,7 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-tutorials" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Tutorials</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-tutorials"><li><a class="dropdown-item" href="../articles/getting-started-with-STcompare.html">Getting Started with STcompare</a></li>
+    <li><a class="dropdown-item" href="../tutorials/acute-kidney-injury-10x-visium-rasterized.html">Acute Kidney Injury 10x Visium</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Functions</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -66,7 +67,8 @@
 <span>  assayName <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  nThreads <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  BPPARAM <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">0</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -135,6 +137,13 @@ to be an instance of <code>BiocParallelParam</code>.</p></dd>
 to show progress as the function iterates through the rows of the
 SpatialExperiments to calculate a correlation coefficient and empirical
 p-value for each row</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p><code>integer</code>: Seed for the random number generator used to
+generate noise in the variogram matching step. Ensures reproducibility of
+empirical p-values regardless of parallelization back-end. Default is
+<code>0</code>.</p></dd>
 
 
 <dt id="arg-deltax">deltaX<a class="anchor" aria-label="anchor" href="#arg-deltax"></a></dt>

@@ -14,7 +14,9 @@ spatialCorrelationGeneExp(
   assayName = NULL,
   nThreads = 1,
   BPPARAM = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  seed = 0,
+  adjustMethod = "BH"
 )
 }
 \arguments{
@@ -94,6 +96,16 @@ to be an instance of \code{BiocParallelParam}.}
 to show progress as the function iterates through the rows of the
 SpatialExperiments to calculate a correlation coefficient and empirical
 p-value for each row}
+
+\item{seed}{\code{integer}: Seed for the random number generator used to
+generate noise in the variogram matching step. Ensures reproducibility of
+empirical p-values regardless of parallelization back-end. Default is
+\code{0}.}
+
+\item{adjustMethod}{\code{character}: multiple-testing correction method
+passed to \code{stats::p.adjust()} for the final \code{pValuePermuteX} and
+\code{pValuePermuteY} columns separately. Must be one of
+\code{p.adjust.methods}. Default is \code{"BH"}.}
 }
 \value{
 The output is returned as a \code{data.frame}. The rownames are the
