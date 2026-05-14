@@ -2,9 +2,7 @@
 dir.create("docs/tutorials", recursive = TRUE, showWarnings = FALSE)
 
 rmarkdown::render(
-  "tutorials/tutorial-1.Rmd",
-  output_file = "tutorial-1.html",
-  output_dir = "docs/tutorials"
+  "tutorials/acute-kidney-injury-10x-visium-rasterized.Rmd"
 )
 
 rmarkdown::render(

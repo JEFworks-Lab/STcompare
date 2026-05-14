@@ -15,3 +15,5 @@ inst/doc
 *.png
 
 test/*
+
+tutorials/*_cache/
