@@ -23,6 +23,7 @@ a four-panel figure that is saved as a PDF file."></head><body>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-tutorials" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Tutorials</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-tutorials"><li><a class="dropdown-item" href="../articles/getting-started-with-STcompare.html">Getting Started with STcompare</a></li>
+    <li><a class="dropdown-item" href="../tutorials/acute-kidney-injury-10x-visium-rasterized.html">Acute Kidney Injury 10x Visium</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Functions</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -109,12 +110,13 @@ as list element names. Each plot object is a four-panel arrangement showing:</p>
 <span class="r-in"><span>                BPPARAM <span class="op">=</span> <span class="fu">BiocParallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/BiocParallel/man/MulticoreParam-class.html" class="external-link">MulticoreParam</a></span><span class="op">(</span><span class="op">)</span>, square <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="spatialSimilarity.html">spatialSimilarity</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">rastKidney</span><span class="op">$</span><span class="va">A</span>, <span class="va">rastKidney</span><span class="op">$</span><span class="va">B</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">plts</span> <span class="op">&lt;-</span> <span class="fu">savePlots</span><span class="op">(</span><span class="st">"Gene"</span>, <span class="va">s</span>, <span class="va">rastKidney</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Coordinate system already present.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">ℹ</span> Adding new coordinate system, which will replace the existing one.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Coordinate system already present.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">ℹ</span> Adding new coordinate system, which will replace the existing one.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Coordinate system already present.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">ℹ</span> Adding new coordinate system, which will replace the existing one.</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>package ‘patchwork’ was built under R version 4.3.3</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Coordinate system already present. Adding new coordinate system, which will</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> replace the existing one.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Coordinate system already present. Adding new coordinate system, which will</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> replace the existing one.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Coordinate system already present. Adding new coordinate system, which will</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> replace the existing one.</span>
 <span class="r-in"><span><span class="va">plts</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $Gene</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Removed 15 rows containing missing values or values outside the scale range</span>
