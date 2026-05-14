@@ -354,13 +354,6 @@ rownames(rast$AKI_aki)  <- make.names(rownames(rast$AKI_aki),  unique = TRUE)
 #check if any differences remain
 setdiff(svg_int, rownames(rast$AKI_ctrl))
 
-svg_test_2 <- svg_int
-
-setdiff(svg_test_2, svg_test1)
-setdiff(svg_test1, svg_test_2)
-
-length(svg_test1)
-length(svg_test_2)
 
 ```
 
@@ -405,7 +398,7 @@ input <- list('AKI_ctrl'= rast$AKI_ctrl[genes_chosen,],
 
 ```
 
-``` {r spatial-correlation2 eval=FALSE}
+``` {r spatial-correlation2, eval=FALSE}
 
 # `deltaX` and `deltaY` are the parameters that controlling the degree of smoothing in permutations of datasets X and Y, respectively
 deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
@@ -416,7 +409,7 @@ nPermutations <- c(100,1000)
 # running spatialCorrelationGeneExp 
 start_time <- Sys.time()
 deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
-kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
+kidneyCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   input, 
   nPermutations = nPermutations, 
   deltaX = deltaList, 
@@ -428,6 +421,7 @@ kidneyCorrelation <- STcompare::spatialCorrelationGeneExp(
   seed = 0) # set seed for reproducibility of the permutation results
 end_time <- Sys.time()
 print(end_time - start_time) 
+
 ```
 
 Now we can look at the results. 
@@ -439,7 +433,7 @@ The `correlationCoef` column contains the Pearson's correlation coefficient for 
 
 We will save the names of the significantly positively correlated genes and significantly negatively correlated genes in separate vectors to use for downstream analyses. 
 
-``` {r, spatial-correlation2}
+``` {r, spatial-correlation3}
 
 # Full script to generate the precomputed vignette results available at:
 # system.file("scripts", "visiumKidneySpatialCorrelation.R", package = "STcompare")
@@ -469,7 +463,7 @@ length(svgSigNeg)
 
 Here, we visualize the distribution of correlation coefficients for significantly positively correlated, significantly negatively correlated, and not significantly correlated genes.
 
-```{r, spatial-correlation3}
+```{r, spatial-correlation4}
 
 # visualize the significantly positively correlate and significantly negatively correlated svg genes  
 # Figure 2J - Rate of Significance for SVGs 
@@ -550,8 +544,27 @@ Lastly, we visualize the correlation and similarity metrics for two example gene
 2) one significantly negatively correlated gene with the smallest difference in number of pixels for which expression in AKI is twice as much as control (y > 2x; `percentDissimilarityY`) and number of pixels for which expression in control is twice as much as AKI (x > 2y; `percentDissimilarityX`). 
 
 ```{r correlation-plots1}
+
+compute_dissimilarity <- function(x, y) {
+  data.frame(
+    percentDissimilarityY = mean(y > 2 * x, na.rm = TRUE),
+    percentDissimilarityX = mean(x > 2 * y, na.rm = TRUE)
+  )
+}
+
+sim_corr_2 <- sim_corr %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(
+    compute_dissimilarity(
+      x = as.numeric(rast$ctrl[gene, ]),
+      y = as.numeric(rast$AKI[gene, ])
+    )
+  ) %>%
+  dplyr::ungroup()
+
+
 # for the significantly positively correlated svg genes, get gene with lowest similarity (if tied break tie by highest correlation coefficient)
-gene1 <- sim_corr %>%
+gene1 <- sim_corr_2 %>%
   dplyr::filter(gene %in% svgSigPos) %>% # filter to only significantly positively correlated genes
   dplyr::arrange(desc(correlation)) %>% # if there are ties in similarity, the gene with the highest correlation coefficient will be at the top
   dplyr::arrange(similar) %>% # arrange in ascending order of similarity so that the gene with the lowest similarity is at the top, 
@@ -559,7 +572,7 @@ gene1 <- sim_corr %>%
   head(1)
 
 # for the significantly negatively correlated svg genes, get gene with smallest difference in percent dissimilarity
-gene2 <- sim_corr %>%
+gene2 <- sim_corr_2 %>%
   dplyr::filter(gene %in% svgSigNeg) %>% # filter to only significantly negatively correlated genes
   dplyr::mutate(diff = abs(percentDissimilarityX - percentDissimilarityY)) %>% # create a new column for the absolute difference between percentDissimilarityX and percentDissimilarityY
   dplyr::arrange(diff) %>% # arrange in ascending order of the difference column so that the gene with the smallest difference is at the top
@@ -612,7 +625,7 @@ Lastly, we use `STcompare::linearRegression` to visualize the fold change relati
 ```{r correlation-plots3}
 # Figure 2I - fold change linear regression and spot classification 
 gene1_lr <- STcompare::linearRegression(ss, gene=gene1, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
-cbr1_lr <- STcompare::linearRegression(ss, gene=gene2, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
+gene2_lr <- STcompare::linearRegression(ss, gene=gene2, assayName = "CPM") + ggplot2::theme_classic() + ggplot2::coord_fixed()
 
 gene1_pc <- pixelClass(ss, gene=gene1, assayName = "CPM")
 gene2_pc <- pixelClass(ss, gene=gene2, assayName = "CPM")

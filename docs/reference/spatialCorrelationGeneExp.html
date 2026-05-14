@@ -67,7 +67,9 @@
 <span>  assayName <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  nThreads <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  BPPARAM <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  adjustMethod <span class="op">=</span> <span class="st">"BH"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -171,6 +173,20 @@ to show progress as the function iterates through the rows of the
 SpatialExperiments to calculate a correlation coefficient and empirical
 p-value for each row</p></dd>
 
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p><code>integer</code>: Seed for the random number generator used to
+generate noise in the variogram matching step. Ensures reproducibility of
+empirical p-values regardless of parallelization back-end. Default is
+<code>0</code>.</p></dd>
+
+
+<dt id="arg-adjustmethod">adjustMethod<a class="anchor" aria-label="anchor" href="#arg-adjustmethod"></a></dt>
+<dd><p><code>character</code>: multiple-testing correction method
+passed to <code><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">stats::p.adjust()</a></code> for the final <code>pValuePermuteX</code> and
+<code>pValuePermuteY</code> columns separately. Must be one of
+<code>p.adjust.methods</code>. Default is <code>"BH"</code>.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -220,16 +236,16 @@ p-value for each row</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Gene      -0.9472813 5.652003e-136              0              0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Gene              0.2              0.2 0.2, 0.3.... 0.2, 0.3....</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Gene              0.2              0.2 0.2, 0.2.... 0.2, 0.2....</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      nullCorrelationsX nullCorrelationsY</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Gene      -0.04977....      -0.34991....</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Gene      -0.16074....      -0.08458....</span>
 <span class="r-in"><span><span class="va">posCorrelation</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Gene       0.9431531 1.409195e-133              0              0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Gene              0.3              0.3 0.4, 0.5.... 0.3, 0.2....</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Gene              0.2              0.2 0.2, 0.4.... 0.2, 0.2....</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      nullCorrelationsX nullCorrelationsY</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Gene      0.036071....      0.129676....</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Gene      -0.00632....      0.052321....</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
