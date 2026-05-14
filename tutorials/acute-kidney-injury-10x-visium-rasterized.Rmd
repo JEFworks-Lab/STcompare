@@ -74,7 +74,9 @@ colnames(aki_counts) <- file_barcodes
 rownames(aki_counts) <- barcodes_matrix[["features"]]$name
 
 unlink(temp_h5)
-head(aki_counts)
+
+# what the counts matrix looks like: 
+aki_counts[1:5, 1:6]
 ```
 
 ```{r load-data2}
@@ -100,7 +102,7 @@ colnames(control_counts) <- file_barcodes
 rownames(control_counts) <- barcodes_matrix[["features"]]$name
 
 unlink(temp_h5)
-head(control_counts)
+control_counts[1:5, 1:6]
 ```
 
 The spatial positions are stored in `csv` files on Zenodo which can be downloaded directly into R from the `url` paths below. These text files contains a table with rows that correspond to spots. 
@@ -330,16 +332,16 @@ svg_int <- intersect(svg_ctrl, svg_aki) # genes that are SVGs in both conditions
 svg_uni <- union(svg_ctrl, svg_aki) # genes that are SVG in one condition but not the other 
 
 # Out of 32285 genes: 
-# there are 1669 genes that are SVGs in the control dataset 
+# there are 1673 genes that are SVGs in the control dataset 
 length(svg_ctrl)
 
-# there are 2319 genes that are SVGs in the aki dataset  
+# there are 2318 genes that are SVGs in the aki dataset  
 length(svg_aki)
 
-# there are 1044 genes that are SVGs in both datasets   
+# there are 1046 genes that are SVGs in both datasets   
 length(svg_int)
 
-# there are 2944 genes that are SVGs in either datasets 
+# there are 2945 genes that are SVGs in either datasets 
 length(svg_uni)
 ```
 
@@ -516,7 +518,7 @@ We compare the correlation and similarity metrics for only the significantly cor
 sim_corr <- data.frame(gene = ss$similarityTable$gene[ss$similarityTable$gene %in% svg_int],
                   correlation = kidneyCorrelation$correlationCoef[rownames(kidneyCorrelation) %in% svg_int], 
                   similar = ss$similarityTable$percentSimilarity[ss$similarityTable$gene %in% svg_int])
-sim_corr
+head(sim_corr) 
 
 sim_corr_plt <- sim_corr %>%
   dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
