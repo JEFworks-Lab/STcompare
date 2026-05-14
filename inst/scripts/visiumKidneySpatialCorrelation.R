@@ -9,6 +9,8 @@ library(patchwork)
 library(Matrix)
 library(BiocGenerics)
 
+devtools::load_all() # TODO: remove
+
 
 # The initlization is the same as the tutorial
 
@@ -173,6 +175,7 @@ nPermutations <- c(100, 1000)
 # running spatialCorrelationGeneExp
 start_time <- Sys.time()
 deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
+
 
 kidneyCorrelation <- spatialCorrelationGeneExpIterPermutations(
   input,
