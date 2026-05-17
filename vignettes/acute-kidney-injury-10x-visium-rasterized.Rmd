@@ -408,7 +408,7 @@ deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), s
 # creates 100 permutations and then if a gene has an empirical p-value is less than 0.05, creates 1000 permutations for more accurate p-value estimation
 nPermutations <- c(100,1000)
 
-# running spatialCorrelationGeneExp 
+# running spatialCorrelationGeneExpIterPermutations 
 start_time <- Sys.time()
 deltaList <- replicate(length(genes_chosen), c(0.01, 0.05, seq(0.1, 0.9, .1)), simplify = FALSE)
 kidneyCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(

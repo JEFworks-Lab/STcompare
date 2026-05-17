@@ -302,11 +302,11 @@ Use STcompare to calculate Pearson's correlation coefficient for genes in both t
 
 ``` {r spatial-correlation1}
 
-# running spatialCorrelationGeneExp 
+# running spatialCorrelationGeneExpIterPermutations 
 deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
 
 start_time <- Sys.time()
-brainCorrelation <- STcompare::spatialCorrelationGeneExp(
+brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   rast,
   assayName = "lognorm", 
   deltaX = deltaList, 
@@ -829,20 +829,19 @@ p10 + p11
 ```
 
 ``` {r}
-# running spatialCorrelationGeneExp 
+# running spatialCorrelationGeneExpIterPermutations 
 deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast_ct[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
 
 start_time <- Sys.time()
-ctCorrelation <- STcompare::spatialCorrelationGeneExp(
+ctCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   rast_ct, 
   deltaX = deltaList, 
   deltaY = deltaList, 
-  nPermutations = 100, 
   returnPermutations = FALSE,
-  nThreads = 5
+  nThreads = 22
 )
 end_time <- Sys.time()
-print(end_time - start_time) #Time difference of 3.342462 mins
+print(end_time - start_time) 
 
 ```
 
