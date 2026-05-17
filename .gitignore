@@ -16,4 +16,4 @@ inst/doc
 
 test/*
 
-tutorials/*_cache/
+*_cache/

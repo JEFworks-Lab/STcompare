@@ -29,10 +29,6 @@ library(BiocParallel)
 
 ```
 
-
-TODO: Don't need to show what the unalign looks like, just say
-like the STalign vignette for aligning this particular dataset 
-
 # Introduction 
 
 STalign tutorial for this dataset: 
