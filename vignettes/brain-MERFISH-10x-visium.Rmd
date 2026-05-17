@@ -271,7 +271,7 @@ head(moransI_Visium)
 ```
 
 Next, we make one list of genes that are spatially variable in both datasets and another list of genes that are not spatially variable in both datasets. 
-``` {r moransI3}
+``` {r moransI4}
 # Running the function `moransI` above already filtered the dataframe to only the genes that are statistically significantly autocorrelated so we can just take the rownames of the resulting dataframes to get the list of spatially variable genes in each dataset.
 svg_MERFISH <- moransI_MERFISH %>% rownames()
 svg_Visium <- moransI_Visium %>% rownames()
@@ -555,7 +555,7 @@ Instead, we can make new SpatialExperiment objects with the cell type labels as 
 
 It is important that we input the cell type labels as the assay rather than colData for both datasets to make sure that the same function can be used to rasterize the cell type labels. If we input the cell type labels as colData for MERFISH and as an assay for Visium, then we would have to use `SEraster::rasterizeCellType` for MERFISH and `SEraster::rasterizeGeneExpression` for Visium to rasterize the cell type labels for each dataset and it would be harder to ensure that the same spatial locations are being compared across the two datasets because the rasterization grid would not be the same for both datasets and the pixel indices would not be shared.
 
-``` {r loading_cell_types}
+``` {r}
 
 # make new spatial experiment for Visium with cluster labels as the assay
 Visium_SE_ct <- SpatialExperiment::SpatialExperiment(
@@ -594,7 +594,7 @@ rast_ct <- SEraster::rasterizeGeneExpression(input,
 
 We can use `scatterbar::scatterbar` to visualize the spatial patterns of cell type proportions across the two technologies. 
 
-``` {r plot_cell_types_rasterized}
+``` {r}
 #get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
 sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast_ct$Visium)),
                            rownames(SpatialExperiment::spatialCoords(rast_ct$MERFISH)))
@@ -635,13 +635,12 @@ Now we use STcompare to calculate the spatial correlation of cell types across t
 deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast_ct[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
 
 start_time <- Sys.time()
-ctCorrelation <- STcompare::spatialCorrelationGeneExp(
+ctCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   rast_ct, 
   deltaX = deltaList, 
   deltaY = deltaList, 
-  nPermutations = 100, 
   returnPermutations = FALSE,
-  nThreads = 5
+  nThreads = 22
 )
 end_time <- Sys.time()
 print(end_time - start_time) #Time difference of 3.342462 mins
@@ -650,7 +649,7 @@ print(end_time - start_time) #Time difference of 3.342462 mins
 
 We can summarize the number of significantly positively correlated cell types, significantly negatively correlated cell types, and not significantly correlated cell types across the two technologies. We expect the most transcriptionally correlated cell types to all be significantly positively spatially correlated across the two technologies.
 
-``` {r spatial-correlation2}
+``` {r}
 
 # saving the significantly positively spatially correlated cell types from best transcriptionally correlated cell types
 ctSigPos <- ctCorrelation %>%
@@ -783,7 +782,7 @@ MERFISH_SE_ct <- SpatialExperiment::SpatialExperiment(
 
 ```
 
-``` {r rasterize_cell_types_as_genes}
+``` {r}
 # rasterize the cell type labels for Visium using rasterizeGeneExpression since we have the deconvolved proportions for Visium rather than discrete cluster labels
 
 input <- list(Visium = Visium_SE_ct, MERFISH = MERFISH_SE_ct)
@@ -829,7 +828,7 @@ p10 + p11
 
 ```
 
-``` {r spatial_correlation_cell_types}
+``` {r}
 # running spatialCorrelationGeneExp 
 deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast_ct[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
 
