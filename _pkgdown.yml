@@ -11,7 +11,7 @@ navbar:
       - text: "Getting Started with STcompare"
         href: articles/getting-started-with-STcompare.html
       - text: "Acute Kidney Injury 10x Visium"
-        href: tutorials/acute-kidney-injury-10x-visium-rasterized.html
+        href: articles/acute-kidney-injury-10x-visium-rasterized.html
     - text: "Functions"
       href: reference/index.html
 

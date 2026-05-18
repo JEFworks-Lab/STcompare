@@ -2,7 +2,7 @@
 title: "Acute Kidney Injury (10x Visium) Application"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{acute-kidney-injury-10x-visium}
+  %\VignetteIndexEntry{Acute Kidney Injury (10x Visium) Application}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -31,6 +31,7 @@ library(dplyr)
 library(patchwork)
 library(Matrix)
 library(BiocGenerics)
+devtools::load_all()
 ```
 
 # Introduction 

@@ -33,6 +33,7 @@ library(BiocGenerics)
 library(SEraster)
 library(rjson)
 library(scatterbar)
+devtools::load_all()
 ```
 
 # Introduction 
@@ -467,6 +468,19 @@ We note that this gene expression correspondence is lower than what was previous
 # Load cell type annotations for MERFISH and Visium  
 In "STalign: Alignment of spatial transcriptomics data using diffeomorphic metric mapping" (Clifton et al. 2023), cell type annotations were generated for the same MERFISH and Visium datasets used in this tutorial. To identify cell types, transcriptional clustering analysis was performed on the single cell resolution MERFISH data and deconvolution analysis on the multi-cellular pixel-resolution Visium data. The cell-types were matched across technologies based on transcriptional similarity between the cell clusters and the deconvolved cell-types.
 
+``` {r loading_transcriptional_similarity}
+
+#load cmat: matrix of spearman correlation coefficients for transcriptional similarity between MERFISH cell-types (rows) and deconvolved Visium cell-types (columns)
+zenodo_url <- "https://zenodo.org/records/19582556/files/STalign_cell_type_transcriptional_correlations.csv.gz?download=1"
+temp <- tempfile(fileext = ".csv.gz")
+download.file(zenodo_url, destfile = temp, mode = "wb")
+
+# cmat <- read.csv(gzfile(temp), row.names = 1)
+cmat <- read.csv(gzfile(temp), row.names = 1, check.names = FALSE)
+
+colnames(cmat) <- rownames(cmat)
+head(cmat)
+```
 
 ``` {r loading_MERFISH_cell_types}
 #load ctMERFISH: named vector of cell type annotations for MERFISH cells, names are cell ids
@@ -494,32 +508,28 @@ head(ctVisium)
 
 ```
 
-``` {r loading_transcriptional_similarity}
-
-#load cmat: matrix of spearman correlation coefficients for transcriptional similarity between MERFISH cell-types (rows) and deconvolved Visium cell-types (columns)
-zenodo_url <- "https://zenodo.org/records/19582556/files/STalign_cell_type_transcriptional_correlations.csv.gz?download=1"
-temp <- tempfile(fileext = ".csv.gz")
-download.file(zenodo_url, destfile = temp, mode = "wb")
-
-cmat <- read.csv(gzfile(temp), row.names = 1)
-colnames(cmat) <- rownames(cmat)
-head(cmat)
-```
-
 
 # Visualize the spatial patterns of cell types across the two technologies.
 
 We will limit to only the cell types that are mutually the most transcriptionally similar across the two technologies for visualization to highlight the shared cell types across the two technologies. We will use `MERINGUE::plotEmbedding` to visualize the cell type labels for MERFISH and `scatterbar::scatterbar` to visualize the deconvolved cell type proportions for Visium.
 ``` {r plot_cell_types}
 
-#make list of the most transcriptionally similar cell types across the two technologies
+# make list of the most transcriptionally similar cell types across the two technologies
 best.cts <- unlist(lapply(1:nrow(cmat), function(i) {
   if (diag(cmat)[i] == max(cmat[i,]) & diag(cmat)[i] == max(cmat[,i])) {
     return(rownames(cmat)[i])
   }
 }))
 
-#assign colors to each cell type for visualization, prioritizing showing the best transcriptionally aligned cell types in color and the rest of the cell types in grey
+# best.cts <- unlist(lapply(seq_len(nrow(cmat)), function(i) {
+#  if (diag(cmat)[i] == max(cmat[i, ], na.rm = TRUE) &&
+#      diag(cmat)[i] == max(cmat[, i], na.rm = TRUE)) {
+#    return(rownames(cmat)[i])
+#  }
+# }))
+
+
+# assign colors to each cell type for visualization, prioritizing showing the best transcriptionally aligned cell types in color and the rest of the cell types in grey
 set.seed(111111)
 ccols <- rep('#eeeeee', nrow(cmat))
 names(ccols) <- rownames(cmat)
@@ -701,6 +711,7 @@ pltlist <-lapply(rownames(ctSigPos, function(i) {
             geneName = i)
   return(c(plt1, plt2, plt3))
   })
+)
 
 #plot three visualizations of three genes
 gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[1]], ncol = 3),

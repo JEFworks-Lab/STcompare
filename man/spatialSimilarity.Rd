@@ -12,7 +12,8 @@ spatialSimilarity(
   minQuantile = 0.05,
   minPixels = 0.1,
   foldChange = 1,
-  assayName = NULL
+  assayName = NULL,
+  verbose = FALSE
 )
 }
 \arguments{
