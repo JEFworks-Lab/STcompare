@@ -312,9 +312,8 @@ brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   assayName = "lognorm", 
   deltaX = deltaList, 
   deltaY = deltaList, 
-  nPermutations = 100, 
   returnPermutations = FALSE,
-  nThreads = 5,
+  nThreads = 22,
   seed = 0
 )
 end_time <- Sys.time()

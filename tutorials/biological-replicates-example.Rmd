@@ -33,9 +33,9 @@ library(BiocParallel)
 
 In the [`Getting Started with STcompare`](https://jef.works/STcompare/articles/getting-started-with-STcompare.html) tutorial, we demonstrated that `STcompare` works on both simulated and real ST data. We next sought to apply it to two biological replicates of coronal slices of the adult mouse brain from different animals but the same location with respect to bregma assayed by the single-cell resolution ST technology MERFISH. Because these are biological replicates, we hypothesized that genes should be significantly positively correlated with high similarity, particularly for spatially variable genes (SVGs) which exhibit coordinated expression variation within tissue structures that likely have correspondence across replicates.
 
-STalign tutorial for this dataset: 
-https://jef.works/STalign/notebooks/merfish-merfish-alignment.html 
+The MERFISH replicates datasets can be found on Zenodo: https://zenodo.org/records/10724029 
 
+Dataset S2R3 was aligned to S2R2 in the STalign tutorial: https://jef.works/STalign/notebooks/merfish-merfish-alignment.html 
 
 
 ```{r load-data}
