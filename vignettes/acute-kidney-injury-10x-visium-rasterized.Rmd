@@ -15,9 +15,7 @@ knitr::opts_chunk$set(
   fig.width = 8,
   fig.height = 6,
   dpi = 72,
-  dev = "png",
-  fig.path = "acute-kidney-injury-10x-visium/"
-
+  dev = "png"
 )
 ```
 
