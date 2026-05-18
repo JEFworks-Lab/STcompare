@@ -295,7 +295,7 @@ horizontal axis.</p>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"x"</span>, y <span class="op">=</span> <span class="st">"y"</span>, color <span class="op">=</span> <span class="st">"Group"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_classic</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">pos_plot</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/load-data5-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/load-data5-1.png" width="576"></p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="co"># rotate the tissue by 90-degrees for consistency with the paper </span></span>
@@ -310,7 +310,7 @@ horizontal axis.</p>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"x"</span>, y <span class="op">=</span> <span class="st">"y"</span>, color <span class="op">=</span> <span class="st">"Group"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_classic</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">pos_rot_plot</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/load-data5-2.png" width="576">
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/load-data5-2.png" width="576">
 # Align</p>
 <p>Since we want to eventually attribute spatial changes in gene
 expression patterns to AKI by comparing the same spatial locations in
@@ -346,7 +346,7 @@ medulla.</p>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"x"</span>, y <span class="op">=</span> <span class="st">"y"</span>, color <span class="op">=</span> <span class="st">"Group"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_classic</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">pos_aligned_plot</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/align-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/align-1.png" width="576"></p>
 </div>
 <div class="section level2">
 <h2 id="create-spatialexperiment">Create SpatialExperiment<a class="anchor" aria-label="anchor" href="#create-spatialexperiment"></a>
@@ -445,7 +445,7 @@ for each spot.</p>
 <span><span class="co">#&gt; Coordinate system already present.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> Adding new coordinate system, which will replace the existing one.</span></span>
 <span><span class="va">p1</span> <span class="op">+</span> <span class="va">p2</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/rasterize-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/rasterize-1.png" width="576"></p>
 </div>
 <div class="section level2">
 <h2 id="identify-svgs">Identify SVGs<a class="anchor" aria-label="anchor" href="#identify-svgs"></a>
@@ -472,7 +472,7 @@ connectivity to adjacent neighbors.</p>
 <span><span class="va">w</span> <span class="op">&lt;-</span> <span class="fu">MERINGUE</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/MERINGUE/man/getSpatialNeighbors.html" class="external-link">getSpatialNeighbors</a></span><span class="op">(</span><span class="fu">SpatialExperiment</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SpatialExperiment/man/SpatialExperiment-methods.html" class="external-link">spatialCoords</a></span><span class="op">(</span><span class="va">rast</span><span class="op">$</span><span class="va">AKI_ctrl</span><span class="op">)</span>, filterDist <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">MERINGUE</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/MERINGUE/man/plotNetwork.html" class="external-link">plotNetwork</a></span><span class="op">(</span><span class="fu">SpatialExperiment</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SpatialExperiment/man/SpatialExperiment-methods.html" class="external-link">spatialCoords</a></span><span class="op">(</span><span class="va">rast</span><span class="op">$</span><span class="va">AKI_ctrl</span><span class="op">)</span>, <span class="va">w</span><span class="op">)</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/moransI-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/moransI-1.png" width="576"></p>
 <p>Define a function to calculate Moran’s I for a given
 SpatialExperiment (optionally specify assay name) and filter
 distance.</p>
@@ -500,7 +500,7 @@ SVGs in each dataset. We specify the assay name as “CPM” to use the CPM
 normalized assay for this analysis.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">moransI_ctrl</span> <span class="op">&lt;-</span> <span class="fu">moransI</span><span class="op">(</span><span class="va">rast</span><span class="op">$</span><span class="va">AKI_ctrl</span>, filterDist <span class="op">=</span> <span class="fl">10</span>, assayName <span class="op">=</span> <span class="st">"CPM"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/moransI2-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/moransI2-1.png" width="576"></p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">moransI_ctrl</span><span class="op">)</span></span>
 <span><span class="co">#&gt;          observed    expected         sd      p.value        p.adj</span></span>
@@ -512,7 +512,7 @@ normalized assay for this analysis.</p>
 <span><span class="co">#&gt; Sox17   0.2648528 -0.00310559 0.03242136 1.110223e-16 1.229277e-15</span></span></code></pre></div>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">moransI_aki</span> <span class="op">&lt;-</span> <span class="fu">moransI</span><span class="op">(</span><span class="va">rast</span><span class="op">$</span><span class="va">AKI_aki</span>, filterDist <span class="op">=</span> <span class="fl">10</span>, assayName <span class="op">=</span> <span class="st">"CPM"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/moransI3-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/moransI3-1.png" width="576"></p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">moransI_aki</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             observed     expected           sd      p.value        p.adj</span></span>
@@ -748,7 +748,7 @@ correlated, and not significantly correlated genes.</p>
 <span>                y <span class="op">=</span> <span class="st">"Correlation Coefficient"</span>, </span>
 <span>                title <span class="op">=</span> <span class="st">"Correlation Coefficient for Significantly Positively, Negatively, and Not Significantly Correlated SVGs"</span><span class="op">)</span></span>
 <span><span class="va">fig_2j</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/spatial-correlation4-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/spatial-correlation4-1.png" width="576"></p>
 </div>
 <div class="section level2">
 <h2 id="spatial-fold-change-similarity">Spatial Fold Change Similarity<a class="anchor" aria-label="anchor" href="#spatial-fold-change-similarity"></a>
@@ -771,7 +771,7 @@ the spatial patterning of expression.</p>
 <span><span class="op">)</span></span>
 <span><span class="va">end_time</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">end_time</span><span class="op">-</span><span class="va">start_time</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Time difference of 9.842765 secs</span></span></code></pre></div>
+<span><span class="co">#&gt; Time difference of 9.895078 secs</span></span></code></pre></div>
 <p>We compare the correlation and similarity metrics for only the
 significantly correlated genes and showed that the correlation and
 similarity metrics offer orthogonal insights as both significantly
@@ -809,7 +809,7 @@ range of similarity values.</p>
 <span>                title <span class="op">=</span> <span class="st">"Similarity for significantly positively and negatively correlated SVGs"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">sim_corr_plt</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/fig2k-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/fig2k-1.png" width="576"></p>
 </div>
 <div class="section level2">
 <h2 id="visualization-of-example-genes">Visualization of Example Genes<a class="anchor" aria-label="anchor" href="#visualization-of-example-genes"></a>
@@ -910,12 +910,12 @@ gene.</p>
 <span><span class="va">gene1_plt_ctrl</span> <span class="op">|</span> <span class="va">gene1_plt_aki</span> <span class="op">|</span> <span class="va">gene1_corr</span></span>
 <span><span class="co">#&gt; Ignoring unknown labels:</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BB00;">fill</span> : <span style="color: #0000BB;">"Data"</span></span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/correlation-plots2-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/correlation-plots2-1.png" width="576"></p>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gene2_plt_ctrl</span> <span class="op">|</span> <span class="va">gene2_plt_aki</span> <span class="op">|</span> <span class="va">gene2_corr</span></span>
 <span><span class="co">#&gt; Ignoring unknown labels:</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BB00;">fill</span> : <span style="color: #0000BB;">"Data"</span></span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/correlation-plots2-2.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/correlation-plots2-2.png" width="576"></p>
 <p>Lastly, we use <code><a href="../reference/linearRegression.html">STcompare::linearRegression</a></code> to visualize
 the fold change relationship across pixels and classifications for eache
 pixel for each gene as a scatter plot and
@@ -939,12 +939,12 @@ higher expression in AKI, or similar expression in both samples.</p>
 <span><span class="va">gene1_lr</span> <span class="op">|</span> <span class="va">gene1_pc</span></span>
 <span><span class="co">#&gt; Warning: Removed 16 rows containing missing values or values outside the scale range</span></span>
 <span><span class="co">#&gt; (`geom_point()`).</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/correlation-plots3-1.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/correlation-plots3-1.png" width="576"></p>
 <div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gene2_lr</span> <span class="op">|</span> <span class="va">gene2_pc</span></span>
 <span><span class="co">#&gt; Warning: Removed 16 rows containing missing values or values outside the scale range</span></span>
 <span><span class="co">#&gt; (`geom_point()`).</span></span></code></pre></div>
-<p><img src="acute-kidney-injury-10x-visium/correlation-plots3-2.png" width="576"></p>
+<p><img src="acute-kidney-injury-10x-visium-rasterized_files/figure-html/correlation-plots3-2.png" width="576"></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
