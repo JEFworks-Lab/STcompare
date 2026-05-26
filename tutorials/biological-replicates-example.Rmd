@@ -33,24 +33,12 @@ library(BiocParallel)
 
 In the [`Getting Started with STcompare`](https://jef.works/STcompare/articles/getting-started-with-STcompare.html) tutorial, we demonstrated that `STcompare` works on both simulated and real ST data. We next sought to apply it to two biological replicates of coronal slices of the adult mouse brain from different animals but the same location with respect to bregma assayed by the single-cell resolution ST technology MERFISH. Because these are biological replicates, we hypothesized that genes should be significantly positively correlated with high similarity, particularly for spatially variable genes (SVGs) which exhibit coordinated expression variation within tissue structures that likely have correspondence across replicates.
 
-The MERFISH replicates datasets can be found on Zenodo: https://zenodo.org/records/10724029 
+The MERFISH replicates datasets can be found on Zenodo stored as csv.gz files: https://zenodo.org/records/10724029
 
 Dataset S2R3 was aligned to S2R2 in the STalign tutorial: https://jef.works/STalign/notebooks/merfish-merfish-alignment.html 
 
 
 ```{r load-data}
-
-# TODO: show cell positions and after alignment? 
-
-# 1. this is the raw cell positions 
-# 2. this is the cell positions after applying stalign 
-
-
-
-# The merfish replicates datasets are stored on Zenodo
-# at https://zenodo.org/records/10724029
-# TODO: STalign_S2R2.csv.gz
-# STalign_S2R3_to_S2R2.csv.gz 
 
 s2r2_url <- "https://zenodo.org/records/10724029/files/STalign_S2R2.csv.gz?download=1"
 s2r3_url <- "https://zenodo.org/records/10724029/files/STalign_S2R3_to_S2R2.csv.gz?download=1"
