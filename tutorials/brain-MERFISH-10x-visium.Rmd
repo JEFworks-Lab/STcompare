@@ -304,20 +304,17 @@ Use STcompare to calculate Pearson's correlation coefficient for genes in both t
 ``` {r spatial-correlation1}
 
 # running spatialCorrelationGeneExpIterPermutations 
-deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
 
 start_time <- Sys.time()
 brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   rast,
   assayName = "lognorm", 
-  deltaX = deltaList, 
-  deltaY = deltaList, 
   returnPermutations = FALSE,
   nThreads = 22,
   seed = 0
 )
 end_time <- Sys.time()
-print(end_time - start_time) #Time difference of 1.405566 hours
+print(end_time - start_time) 
 ```
 
 We expect spatially variable genes to be significantly positively correlated and expect non-spatially variable genes to not be significantly correlated.
@@ -512,10 +509,11 @@ head(ctVisium)
 
 We will limit to only the cell types that are mutually the most transcriptionally similar across the two technologies for visualization to highlight the shared cell types across the two technologies. We will use `MERINGUE::plotEmbedding` to visualize the cell type labels for MERFISH and `scatterbar::scatterbar` to visualize the deconvolved cell type proportions for Visium.
 ``` {r plot_cell_types}
+cmat <- as.matrix(cmat)
 
 # make list of the most transcriptionally similar cell types across the two technologies
 best.cts <- unlist(lapply(1:nrow(cmat), function(i) {
-  if (diag(cmat)[i] == max(cmat[i,]) & diag(cmat)[i] == max(cmat[,i])) {
+  if (Matrix::diag(cmat)[i] == max(cmat[i,]) & Matrix::diag(cmat)[i] == max(cmat[,i])) {
     return(rownames(cmat)[i])
   }
 }))
@@ -640,14 +638,11 @@ p10 + p11
 
 Now we use STcompare to calculate the spatial correlation of cell types across the two technologies. 
 ``` {r spatial_correlation_cell_types}
-# running spatialCorrelationGeneExp 
-deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast_ct[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
 
+# running spatialCorrelationGeneExpIterPermutations 
 start_time <- Sys.time()
 ctCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   rast_ct, 
-  deltaX = deltaList, 
-  deltaY = deltaList, 
   returnPermutations = FALSE,
   nThreads = 22
 )
@@ -764,124 +759,6 @@ gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[4]], ncol = 2),
 gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[7]], ncol = 2),
                         gridExtra::arrangeGrob(grobs = pltlist[[8]], ncol = 2),
                         gridExtra::arrangeGrob(grobs = pltlist[[9]], ncol = 2)
-)
-
-```
-
-Remove below:
-
-``` {r loading_cell_types}
-
-# make new spatial experiment for Visium with cluster labels as the assay
-Visium_SE_ct <- SpatialExperiment::SpatialExperiment(
-  assays = list(celltypes = t(ctVisium)),
-  spatialCoords = as.matrix(SpatialExperiment::spatialCoords(Visium_SE))
-
-)
-# make new spatial experiment for MERFISH with one-hot encoded cluster labels as the assay
-one_hot <- model.matrix(~ x - 1, data = data.frame( x = ctMERFISH[intersect(colnames(MERFISH_SE), names(ctMERFISH))]))
-colnames(one_hot) <- gsub("x", "", colnames(one_hot))
-
-temp_one_hot <- one_hot[, sample(ncol(one_hot)) ]
-colnames(temp_one_hot) <- colnames(one_hot)
-
-MERFISH_SE_ct <- SpatialExperiment::SpatialExperiment(
-  assays = list(celltypes = t(temp_one_hot)),
-  spatialCoords = as.matrix(SpatialExperiment::spatialCoords(MERFISH_SE)[intersect(colnames(MERFISH_SE), names(ctMERFISH)), ])
-)
-
-```
-
-``` {r}
-# rasterize the cell type labels for Visium using rasterizeGeneExpression since we have the deconvolved proportions for Visium rather than discrete cluster labels
-
-input <- list(Visium = Visium_SE_ct, MERFISH = MERFISH_SE_ct)
-rast_ct <- SEraster::rasterizeGeneExpression(input, 
-  assay_name = "celltypes", 
-  resolution = resolution, 
-  fun = "mean", 
-  square = FALSE,
-  BPPARAM = BiocParallel::MulticoreParam())
-
-```
-
-``` {r plot_cell_types_rasterized}
-#get the shared pixels between the two samples to show only the pixels that are used for the one-to-one comparisons
-sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(rast_ct$Visium)),
-                           rownames(SpatialExperiment::spatialCoords(rast_ct$MERFISH)))
-
-#For Visium, use scatterbar to visualize the proportion of each region in each sample
-dfproportions_Visium <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_ct$Visium)[, sharedPixels])))
-colnames(dfproportions_Visium) <- names(ccols)
-dfcoords_Visium <- data.frame(SpatialExperiment::spatialCoords(rast_ct$Visium)[sharedPixels, ])
-
-p10 <- scatterbar::scatterbar(data = dfproportions_Visium, 
-                              xy = dfcoords_Visium, 
-                              size_x = 15, size_y = 15,
-                              colors = ccols, 
-                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
-                              ggplot2::theme(legend.position="none")
-
-#For MERFISH, use scatterbar to visualize the proportion of each region in each sample
-dfproportions_MERFISH <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_ct$MERFISH)[, sharedPixels])))
-colnames(dfproportions_MERFISH) <- names(ccols)
-dfcoords_MERFISH <- data.frame(SpatialExperiment::spatialCoords(rast_ct$MERFISH)[sharedPixels, ])
-
-p11 <- scatterbar::scatterbar(data = dfproportions_MERFISH, 
-                              xy = dfcoords_MERFISH, 
-                              size_x = 15, size_y = 15,
-                              colors = ccols, 
-                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
-                              ggplot2::theme(legend.position="none")
-
-p10 + p11
-
-```
-
-``` {r}
-# running spatialCorrelationGeneExpIterPermutations 
-deltaList <- rep(list(seq(0.1, 0.9, .1)), length(rownames(rast_ct[[1]]))) #keep until figure out how to install new version of STcompare that fixed the typo
-
-start_time <- Sys.time()
-ctCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
-  rast_ct, 
-  deltaX = deltaList, 
-  deltaY = deltaList, 
-  returnPermutations = FALSE,
-  nThreads = 22
-)
-end_time <- Sys.time()
-print(end_time - start_time) 
-
-```
-
-```{r}
-# visualize the significantly positively correlated cell types
-pltlist <-lapply(rownames(rast_ct$MERFISH)[8:16], function(i) {
-  #use SEraster::plotRaster to plot the spatial pattern of cell type proportions for each chosen cell type in each sample for only the shared pixels
-  plt1 <- SEraster::plotRaster(rast_ct$MERFISH[i, sharedPixels], name = "cell type proportion") + ggplot2::labs(title = "MERFISH")
-  plt2 <- SEraster::plotRaster(rast_ct$Visium[i, sharedPixels], name = "cell type proportion") + ggplot2::labs(title = "Visium")
-  # use the plotCorrelationGeneExp function to generate the correlation plots 
-  plt3 <- plotCorrelationGeneExp(
-            speList = rast_ct,
-            spatialCorrelation = ctCorrelation, 
-            geneName = i)
-  return(c(plt1, plt2, plt3))
-  })
-
-gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[1]], ncol = 3),
-                        gridExtra::arrangeGrob(grobs = pltlist[[2]], ncol = 3),
-                        gridExtra::arrangeGrob(grobs = pltlist[[3]], ncol = 3)
-)
-
-gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[4]], ncol = 3),
-                        gridExtra::arrangeGrob(grobs = pltlist[[5]], ncol = 3),
-                        gridExtra::arrangeGrob(grobs = pltlist[[6]], ncol = 3)
-)
-
-gridExtra::grid.arrange(gridExtra::arrangeGrob(grobs = pltlist[[7]], ncol = 3),
-                        gridExtra::arrangeGrob(grobs = pltlist[[8]], ncol = 3),
-                        gridExtra::arrangeGrob(grobs = pltlist[[9]], ncol = 3)
 )
 
 ```
