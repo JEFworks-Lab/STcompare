@@ -54,12 +54,11 @@ zenodo_url <- "https://zenodo.org/records/10724029/files/STalign_S2R3_to_Visium.
 temp <- tempfile(fileext = ".csv.gz")
 download.file(zenodo_url, destfile = temp, mode = "wb")
 df <- read.csv(gzfile(temp), row.names = 1)
-
-head(df)
+df[1:5, 1:10]
 
 MERFISH.gexp <- df[, -(1:5)]
 MERFISH.gexp <- as.matrix(t(MERFISH.gexp))
-head(MERFISH.gexp)
+MERFISH.gexp[1:5, 1:5]
 
 # MERFISH positions #################################################
 
@@ -111,7 +110,7 @@ length(Visium.barcodes[,1])
 length(Visium.genenames[,2])
 rownames(Visium.gexp.raw) <- Visium.genenames[,2]
 colnames(Visium.gexp.raw) <- Visium.barcodes[,1]
-head(Visium.gexp.raw)
+Visium.gexp.raw[1:5, 1:5]
 ```
 
 Next, we will download the position information for the Visium data, which includes the spatial coordinates of each spot and the scale factor to convert those coordinates to microns.
@@ -475,7 +474,7 @@ download.file(zenodo_url, destfile = temp, mode = "wb")
 cmat <- read.csv(gzfile(temp), row.names = 1, check.names = FALSE)
 
 colnames(cmat) <- rownames(cmat)
-head(cmat)
+cmat[1:5, 1:5]
 ```
 
 ``` {r loading_MERFISH_cell_types}
@@ -500,8 +499,7 @@ download.file(zenodo_url, destfile = temp, mode = "wb")
 
 ctVisium <- read.csv(gzfile(temp), row.names = 1, stringsAsFactors = FALSE)
 colnames(ctVisium) <- rownames(cmat)
-head(ctVisium)
-
+ctVisium[1:5, 1:5]
 ```
 
 
@@ -517,13 +515,6 @@ best.cts <- unlist(lapply(1:nrow(cmat), function(i) {
     return(rownames(cmat)[i])
   }
 }))
-
-# best.cts <- unlist(lapply(seq_len(nrow(cmat)), function(i) {
-#  if (diag(cmat)[i] == max(cmat[i, ], na.rm = TRUE) &&
-#      diag(cmat)[i] == max(cmat[, i], na.rm = TRUE)) {
-#    return(rownames(cmat)[i])
-#  }
-# }))
 
 
 # assign colors to each cell type for visualization, prioritizing showing the best transcriptionally aligned cell types in color and the rest of the cell types in grey

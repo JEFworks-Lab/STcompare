@@ -47,7 +47,6 @@ colnames(MERFISH.pos.good) <- c("x", "y")
 
 
 
-
 # The Visium can be found on 10X Genomics:https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0 
 
 # Visium counts  ###############################################################
@@ -108,6 +107,21 @@ colnames(Visium.pos.good) <- c("x", "y")
 
 genes.have <- intersect(rownames(Visium.gexp.raw), rownames(MERFISH.gexp))
 
+
+
+MERFISH_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = MERFISH.gexp[genes.have, rownames(MERFISH.pos.good)],
+                libnorm = MERINGUE::normalizeCounts(MERFISH.gexp[genes.have, rownames(MERFISH.pos.good)], log = FALSE)),
+  spatialCoords = as.matrix(MERFISH.pos.good),
+  
+)
+
+Visium_SE <- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = Visium.gexp.raw[genes.have,],
+                libnorm = MERINGUE::normalizeCounts(Visium.gexp.raw[genes.have,], log=FALSE)),
+  spatialCoords = as.matrix(Visium.pos.good)
+
+)
 
 # Create a list of SpatialExperiment objects to rasterize
 spe_list <- list(MERFISH = MERFISH_SE, Visium = Visium_SE)
@@ -197,21 +211,25 @@ length(non_svg)
 
 
 # running spatialCorrelationGeneExpIterPermutations 
+# TODO: uncomment 
 
-print("Brain Correlation")
-start_time <- Sys.time()
-brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
-  rast,
-  assayName = "lognorm", 
-  returnPermutations = FALSE,
-  nThreads = 22,
-  seed = 0
-)
-end_time <- Sys.time()
-print(end_time - start_time) 
+# print("Brain Correlation")
+# start_time <- Sys.time()
+# brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
+#   rast,
+#   assayName = "lognorm", 
+#   returnPermutations = FALSE,
+#   nThreads = 22,
+#   seed = 0
+# )
+# end_time <- Sys.time()
+# print(end_time - start_time) 
 
-save(brainCorrelation, file = file.path("inst", "extdata", "brainCorrelation.RData"))
+# save(brainCorrelation, file = file.path("inst", "extdata", "brain-MERFISH-10x-visium", "brainCorrelation.RData"))
 
+# TODO: remove 
+
+load("inst/extdata/brain-MERFISH-10x-visium/brainCorrelation_1.RData")
 
 # saving the significantly positively correlated svg genes 
 svgSigPos <- brainCorrelation %>%
@@ -253,6 +271,9 @@ ss <- spatialSimilarity(rast, assayName = "lognorm", foldChange = 1, t1 = NULL, 
 end_time <- Sys.time()
 print(end_time-start_time)
 
+
+
+
 zenodo_url <- "https://zenodo.org/records/19582556/files/STalign_cell_type_transcriptional_correlations.csv.gz?download=1"
 temp <- tempfile(fileext = ".csv.gz")
 download.file(zenodo_url, destfile = temp, mode = "wb")
@@ -279,12 +300,15 @@ download.file(zenodo_url, destfile = temp, mode = "wb")
 ctVisium <- read.csv(gzfile(temp), row.names = 1, stringsAsFactors = FALSE)
 colnames(ctVisium) <- rownames(cmat)
 
+cmat <- as.matrix(cmat)
+
 # make list of the most transcriptionally similar cell types across the two technologies
 best.cts <- unlist(lapply(1:nrow(cmat), function(i) {
-  if (diag(cmat)[i] == max(cmat[i,]) & diag(cmat)[i] == max(cmat[,i])) {
+  if (Matrix::diag(cmat)[i] == max(cmat[i,]) & Matrix::diag(cmat)[i] == max(cmat[,i])) {
     return(rownames(cmat)[i])
   }
 }))
+
 
 # assign colors to each cell type for visualization, prioritizing showing the best transcriptionally aligned cell types in color and the rest of the cell types in grey
 set.seed(111111)
@@ -294,23 +318,10 @@ ccols[best.cts] <- sample(rainbow(length(best.cts)), length(best.cts))
 ccols
 #names(ccols) <- make.names(names(ccols))
 
-#plot the cell type labels for MERFISH
-par(mfrow=c(1,1), mar=rep(1,4))
-MERINGUE::plotEmbedding(SpatialExperiment::spatialCoords(MERFISH_SE), groups=ctMERFISH, group.level.colors = ccols, cex=0.5) ## on tissue
-
 #plot the deconvolved cell type proportions for Visium
 dfproportions <- data.frame(ctVisium)
 colnames(dfproportions) <- names(ccols)
 dfcoords <- data.frame(SpatialExperiment::spatialCoords(Visium_SE))
-
-p9 <- scatterbar::scatterbar(data = dfproportions, 
-                              xy = dfcoords, 
-                              size_x = 15, size_y = 15, 
-                              colors = ccols,
-                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
-                              ggplot2::theme(legend.position="none")
-
-p9
 
 
 # make new spatial experiment for Visium with cluster labels as the assay
@@ -349,26 +360,11 @@ dfproportions_Visium <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_
 colnames(dfproportions_Visium) <- names(ccols)
 dfcoords_Visium <- data.frame(SpatialExperiment::spatialCoords(rast_ct$Visium)[sharedPixels, ])
 
-p10 <- scatterbar::scatterbar(data = dfproportions_Visium, 
-                              xy = dfcoords_Visium, 
-                              size_x = 15, size_y = 15,
-                              colors = ccols, 
-                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
-                              ggplot2::theme(legend.position="none")
 
 #For MERFISH, use scatterbar to visualize the proportion of each region in each sample
 dfproportions_MERFISH <- data.frame(t(as.matrix(SummarizedExperiment::assay(rast_ct$MERFISH)[, sharedPixels])))
 colnames(dfproportions_MERFISH) <- names(ccols)
 dfcoords_MERFISH <- data.frame(SpatialExperiment::spatialCoords(rast_ct$MERFISH)[sharedPixels, ])
-
-p11 <- scatterbar::scatterbar(data = dfproportions_MERFISH, 
-                              xy = dfcoords_MERFISH, 
-                              size_x = 15, size_y = 15,
-                              colors = ccols, 
-                              padding_x = 0.01, padding_y = 0.01) + coord_fixed() + 
-                              ggplot2::theme(legend.position="none")
-
-p10 + p11
 
 
 # running spatialCorrelationGeneExp 
@@ -383,7 +379,7 @@ ctCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
 end_time <- Sys.time()
 print(end_time - start_time) #Time difference of 3.342462 mins
 
-save(ctCorrelation, file = file.path("inst", "extdata", "ctCorrelation.RData"))
+save(ctCorrelation, file = file.path("inst", "extdata", "brain-MERFISH-10x-visium", "ctCorrelation.RData"))
 
 
 
