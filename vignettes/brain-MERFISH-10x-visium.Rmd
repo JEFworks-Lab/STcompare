@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
   cache = TRUE,
   collapse = TRUE,
   comment = "#>",
-  fig.width = 8,
+  fig.width = 10,
   fig.height = 6,
   dpi = 72,
   dev = "png",
@@ -444,7 +444,7 @@ Finally, we compare the correlation and similarity metrics for each gene and sho
 sim_corr <- data.frame(gene = ss$similarityTable$gene,
                   correlation = brainCorrelation[, "correlationCoef" ], 
                   similar = ss$similarityTable$percentSimilarity)
-sim_corr
+head(sim_corr)
 
 sim_corr_plt <- sim_corr %>%
   dplyr::mutate(Sig = case_when(gene %in% svgSigPos ~ "SigPos",
