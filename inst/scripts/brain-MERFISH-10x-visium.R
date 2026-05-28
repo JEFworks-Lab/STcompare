@@ -211,25 +211,21 @@ length(non_svg)
 
 
 # running spatialCorrelationGeneExpIterPermutations 
-# TODO: uncomment 
 
-# print("Brain Correlation")
-# start_time <- Sys.time()
-# brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
-#   rast,
-#   assayName = "lognorm", 
-#   returnPermutations = FALSE,
-#   nThreads = 22,
-#   seed = 0
-# )
-# end_time <- Sys.time()
-# print(end_time - start_time) 
+print("Brain Correlation")
+start_time <- Sys.time()
+brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
+  rast,
+  assayName = "lognorm", 
+  returnPermutations = FALSE,
+  nThreads = 22,
+  seed = 0
+)
+end_time <- Sys.time()
+print(end_time - start_time) 
 
-# save(brainCorrelation, file = file.path("inst", "extdata", "brain-MERFISH-10x-visium", "brainCorrelation.RData"))
+save(brainCorrelation, file = file.path("inst", "extdata", "brain-MERFISH-10x-visium", "brainCorrelation.RData"))
 
-# TODO: remove 
-
-load("inst/extdata/brain-MERFISH-10x-visium/brainCorrelation_1.RData")
 
 # saving the significantly positively correlated svg genes 
 svgSigPos <- brainCorrelation %>%
@@ -377,7 +373,7 @@ ctCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   nThreads = 22
 )
 end_time <- Sys.time()
-print(end_time - start_time) #Time difference of 3.342462 mins
+print(end_time - start_time) 
 
 save(ctCorrelation, file = file.path("inst", "extdata", "brain-MERFISH-10x-visium", "ctCorrelation.RData"))
 

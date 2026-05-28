@@ -300,7 +300,7 @@ length(non_svg)
 ## Spatial correlation of gene expression across technologies
 Use STcompare to calculate Pearson's correlation coefficient for genes in both technologies to investigate if there is spatial correspondence of gene expression. 
 
-``` {r spatial-correlation1}
+``` {r spatial-correlation1 , eval=FALSE}
 
 # running spatialCorrelationGeneExpIterPermutations 
 
@@ -313,11 +313,16 @@ brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   seed = 0
 )
 end_time <- Sys.time()
-print(end_time - start_time) 
+print(end_time - start_time) # Time difference of 1.777397 hours
 ```
 
 We expect spatially variable genes to be significantly positively correlated and expect non-spatially variable genes to not be significantly correlated.
 ``` {r spatial-correlation2}
+# Full script to generate the precomputed vignette results available at:
+# system.file("scripts", "brain-MERFISH-10x-visium.R", package = "STcompare")
+
+# the brainCorrelation variable is saved at: 
+load(system.file("extdata", "brain-MERFISH-10x-visium", "brainCorrelation.RData", package = "STcompare"))
 
 # saving the significantly positively correlated svg genes 
 svgSigPos <- brainCorrelation %>%
@@ -628,7 +633,7 @@ p10 + p11
 # Calculate the spatial correlation of cell types 
 
 Now we use STcompare to calculate the spatial correlation of cell types across the two technologies. 
-``` {r spatial_correlation_cell_types}
+``` {r spatial_correlation_cell_types, eval=FALSE}
 
 # running spatialCorrelationGeneExpIterPermutations 
 start_time <- Sys.time()
@@ -638,13 +643,19 @@ ctCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
   nThreads = 22
 )
 end_time <- Sys.time()
-print(end_time - start_time) #Time difference of 3.342462 mins
+print(end_time - start_time) # Time difference of 6.951119 mins
 
 ```
 
 We can summarize the number of significantly positively correlated cell types, significantly negatively correlated cell types, and not significantly correlated cell types across the two technologies. We expect the most transcriptionally correlated cell types to all be significantly positively spatially correlated across the two technologies.
 
 ``` {r}
+
+# Full script to generate the precomputed vignette results available at:
+# system.file("scripts", "brain-MERFISH-10x-visium.R", package = "STcompare")
+
+# the brainCorrelation variable is saved at: 
+load(system.file("extdata", "brain-MERFISH-10x-visium", "ctCorrelation.RData", package = "STcompare"))
 
 # saving the significantly positively spatially correlated cell types from best transcriptionally correlated cell types
 ctSigPos <- ctCorrelation %>%
