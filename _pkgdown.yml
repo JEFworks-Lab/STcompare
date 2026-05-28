@@ -12,6 +12,8 @@ navbar:
         href: articles/getting-started-with-STcompare.html
       - text: "Acute Kidney Injury 10x Visium"
         href: articles/acute-kidney-injury-10x-visium-rasterized.html
+      - text: "Comparison of MERFISH and Visium for Mouse Brain"
+        href: articles/brain-MERFISH-10x-visium.html
     - text: "Functions"
       href: reference/index.html
 

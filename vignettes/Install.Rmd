@@ -28,6 +28,6 @@ To install `STcompare`, we currently recommend using `remotes`:
 
 ```{r eval=FALSE, message=FALSE, warning=FALSE}
 require(remotes)
-remotes::install_github('JEFworks-Lab/STcompare')
+remotes::install_github('JEFworks-Lab/STcompare', build_vignettes = FALSE)
 
 ```
