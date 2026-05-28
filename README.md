@@ -25,7 +25,7 @@ To make comparisons, `STcompare` relies on matched spatial locations in the ST d
 
 ```r
 require(remotes)
-remotes::install_github('JEFworks-Lab/STcompare')
+remotes::install_github('JEFworks-Lab/STcompare', build_vignettes = FALSE)
 ```
 
 ## Tutorials 
