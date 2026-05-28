@@ -31,6 +31,8 @@ remotes::install_github('JEFworks-Lab/STcompare')
 ## Tutorials 
 
 1. [Getting started with `STcompare`](https://jef.works/STcompare/articles/getting-started-with-STcompare.html)
+2. [Acute Kidney Injury (10x Visium) Application](https://jef.works/STcompare/articles/acute-kidney-injury-10x-visium-rasterized.html)
+3. [Comparison of MERFISH and Visium for Mouse Brain](https://jef.works/STcompare/articles/brain-MERFISH-10x-visium.html)
 
 ## Citation 
 

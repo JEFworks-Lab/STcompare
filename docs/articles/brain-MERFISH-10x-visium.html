@@ -157,7 +157,7 @@ the gene expression and position matrix.</p>
 <span></span>
 <span><span class="co">#plot</span></span>
 <span><span class="fu">MERINGUE</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/MERINGUE/man/plotEmbedding.html" class="external-link">plotEmbedding</a></span><span class="op">(</span><span class="va">MERFISH.pos.good</span>, col<span class="op">=</span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/colSums.html" class="external-link">colSums</a></span><span class="op">(</span><span class="va">MERFISH.gexp</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/pkg/BiocGenerics/man/row_colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">MERFISH.pos.good</span><span class="op">)</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/load-data-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/load-data-1.png" width="720"></p>
 <p>The Visium data, FFPE-preserved adult mouse brain section, can be
 found at 10X Genomics: <a href="https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0" class="external-link uri">https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0</a>.
 We will download the raw counts for the Visium data first.</p>
@@ -251,7 +251,7 @@ to convert those coordinates to microns.</p>
 <span><span class="va">Visium.gexp.raw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">Visium.gexp.raw</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">MERINGUE</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/MERINGUE/man/plotEmbedding.html" class="external-link">plotEmbedding</a></span><span class="op">(</span><span class="va">Visium.pos.good</span>, col<span class="op">=</span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/colSums.html" class="external-link">colSums</a></span><span class="op">(</span><span class="va">Visium.gexp.raw</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/load-data3-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/load-data3-1.png" width="720"></p>
 <p>We will only be able to compare genes that are shared across the two
 technologies, so we will subset to the genes that are shared across the
 two datasets.</p>
@@ -334,7 +334,7 @@ gene expression across the two technologies for the same gene.</p>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> Adding new coordinate system, which will replace the existing one.</span></span>
 <span></span>
 <span><span class="va">plt1</span> <span class="op">+</span> <span class="va">plt2</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-4-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-4-1.png" width="720"></p>
 </div>
 <div class="section level2">
 <h2 id="filter-lowly-expression-genes">Filter lowly expression genes<a class="anchor" aria-label="anchor" href="#filter-lowly-expression-genes"></a>
@@ -388,7 +388,7 @@ now want to identify which of those genes are then spatially variable
 computational time.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">moransI_MERFISH</span> <span class="op">&lt;-</span> <span class="fu">moransI</span><span class="op">(</span><span class="va">rast</span><span class="op">[[</span><span class="st">"MERFISH"</span><span class="op">]</span><span class="op">]</span>, filterDist <span class="op">=</span> <span class="va">resolution</span> <span class="op">+</span> <span class="fl">1</span>, assayName <span class="op">=</span> <span class="st">"lognorm"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/moransI2-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/moransI2-1.png" width="720"></p>
 <pre><code><span><span class="co">#&gt; Number of significantly autocorrelated genes: 323</span></span>
 <span><span class="co">#&gt; ...driven by &gt; 26.27 cells: 323</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">moransI_MERFISH</span><span class="op">)</span></span>
@@ -402,7 +402,7 @@ computational time.</p>
 <p>Calculate Moran’s I on the non-rasterized Visium data.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">moransI_Visium</span> <span class="op">&lt;-</span> <span class="fu">moransI</span><span class="op">(</span><span class="va">Visium_SE</span>, filterDist <span class="op">=</span> <span class="fl">25</span>, assayName <span class="op">=</span> <span class="st">"libnorm"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/moransI3-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/moransI3-1.png" width="720"></p>
 <pre><code><span><span class="co">#&gt; Number of significantly autocorrelated genes: 262</span></span>
 <span><span class="co">#&gt; ...driven by &gt; 22.64 cells: 230</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">moransI_Visium</span><span class="op">)</span></span>
@@ -565,7 +565,7 @@ each gene.</p>
 <span><span class="va">geneSigPltMERFISH</span> <span class="op">+</span> <span class="va">geneSigPltVisium</span> <span class="op">+</span> <span class="va">gene_corr_Sig</span></span>
 <span><span class="co">#&gt; Ignoring unknown labels:</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BB00;">fill</span> : <span style="color: #0000BB;">"Data"</span></span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-6-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-6-1.png" width="720"></p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span></span>
@@ -583,7 +583,7 @@ each gene.</p>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BB00;">fill</span> : <span style="color: #0000BB;">"Data"</span></span></span>
 <span><span class="co">#&gt; Ignoring unknown labels:</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> <span style="color: #00BB00;">fill</span> : <span style="color: #0000BB;">"Data"</span></span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-6-2.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-6-2.png" width="720"></p>
 </div>
 </div>
 <div class="section level2">
@@ -598,7 +598,7 @@ the two technologies.</p>
 <span><span class="va">ss</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatialSimilarity.html">spatialSimilarity</a></span><span class="op">(</span><span class="va">rast</span>, assayName <span class="op">=</span> <span class="st">"lognorm"</span>, foldChange <span class="op">=</span> <span class="fl">1</span>, t1 <span class="op">=</span> <span class="cn">NULL</span>, t2 <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
 <span><span class="va">end_time</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">end_time</span><span class="op">-</span><span class="va">start_time</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Time difference of 3.353717 secs</span></span></code></pre></div>
+<span><span class="co">#&gt; Time difference of 3.31933 secs</span></span></code></pre></div>
 <p>We can visualize the spatial pattern of the fold change similarity
 classifications for the same example genes that are significantly
 positively correlated and not significantly correlated across the two
@@ -613,7 +613,7 @@ technologies.</p>
 <span><span class="op">(</span><span class="va">lr_geneSig</span> <span class="op">|</span> <span class="va">pc_geneSig</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: Removed 109 rows containing missing values or values outside the scale range</span></span>
 <span><span class="co">#&gt; (`geom_point()`).</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-8-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-8-1.png" width="720"></p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="co"># visualization of fold change similarity classifications for not significantly correlated gene</span></span>
@@ -625,7 +625,7 @@ technologies.</p>
 <span><span class="op">(</span><span class="va">lr_geneNotSig</span> <span class="op">|</span> <span class="va">pc_geneNotSig</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: Removed 148 rows containing missing values or values outside the scale range</span></span>
 <span><span class="co">#&gt; (`geom_point()`).</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-8-2.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-8-2.png" width="720"></p>
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span></span>
@@ -635,7 +635,7 @@ technologies.</p>
 <span><span class="co">#&gt; (`geom_point()`).</span></span>
 <span><span class="co">#&gt; Warning: Removed 148 rows containing missing values or values outside the scale range</span></span>
 <span><span class="co">#&gt; (`geom_point()`).</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-8-3.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-8-3.png" width="720"></p>
 <p>Finally, we compare the correlation and similarity metrics for each
 gene and showed that the compare the correlation and similarity metrics
 offer orthogonal insights.</p>
@@ -647,333 +647,14 @@ offer orthogonal insights.</p>
 <span><span class="va">sim_corr</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>gene <span class="op">=</span> <span class="va">ss</span><span class="op">$</span><span class="va">similarityTable</span><span class="op">$</span><span class="va">gene</span>,</span>
 <span>                  correlation <span class="op">=</span> <span class="va">brainCorrelation</span><span class="op">[</span>, <span class="st">"correlationCoef"</span> <span class="op">]</span>, </span>
 <span>                  similar <span class="op">=</span> <span class="va">ss</span><span class="op">$</span><span class="va">similarityTable</span><span class="op">$</span><span class="va">percentSimilarity</span><span class="op">)</span></span>
-<span><span class="va">sim_corr</span></span>
-<span><span class="co">#&gt;          gene   correlation     similar</span></span>
-<span><span class="co">#&gt; 1       Oprk1  0.1842893847 0.139150943</span></span>
-<span><span class="co">#&gt; 2      Npbwr1  0.0441509803 0.039800995</span></span>
-<span><span class="co">#&gt; 3      Adgrb3  0.0816517204 0.903210796</span></span>
-<span><span class="co">#&gt; 4       Gpr45  0.0429279542 0.156035846</span></span>
-<span><span class="co">#&gt; 5        Fzd7 -0.0203209492 0.070355191</span></span>
-<span><span class="co">#&gt; 6        Nrp2  0.2212846406 0.375572519</span></span>
-<span><span class="co">#&gt; 7        Gpr1  0.0273530893 0.025492468</span></span>
-<span><span class="co">#&gt; 8       Pth2r  0.0912403057 0.105004907</span></span>
-<span><span class="co">#&gt; 9       Erbb4  0.0497013746 0.548630784</span></span>
-<span><span class="co">#&gt; 10        Fn1 -0.0091240620 0.453049371</span></span>
-<span><span class="co">#&gt; 11      Epha4  0.1780632081 0.914510166</span></span>
-<span><span class="co">#&gt; 12      Ackr3  0.0054106664 0.225037258</span></span>
-<span><span class="co">#&gt; 13       Sctr -0.0076596550 0.012048193</span></span>
-<span><span class="co">#&gt; 14      Htr5b  0.1325359215 0.054205607</span></span>
-<span><span class="co">#&gt; 15      Cxcr4  0.0578427331 0.048507463</span></span>
-<span><span class="co">#&gt; 16     Adora1  0.1829284085 0.871208586</span></span>
-<span><span class="co">#&gt; 17       Lgr6  0.1174568483 0.063829787</span></span>
-<span><span class="co">#&gt; 18    Gpr37l1  0.0261517308 0.962107209</span></span>
-<span><span class="co">#&gt; 19      Lmod1  0.0270400050 0.031936128</span></span>
-<span><span class="co">#&gt; 20      Gpr52  0.1370159913 0.326950694</span></span>
-<span><span class="co">#&gt; 21     Gpr161  0.0669432884 0.159718734</span></span>
-<span><span class="co">#&gt; 22       Ddr2  0.0123304717 0.048686739</span></span>
-<span><span class="co">#&gt; 23      Ackr1  0.1202439552 0.612582781</span></span>
-<span><span class="co">#&gt; 24       Opn3  0.2365919930 0.251349730</span></span>
-<span><span class="co">#&gt; 25     Gpr158  0.1637344962 0.822648573</span></span>
-<span><span class="co">#&gt; 26      Gpr21  0.0344475928 0.434741338</span></span>
-<span><span class="co">#&gt; 27       Gad1  0.1380731410 0.463199215</span></span>
-<span><span class="co">#&gt; 28     Calcrl  0.0177252044 0.158612144</span></span>
-<span><span class="co">#&gt; 29      Aplnr  0.0028070315 0.012880562</span></span>
-<span><span class="co">#&gt; 30      Chrm4  0.1756899111 0.209761766</span></span>
-<span><span class="co">#&gt; 31       Lgr4  0.0108045338 0.570415879</span></span>
-<span><span class="co">#&gt; 32      Chrm5  0.1856615254 0.073552426</span></span>
-<span><span class="co">#&gt; 33     Gpr176  0.0561273518 0.206738132</span></span>
-<span><span class="co">#&gt; 34      Tyro3  0.1475486303 0.699102504</span></span>
-<span><span class="co">#&gt; 35     Adra2b  0.2735456551 0.125874126</span></span>
-<span><span class="co">#&gt; 36      Mertk  0.0158538137 0.524258125</span></span>
-<span><span class="co">#&gt; 37     Adra1d  0.3336334981 0.468339307</span></span>
-<span><span class="co">#&gt; 38     Prokr2  0.1228303617 0.071285141</span></span>
-<span><span class="co">#&gt; 39      Sstr4  0.2486021599 0.443527592</span></span>
-<span><span class="co">#&gt; 40    Slc32a1  0.2033894726 0.435236004</span></span>
-<span><span class="co">#&gt; 41       Mc3r  0.0857045555 0.029978587</span></span>
-<span><span class="co">#&gt; 42       Hrh3  0.2576581796 0.790299572</span></span>
-<span><span class="co">#&gt; 43      Ntsr1  0.1828732294 0.185763889</span></span>
-<span><span class="co">#&gt; 44     Gpr160 -0.0391199916 0.014084507</span></span>
-<span><span class="co">#&gt; 45      Qrfpr  0.1827562479 0.109489051</span></span>
-<span><span class="co">#&gt; 46     P2ry14 -0.0122820070 0.029311520</span></span>
-<span><span class="co">#&gt; 47     P2ry12 -0.0038185008 0.469306931</span></span>
-<span><span class="co">#&gt; 48      P2ry1  0.0741674823 0.074125874</span></span>
-<span><span class="co">#&gt; 49     Gpr149  0.2025090073 0.150684932</span></span>
-<span><span class="co">#&gt; 50     Vmn2r1  0.0514575725 0.051166966</span></span>
-<span><span class="co">#&gt; 51      Rxfp1  0.1811459167 0.124102564</span></span>
-<span><span class="co">#&gt; 52      Npy2r  0.2353802135 0.274143302</span></span>
-<span><span class="co">#&gt; 53     Adora3  0.0038589825 0.027257240</span></span>
-<span><span class="co">#&gt; 54      Gpr61  0.0458801072 0.356626506</span></span>
-<span><span class="co">#&gt; 55     Celsr2  0.1030754272 0.922649375</span></span>
-<span><span class="co">#&gt; 56      S1pr1  0.0161241853 0.846011132</span></span>
-<span><span class="co">#&gt; 57      Gpr88  0.2753043781 0.472777778</span></span>
-<span><span class="co">#&gt; 58   Arhgap29  0.0527596003 0.255043228</span></span>
-<span><span class="co">#&gt; 59        Rrh -0.0072944053 0.029126214</span></span>
-<span><span class="co">#&gt; 60      Tacr3  0.1131454156 0.065217391</span></span>
-<span><span class="co">#&gt; 61       Emcn  0.0328201160 0.118789263</span></span>
-<span><span class="co">#&gt; 62     Adgrl2  0.1248362706 0.551495017</span></span>
-<span><span class="co">#&gt; 63     Adgrl4 -0.0365996218 0.231449631</span></span>
-<span><span class="co">#&gt; 64      Ptgfr -0.0046985400 0.014240506</span></span>
-<span><span class="co">#&gt; 65     Ptger3  0.1066288006 0.175081967</span></span>
-<span><span class="co">#&gt; 66      Gpr63  0.0915231645 0.413267813</span></span>
-<span><span class="co">#&gt; 67      Epha7  0.1866600602 0.704631380</span></span>
-<span><span class="co">#&gt; 68       Cnr1  0.2138869219 0.766270784</span></span>
-<span><span class="co">#&gt; 69    Igfbpl1  0.0615797885 0.039877301</span></span>
-<span><span class="co">#&gt; 70     Gabbr2  0.1799502748 0.925359295</span></span>
-<span><span class="co">#&gt; 71       Musk  0.0594795381 0.032467532</span></span>
-<span><span class="co">#&gt; 72      Lpar1  0.2766052049 0.459459459</span></span>
-<span><span class="co">#&gt; 73        Tek  0.0458772384 0.199681360</span></span>
-<span><span class="co">#&gt; 74       Ror1  0.0875221450 0.065527066</span></span>
-<span><span class="co">#&gt; 75       Tie1  0.0141644798 0.095160413</span></span>
-<span><span class="co">#&gt; 76     Cldn19  0.1019646648 0.043321300</span></span>
-<span><span class="co">#&gt; 77     Epha10  0.1391490930 0.454411765</span></span>
-<span><span class="co">#&gt; 78     Hcrtr1  0.1074088296 0.051797040</span></span>
-<span><span class="co">#&gt; 79      Oprd1  0.1808642115 0.261377614</span></span>
-<span><span class="co">#&gt; 80      Ptafr  0.0043825816 0.029478458</span></span>
-<span><span class="co">#&gt; 81       Gpr3  0.0975021173 0.170642202</span></span>
-<span><span class="co">#&gt; 82      Htr1d  0.1315907034 0.061797753</span></span>
-<span><span class="co">#&gt; 83      Ephb2  0.0411661172 0.050024522</span></span>
-<span><span class="co">#&gt; 84       C1qb  0.0250529829 0.567312234</span></span>
-<span><span class="co">#&gt; 85       C1qa  0.0254425170 0.730876866</span></span>
-<span><span class="co">#&gt; 86      Epha8  0.1246741871 0.118293471</span></span>
-<span><span class="co">#&gt; 87       Htr6  0.0546537224 0.039534884</span></span>
-<span><span class="co">#&gt; 88      Epha2  0.0004218137 0.031318281</span></span>
-<span><span class="co">#&gt; 89     Gpr157  0.0277752250 0.023176936</span></span>
-<span><span class="co">#&gt; 90     Gpr153  0.1935244043 0.294513956</span></span>
-<span><span class="co">#&gt; 91     Tas1r3  0.0152177489 0.019067797</span></span>
-<span><span class="co">#&gt; 92       Fzd1  0.1026666705 0.265060241</span></span>
-<span><span class="co">#&gt; 93       Grm3  0.0977795323 0.707591378</span></span>
-<span><span class="co">#&gt; 94      Htr5a  0.1305753119 0.238070539</span></span>
-<span><span class="co">#&gt; 95      Fgfr3  0.0811569256 0.728470588</span></span>
-<span><span class="co">#&gt; 96     Adra2c  0.1032170726 0.160412758</span></span>
-<span><span class="co">#&gt; 97       Drd5  0.1399883810 0.072420635</span></span>
-<span><span class="co">#&gt; 98     Adgra3  0.0142494888 0.345221113</span></span>
-<span><span class="co">#&gt; 99     Pdgfra  0.0486192100 0.421133231</span></span>
-<span><span class="co">#&gt; 100       Kit  0.0923129631 0.374337222</span></span>
-<span><span class="co">#&gt; 101       Kdr  0.0280525268 0.188199390</span></span>
-<span><span class="co">#&gt; 102    Adgrl3  0.1120176979 0.876336588</span></span>
-<span><span class="co">#&gt; 103     Epha5  0.0990307625 0.685974150</span></span>
-<span><span class="co">#&gt; 104    Npffr2  0.0890232753 0.047222222</span></span>
-<span><span class="co">#&gt; 105    Fgfrl1 -0.0203443184 0.437942426</span></span>
-<span><span class="co">#&gt; 106    Cmklr1 -0.0153941244 0.063210227</span></span>
-<span><span class="co">#&gt; 107    Selplg -0.0106684767 0.392607393</span></span>
-<span><span class="co">#&gt; 108     Fzd10  0.2191415287 0.151832461</span></span>
-<span><span class="co">#&gt; 109    Adgrd1  0.0540554795 0.060606061</span></span>
-<span><span class="co">#&gt; 110      Fzd9 -0.0033529120 0.147984539</span></span>
-<span><span class="co">#&gt; 111      Gjc3  0.2738851837 0.495054402</span></span>
-<span><span class="co">#&gt; 112    Gpr146 -0.0129480606 0.395161290</span></span>
-<span><span class="co">#&gt; 113     Gper1 -0.0105453327 0.069823435</span></span>
-<span><span class="co">#&gt; 114     Lmtk2  0.1722105423 0.874535316</span></span>
-<span><span class="co">#&gt; 115      Flt3  0.1198587488 0.126236184</span></span>
-<span><span class="co">#&gt; 116      Flt1 -0.0136499611 0.429258903</span></span>
-<span><span class="co">#&gt; 117     Rxfp2  0.0937132728 0.044217687</span></span>
-<span><span class="co">#&gt; 118     Calcr  0.2136396700 0.089230769</span></span>
-<span><span class="co">#&gt; 119     Peg10  0.2047029112 0.478053435</span></span>
-<span><span class="co">#&gt; 120     Gpr85  0.0911276439 0.529606821</span></span>
-<span><span class="co">#&gt; 121       Met  0.1970187824 0.140814868</span></span>
-<span><span class="co">#&gt; 122     Gpr37  0.2041136910 0.311494937</span></span>
-<span><span class="co">#&gt; 123       Smo  0.0564778433 0.197091274</span></span>
-<span><span class="co">#&gt; 124     Chrm2  0.1119710387 0.247266100</span></span>
-<span><span class="co">#&gt; 125     Ephb6  0.1961405176 0.660857277</span></span>
-<span><span class="co">#&gt; 126     Crhr2  0.0567476749 0.040044494</span></span>
-<span><span class="co">#&gt; 127 Adcyap1r1  0.1119852074 0.883828996</span></span>
-<span><span class="co">#&gt; 128     Tacr1  0.1467344780 0.069081719</span></span>
-<span><span class="co">#&gt; 129   Aldh1l1  0.0578654442 0.525118483</span></span>
-<span><span class="co">#&gt; 130     Gpr27  0.1475199479 0.613560929</span></span>
-<span><span class="co">#&gt; 131      Grm7  0.0918798043 0.726291080</span></span>
-<span><span class="co">#&gt; 132      Oxtr  0.1028008654 0.139448173</span></span>
-<span><span class="co">#&gt; 133      Hrh1  0.0995679944 0.242232754</span></span>
-<span><span class="co">#&gt; 134     Timp4  0.0719564244 0.632720415</span></span>
-<span><span class="co">#&gt; 135    Cxcl12  0.0584356755 0.442170395</span></span>
-<span><span class="co">#&gt; 136       Ret  0.2437362647 0.182698515</span></span>
-<span><span class="co">#&gt; 137  Slc25a18  0.1694290290 0.672511848</span></span>
-<span><span class="co">#&gt; 138     C3ar1 -0.0200397055 0.050715215</span></span>
-<span><span class="co">#&gt; 139    Gpr162  0.1474562265 0.900884132</span></span>
-<span><span class="co">#&gt; 140    Grin2b  0.1468039982 0.954038997</span></span>
-<span><span class="co">#&gt; 141   Slco1a4  0.0176464724 0.541439206</span></span>
-<span><span class="co">#&gt; 142     Kcnj8 -0.0273738702 0.089366516</span></span>
-<span><span class="co">#&gt; 143     Abcc9 -0.0064067843 0.113933237</span></span>
-<span><span class="co">#&gt; 144     C5ar2 -0.0190971313 0.018628912</span></span>
-<span><span class="co">#&gt; 145     C5ar1  0.0169460048 0.016602810</span></span>
-<span><span class="co">#&gt; 146      Gipr  0.0177737754 0.045401630</span></span>
-<span><span class="co">#&gt; 147      Gpr4  0.0997443866 0.152831226</span></span>
-<span><span class="co">#&gt; 148       Axl  0.0254527554 0.494084240</span></span>
-<span><span class="co">#&gt; 149   Slc17a7  0.5686291458 0.939962477</span></span>
-<span><span class="co">#&gt; 150   Slc17a6  0.4206884990 0.590984975</span></span>
-<span><span class="co">#&gt; 151     Igf1r  0.0290628119 0.753738318</span></span>
-<span><span class="co">#&gt; 152     Ntrk3  0.1529160407 0.899069767</span></span>
-<span><span class="co">#&gt; 153      Grm5  0.2071125345 0.743758832</span></span>
-<span><span class="co">#&gt; 154      Fzd4  0.0067406768 0.123589744</span></span>
-<span><span class="co">#&gt; 155     P2ry6 -0.0158943310 0.009884679</span></span>
-<span><span class="co">#&gt; 156     P2ry2  0.0317344633 0.015748031</span></span>
-<span><span class="co">#&gt; 157     Cckbr  0.3811797030 0.561659193</span></span>
-<span><span class="co">#&gt; 158    Gprc5b  0.2524355215 0.936022253</span></span>
-<span><span class="co">#&gt; 159    Gpr139  0.2026022395 0.095348837</span></span>
-<span><span class="co">#&gt; 160     Fgfr2  0.1820671593 0.650188324</span></span>
-<span><span class="co">#&gt; 161     Gpr26  0.3551143322 0.708708709</span></span>
-<span><span class="co">#&gt; 162     Mki67  0.0258294794 0.022641509</span></span>
-<span><span class="co">#&gt; 163    Adgra1  0.2228482957 0.656102176</span></span>
-<span><span class="co">#&gt; 164      Drd4  0.0196772138 0.029629630</span></span>
-<span><span class="co">#&gt; 165        Th  0.1576033929 0.094703050</span></span>
-<span><span class="co">#&gt; 166    Mrgpre  0.0449080009 0.052851910</span></span>
-<span><span class="co">#&gt; 167    Mrgprf  0.0125573284 0.021786492</span></span>
-<span><span class="co">#&gt; 168      Insr -0.0160940070 0.427825261</span></span>
-<span><span class="co">#&gt; 169    Adgra2  0.0106231416 0.185112635</span></span>
-<span><span class="co">#&gt; 170     Adrb3  0.0456362297 0.024489796</span></span>
-<span><span class="co">#&gt; 171     Npy1r  0.1749005197 0.449157151</span></span>
-<span><span class="co">#&gt; 172     Lpar2  0.0478771179 0.029753266</span></span>
-<span><span class="co">#&gt; 173     Ednra  0.0341418238 0.056748466</span></span>
-<span><span class="co">#&gt; 174    Ptger1  0.0012475855 0.028888889</span></span>
-<span><span class="co">#&gt; 175    Adgrl1  0.1536541321 0.925407925</span></span>
-<span><span class="co">#&gt; 176    Adgrg5  0.0951524548 0.036036036</span></span>
-<span><span class="co">#&gt; 177    Adgrg1  0.1866181035 0.649006623</span></span>
-<span><span class="co">#&gt; 178      Nrp1  0.1088137366 0.261390887</span></span>
-<span><span class="co">#&gt; 179     Gpr83  0.2348722094 0.385150812</span></span>
-<span><span class="co">#&gt; 180     S1pr2 -0.0219926538 0.032551098</span></span>
-<span><span class="co">#&gt; 181     S1pr5  0.2418454257 0.414429530</span></span>
-<span><span class="co">#&gt; 182     Npsr1  0.1943858371 0.124069479</span></span>
-<span><span class="co">#&gt; 183      Drd2  0.3124955594 0.242379182</span></span>
-<span><span class="co">#&gt; 184    Hcrtr2  0.0591404998 0.072137060</span></span>
-<span><span class="co">#&gt; 185     Htr1b  0.1760120991 0.218085106</span></span>
-<span><span class="co">#&gt; 186     Ephb1  0.0748915165 0.566162571</span></span>
-<span><span class="co">#&gt; 187       Ryk  0.0020417016 0.544853636</span></span>
-<span><span class="co">#&gt; 188   Tmem108  0.0729506267 0.397607656</span></span>
-<span><span class="co">#&gt; 189     Gpr62  0.1553038009 0.231117825</span></span>
-<span><span class="co">#&gt; 190      Grm2  0.2860834747 0.473089343</span></span>
-<span><span class="co">#&gt; 191    Celsr3  0.1155262611 0.603281853</span></span>
-<span><span class="co">#&gt; 192     Cspg5  0.0899778030 0.984722222</span></span>
-<span><span class="co">#&gt; 193     Pth1r  0.0077132464 0.096536059</span></span>
-<span><span class="co">#&gt; 194    Cx3cr1 -0.0336323044 0.360902256</span></span>
-<span><span class="co">#&gt; 195     Vipr1  0.2183762245 0.253914227</span></span>
-<span><span class="co">#&gt; 196     Ackr2  0.1403716445 0.064000000</span></span>
-<span><span class="co">#&gt; 197     Oprm1  0.3177409560 0.473742399</span></span>
-<span><span class="co">#&gt; 198      Grm1  0.2002706043 0.627045236</span></span>
-<span><span class="co">#&gt; 199    Adgrg6  0.0859107694 0.065411298</span></span>
-<span><span class="co">#&gt; 200      Nmbr  0.0224743641 0.051909892</span></span>
-<span><span class="co">#&gt; 201     Rspo3  0.2318394867 0.330085262</span></span>
-<span><span class="co">#&gt; 202      Gpr6  0.2423918445 0.137231504</span></span>
-<span><span class="co">#&gt; 203       Pln  0.0707123627 0.059800664</span></span>
-<span><span class="co">#&gt; 204     Man1a  0.1315242286 0.498812352</span></span>
-<span><span class="co">#&gt; 205    Pcdh15  0.0821378629 0.423095585</span></span>
-<span><span class="co">#&gt; 206   Adora2a  0.2547857858 0.169910180</span></span>
-<span><span class="co">#&gt; 207    Kiss1r  0.0499138867 0.171458999</span></span>
-<span><span class="co">#&gt; 208    Tbxa2r  0.0138305260 0.034644195</span></span>
-<span><span class="co">#&gt; 209     S1pr4  0.0322452510 0.017003188</span></span>
-<span><span class="co">#&gt; 210     Ascl1  0.0976192548 0.116153846</span></span>
-<span><span class="co">#&gt; 211   Slc17a8  0.0426447521 0.049645390</span></span>
-<span><span class="co">#&gt; 212    Gpr182 -0.0054974785 0.029224905</span></span>
-<span><span class="co">#&gt; 213     Erbb3  0.1837852191 0.207580175</span></span>
-<span><span class="co">#&gt; 214      Egfr  0.0205575919 0.135433071</span></span>
-<span><span class="co">#&gt; 215    Efemp1  0.0001904373 0.116883117</span></span>
-<span><span class="co">#&gt; 216     Gpr75  0.0476304591 0.237954769</span></span>
-<span><span class="co">#&gt; 217    Adra1b  0.2916300497 0.475675676</span></span>
-<span><span class="co">#&gt; 218      Flt4  0.0297501780 0.031485284</span></span>
-<span><span class="co">#&gt; 219   Slc47a1  0.0989136303 0.062962963</span></span>
-<span><span class="co">#&gt; 220   Adora2b  0.0594603764 0.138432364</span></span>
-<span><span class="co">#&gt; 221     Traf4  0.0254914246 0.152804642</span></span>
-<span><span class="co">#&gt; 222     Erbb2 -0.0101047481 0.024475524</span></span>
-<span><span class="co">#&gt; 223     Top2a  0.0676598322 0.027237354</span></span>
-<span><span class="co">#&gt; 224      Fzd2  0.0944717607 0.269633508</span></span>
-<span><span class="co">#&gt; 225      Gfap  0.3022665042 0.735127479</span></span>
-<span><span class="co">#&gt; 226     Crhr1  0.2123335849 0.397422127</span></span>
-<span><span class="co">#&gt; 227      Sox9 -0.0221738951 0.631258774</span></span>
-<span><span class="co">#&gt; 228     Sstr2  0.2950413764 0.337468983</span></span>
-<span><span class="co">#&gt; 229    Gprc5c  0.0088877742 0.064064801</span></span>
-<span><span class="co">#&gt; 230   Cd300c2 -0.0031698352 0.106213873</span></span>
-<span><span class="co">#&gt; 231    Baiap2  0.3453186146 0.871615313</span></span>
-<span><span class="co">#&gt; 232     Ntsr2  0.0883777040 0.875871688</span></span>
-<span><span class="co">#&gt; 233     Gpr22  0.1247351843 0.644518272</span></span>
-<span><span class="co">#&gt; 234     Sstr1  0.2341285049 0.485010707</span></span>
-<span><span class="co">#&gt; 235    Gpr135  0.0637118341 0.181315922</span></span>
-<span><span class="co">#&gt; 236      Tshr  0.0410311307 0.021505376</span></span>
-<span><span class="co">#&gt; 237      Dlk1  0.4312917922 0.291452991</span></span>
-<span><span class="co">#&gt; 238     Vipr2  0.1638990707 0.065836299</span></span>
-<span><span class="co">#&gt; 239     Chrm3  0.2068473217 0.526341463</span></span>
-<span><span class="co">#&gt; 240    Agtr1a -0.0003374553 0.014479638</span></span>
-<span><span class="co">#&gt; 241   Ppp1r3g  0.0201407906 0.113907285</span></span>
-<span><span class="co">#&gt; 242     S1pr3  0.0198251070 0.130588235</span></span>
-<span><span class="co">#&gt; 243    Sema4d -0.0235903395 0.457250827</span></span>
-<span><span class="co">#&gt; 244      Ror2  0.0593755187 0.030952381</span></span>
-<span><span class="co">#&gt; 245      Drd1  0.1420070600 0.074683544</span></span>
-<span><span class="co">#&gt; 246      Hrh2  0.0709685100 0.229240958</span></span>
-<span><span class="co">#&gt; 247     Ntrk2  0.0202727362 0.991211841</span></span>
-<span><span class="co">#&gt; 248    Gpr150  0.0167246734 0.012542759</span></span>
-<span><span class="co">#&gt; 249    Adgrv1  0.0308952317 0.048250905</span></span>
-<span><span class="co">#&gt; 250       F2r  0.2193552627 0.218750000</span></span>
-<span><span class="co">#&gt; 251     F2rl2  0.1112320213 0.055000000</span></span>
-<span><span class="co">#&gt; 252     Htr1a  0.1536201352 0.177944862</span></span>
-<span><span class="co">#&gt; 253    Anxa11  0.1907780160 0.471062619</span></span>
-<span><span class="co">#&gt; 254      Chat  0.1508407640 0.060897436</span></span>
-<span><span class="co">#&gt; 255      Fzd3  0.1536878207 0.876865672</span></span>
-<span><span class="co">#&gt; 256    Adra1a  0.0200101622 0.195061728</span></span>
-<span><span class="co">#&gt; 257   Cysltr2 -0.0204298814 0.007022472</span></span>
-<span><span class="co">#&gt; 258     Lpar6  0.0084901789 0.085666293</span></span>
-<span><span class="co">#&gt; 259     Htr2a  0.2779635419 0.365652725</span></span>
-<span><span class="co">#&gt; 260     Ednrb  0.1162843007 0.644402634</span></span>
-<span><span class="co">#&gt; 261    Gpr183  0.0264049049 0.034988713</span></span>
-<span><span class="co">#&gt; 262    Ptger4  0.0330634967 0.031523643</span></span>
-<span><span class="co">#&gt; 263     Rxfp3  0.1515958338 0.093575419</span></span>
-<span><span class="co">#&gt; 264      Fzd6  0.0540022552 0.229708223</span></span>
-<span><span class="co">#&gt; 265      Trhr  0.2358340460 0.097024580</span></span>
-<span><span class="co">#&gt; 266     Gpr20  0.0282502391 0.021739130</span></span>
-<span><span class="co">#&gt; 267    Adgrb1  0.0862476499 0.987940631</span></span>
-<span><span class="co">#&gt; 268     Sstr3  0.1454394131 0.270194986</span></span>
-<span><span class="co">#&gt; 269     Mchr1  0.1012446259 0.337420043</span></span>
-<span><span class="co">#&gt; 270    Celsr1  0.0823912578 0.083413231</span></span>
-<span><span class="co">#&gt; 271      Mlc1  0.0231766444 0.901109057</span></span>
-<span><span class="co">#&gt; 272    Amigo2  0.1667095947 0.243289549</span></span>
-<span><span class="co">#&gt; 273     Gpr84  0.0107959741 0.020606061</span></span>
-<span><span class="co">#&gt; 274     Myh11  0.0182805300 0.084000000</span></span>
-<span><span class="co">#&gt; 275     Cldn5 -0.0316051261 0.582459485</span></span>
-<span><span class="co">#&gt; 276     Ephb3  0.1078460535 0.342155919</span></span>
-<span><span class="co">#&gt; 277   Atp13a5 -0.0126049840 0.220261810</span></span>
-<span><span class="co">#&gt; 278      Casr  0.1973044678 0.082887701</span></span>
-<span><span class="co">#&gt; 279    Gpr156  0.0031087784 0.023052960</span></span>
-<span><span class="co">#&gt; 280     Epha6  0.2379512051 0.680094787</span></span>
-<span><span class="co">#&gt; 281     Epha3  0.0688455463 0.130690948</span></span>
-<span><span class="co">#&gt; 282     Htr1f  0.2349637993 0.222069911</span></span>
-<span><span class="co">#&gt; 283     Olig1  0.1907462972 0.863128492</span></span>
-<span><span class="co">#&gt; 284      Mas1  0.2728848193 0.214016579</span></span>
-<span><span class="co">#&gt; 285    Mrgprh -0.0022111545 0.011467890</span></span>
-<span><span class="co">#&gt; 286      Sox8  0.1094131428 0.635721018</span></span>
-<span><span class="co">#&gt; 287      Grm4  0.2532789320 0.354207436</span></span>
-<span><span class="co">#&gt; 288     Glp1r  0.1583047522 0.050200803</span></span>
-<span><span class="co">#&gt; 289      Ddr1  0.1564004049 0.742616034</span></span>
-<span><span class="co">#&gt; 290    Gabbr1  0.2828845630 0.999534884</span></span>
-<span><span class="co">#&gt; 291    Adgrf4  0.0346843958 0.066552901</span></span>
-<span><span class="co">#&gt; 292    Adgrf2  0.0129224787 0.056997743</span></span>
-<span><span class="co">#&gt; 293    Adgrf5  0.0553899077 0.457985258</span></span>
-<span><span class="co">#&gt; 294     Tjap1  0.0267689493 0.241114313</span></span>
-<span><span class="co">#&gt; 295      Ptk7 -0.0026779074 0.039187228</span></span>
-<span><span class="co">#&gt; 296    Adgre1 -0.0070687582 0.015283843</span></span>
-<span><span class="co">#&gt; 297       Alk  0.0896692566 0.219785824</span></span>
-<span><span class="co">#&gt; 298      Fzd8  0.0338465630 0.077794190</span></span>
-<span><span class="co">#&gt; 299      Aqp4  0.1283693803 0.706791569</span></span>
-<span><span class="co">#&gt; 300      Syt4  0.1258489088 0.903659101</span></span>
-<span><span class="co">#&gt; 301     Gpr17  0.0135156040 0.306818182</span></span>
-<span><span class="co">#&gt; 302    Gpr151  0.2237891582 0.075358852</span></span>
-<span><span class="co">#&gt; 303    Gramd3  0.0493785340 0.269323092</span></span>
-<span><span class="co">#&gt; 304    Pdgfrb -0.0234831563 0.211431462</span></span>
-<span><span class="co">#&gt; 305     Csf1r -0.0137372172 0.491533624</span></span>
-<span><span class="co">#&gt; 306     Adrb2 -0.0245454879 0.035014837</span></span>
-<span><span class="co">#&gt; 307      Htr4  0.2060605041 0.180952381</span></span>
-<span><span class="co">#&gt; 308      Mc4r  0.1031680736 0.057926829</span></span>
-<span><span class="co">#&gt; 309      Mc5r  0.0133626295 0.020501139</span></span>
-<span><span class="co">#&gt; 310     Galr1  0.2666939053 0.118954248</span></span>
-<span><span class="co">#&gt; 311     Chrm1  0.3551300857 0.544363257</span></span>
-<span><span class="co">#&gt; 312   Slc15a3 -0.0140555169 0.029279279</span></span>
-<span><span class="co">#&gt; 313      Htr7  0.1715787195 0.288806432</span></span>
-<span><span class="co">#&gt; 314    Adra2a  0.1234893275 0.413159168</span></span>
-<span><span class="co">#&gt; 315     Adrb1  0.1770568800 0.573599240</span></span>
-<span><span class="co">#&gt; 316      Dgkk  0.2983191594 0.170471842</span></span>
-<span><span class="co">#&gt; 317     Gpr34  0.0015815858 0.134905660</span></span>
-<span><span class="co">#&gt; 318      Brs3  0.0245691224 0.019762846</span></span>
-<span><span class="co">#&gt; 319    Gpr101  0.4151033398 0.285035629</span></span>
-<span><span class="co">#&gt; 320    Plxnb3  0.1725444089 0.287854468</span></span>
-<span><span class="co">#&gt; 321   Cysltr1  0.0117737967 0.013793103</span></span>
-<span><span class="co">#&gt; 322     Lpar4  0.0294580353 0.016029593</span></span>
-<span><span class="co">#&gt; 323     Htr2c  0.3754592226 0.480343980</span></span>
-<span><span class="co">#&gt; 324    Gpr173 -0.0102090183 0.070531401</span></span>
-<span><span class="co">#&gt; 325      Grpr  0.0497974523 0.048192771</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">sim_corr</span><span class="op">)</span></span>
+<span><span class="co">#&gt;     gene correlation    similar</span></span>
+<span><span class="co">#&gt; 1  Oprk1  0.18428938 0.13915094</span></span>
+<span><span class="co">#&gt; 2 Npbwr1  0.04415098 0.03980100</span></span>
+<span><span class="co">#&gt; 3 Adgrb3  0.08165172 0.90321080</span></span>
+<span><span class="co">#&gt; 4  Gpr45  0.04292795 0.15603585</span></span>
+<span><span class="co">#&gt; 5   Fzd7 -0.02032095 0.07035519</span></span>
+<span><span class="co">#&gt; 6   Nrp2  0.22128464 0.37557252</span></span>
 <span></span>
 <span><span class="va">sim_corr_plt</span> <span class="op">&lt;-</span> <span class="va">sim_corr</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>Sig <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case_when.html" class="external-link">case_when</a></span><span class="op">(</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/pkg/BiocGenerics/man/match.html" class="external-link">%in%</a></span> <span class="va">svgSigPos</span> <span class="op">~</span> <span class="st">"SigPos"</span>,</span>
@@ -989,7 +670,7 @@ offer orthogonal insights.</p>
 <span>                title <span class="op">=</span> <span class="st">"Similarity for significantly positively SVGs"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">sim_corr_plt</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/fig2k-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/fig2k-1.png" width="720"></p>
 <p>We note that this gene expression correspondence is lower than what
 was previously observed for biological replicates both assayed by
 MERFISH (93% of spatially variable genes identified as significantly
@@ -1104,7 +785,7 @@ the deconvolved cell type proportions for Visium.</p>
 <span><span class="co">#plot the cell type labels for MERFISH</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">)</span>, mar<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">MERINGUE</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/MERINGUE/man/plotEmbedding.html" class="external-link">plotEmbedding</a></span><span class="op">(</span><span class="fu">SpatialExperiment</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SpatialExperiment/man/SpatialExperiment-methods.html" class="external-link">spatialCoords</a></span><span class="op">(</span><span class="va">MERFISH_SE</span><span class="op">)</span>, groups<span class="op">=</span><span class="va">ctMERFISH</span>, group.level.colors <span class="op">=</span> <span class="va">ccols</span>, cex<span class="op">=</span><span class="fl">0.5</span><span class="op">)</span> <span class="co">## on tissue</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/plot_cell_types-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/plot_cell_types-1.png" width="720"></p>
 <div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="co">#plot the deconvolved cell type proportions for Visium</span></span>
@@ -1124,7 +805,7 @@ the deconvolved cell type proportions for Visium.</p>
 <span><span class="co">#&gt; Applied padding_y: 0.01</span></span>
 <span></span>
 <span><span class="va">p9</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/plot_cell_types-2.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/plot_cell_types-2.png" width="720"></p>
 </div>
 <div class="section level2">
 <h2 id="create-new-spatialexperiment-objects-with-cell-type-labels">Create new SpatialExperiment objects with cell type labels<a class="anchor" aria-label="anchor" href="#create-new-spatialexperiment-objects-with-cell-type-labels"></a>
@@ -1235,7 +916,7 @@ technologies.</p>
 <span><span class="co">#&gt; Applied padding_y: 0.01</span></span>
 <span></span>
 <span><span class="va">p10</span> <span class="op">+</span> <span class="va">p11</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-10-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-10-1.png" width="720"></p>
 </div>
 <div class="section level2">
 <h2 id="calculate-the-spatial-correlation-of-cell-types">Calculate the spatial correlation of cell types<a class="anchor" aria-label="anchor" href="#calculate-the-spatial-correlation-of-cell-types"></a>
@@ -1318,7 +999,7 @@ percentSimilarity across the two technologies.</p>
 <span><span class="va">ss_ct</span> <span class="op">&lt;-</span> <span class="fu">STcompare</span><span class="fu">::</span><span class="fu"><a href="../reference/spatialSimilarity.html">spatialSimilarity</a></span><span class="op">(</span><span class="va">rast_ct</span>, foldChange <span class="op">=</span> <span class="fl">1</span>, t1 <span class="op">=</span> <span class="cn">NULL</span>, t2 <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
 <span><span class="va">end_time</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">end_time</span><span class="op">-</span><span class="va">start_time</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Time difference of 0.1713839 secs</span></span></code></pre></div>
+<span><span class="co">#&gt; Time difference of 0.171205 secs</span></span></code></pre></div>
 <p>Lastly, we can visualize the results of the spatialSimilarity
 analysis for the cell types. For the significantly positively correlated
 cell type, we expect to see most of the pixels to be classified as
@@ -1360,7 +1041,7 @@ type, we expect to see where the cell type is located in</p>
 <span><span class="co">#&gt; (`geom_point()`).</span></span>
 <span><span class="co">#&gt; Warning: Removed 104 rows containing missing values or values outside the scale range</span></span>
 <span><span class="co">#&gt; (`geom_point()`).</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-13-1.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-13-1.png" width="720"></p>
 <div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="fu">gridExtra</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/gridExtra/man/arrangeGrob.html" class="external-link">grid.arrange</a></span><span class="op">(</span><span class="fu">gridExtra</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/gridExtra/man/arrangeGrob.html" class="external-link">arrangeGrob</a></span><span class="op">(</span>grobs <span class="op">=</span> <span class="va">pltlist</span><span class="op">[[</span><span class="fl">4</span><span class="op">]</span><span class="op">]</span>, ncol <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>,</span>
@@ -1373,7 +1054,7 @@ type, we expect to see where the cell type is located in</p>
 <span><span class="co">#&gt; (`geom_point()`).</span></span>
 <span><span class="co">#&gt; Warning: Removed 164 rows containing missing values or values outside the scale range</span></span>
 <span><span class="co">#&gt; (`geom_point()`).</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-13-2.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-13-2.png" width="720"></p>
 <div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="fu">gridExtra</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/gridExtra/man/arrangeGrob.html" class="external-link">grid.arrange</a></span><span class="op">(</span><span class="fu">gridExtra</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/gridExtra/man/arrangeGrob.html" class="external-link">arrangeGrob</a></span><span class="op">(</span>grobs <span class="op">=</span> <span class="va">pltlist</span><span class="op">[[</span><span class="fl">7</span><span class="op">]</span><span class="op">]</span>, ncol <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>,</span>
@@ -1386,7 +1067,7 @@ type, we expect to see where the cell type is located in</p>
 <span><span class="co">#&gt; (`geom_point()`).</span></span>
 <span><span class="co">#&gt; Warning: Removed 181 rows containing missing values or values outside the scale range</span></span>
 <span><span class="co">#&gt; (`geom_point()`).</span></span></code></pre></div>
-<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-13-3.png" width="576"></p>
+<p><img src="brain-MERFISH-10x-visium/unnamed-chunk-13-3.png" width="720"></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
