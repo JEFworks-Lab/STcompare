@@ -216,7 +216,7 @@ pos_aligned_plot
 
 # Create SpatialExperiment 
 
-Now that we have created counts matrices and aligned positions matrices we need to create a [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") as this is the required input form for the functions we want to use in `STcompare` (and `SEraster`). A `SpatialExperiment` is an object that store spatial transcriptomics data, in this case, combining gene expression matrices as `assays` with the spatial coordinates of each spatial location as `spatialCoords`. 
+Now that we have created counts matrices and aligned positions matrices we need to create a [`SpatialExperiment`](https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html) as this is the required input form for the functions we want to use in `STcompare` (and `SEraster`). A `SpatialExperiment` is an object that store spatial transcriptomics data, in this case, combining gene expression matrices as `assays` with the spatial coordinates of each spatial location as `spatialCoords`.
 
 ``` {r create_spatial_experiment1}
 AKI_ctrl_SE <- SpatialExperiment::SpatialExperiment(
