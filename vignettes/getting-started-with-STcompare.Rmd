@@ -347,7 +347,7 @@ cors_df$log_corrected <- -log10(cors_df$corspv_corrected)
 
 plot_df <- data.frame(
   analytical_pval  = cors_df$log_bh,
-  emperical_pval = cors_df$log_corrected
+  empirical_pval = cors_df$log_corrected
 )
 plot_df_long <- melt(plot_df, variable.name = "type", value.name = "neglog10_pval")
 
@@ -363,7 +363,7 @@ plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval, color = type)) +
   labs(
     x = "P-value type",
     y = "-log10(p-value)",
-    title = "BH-corrected Analytical p-value (pA) vs BH-corrected Emperical p-value (pE)"
+    title = "BH-corrected Analytical p-value (pA) vs BH-corrected empirical p-value (pE)"
   ) +
   theme(
     legend.position = "none",
@@ -375,26 +375,26 @@ plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval, color = type)) +
 plt
 
 
-# percentage of signficant pairs based on the BH corrected niave p-value
-niave_sig <- plot_df[plot_df$analytical_pval > -log10(0.05), ]
-niave_sig_per <- dim(niave_sig)[1] / dim(plot_df)[1]
-niave_sig_per
-dim(niave_sig)[1]
+# percentage of signficant pairs based on the BH corrected naive p-value
+naive_sig <- plot_df[plot_df$analytical_pval > -log10(0.05), ]
+naive_sig_per <- dim(naive_sig)[1] / dim(plot_df)[1]
+naive_sig_per
+dim(naive_sig)[1]
 
-emperical_sig <- plot_df[plot_df$emperical_pval > -log10(0.05), ]
-emperical_per <- dim(emperical_sig)[1] / dim(plot_df)[1]
-emperical_per
-dim(emperical_sig)[1]
+empirical_sig <- plot_df[plot_df$empirical_pval > -log10(0.05), ]
+empirical_per <- dim(empirical_sig)[1] / dim(plot_df)[1]
+empirical_per
+dim(empirical_sig)[1]
 
 dim(plot_df)
 
 ```
 
 Based on the boxplot, the dotted line represent the significance (p-value < 0.05).
-The median for the niave p-value is higher than the corrected one and there are pairs that are above the significance line 
-in the niave p-value plot than in the emperical p-value. 
-Without p-value correction, we observe that ~43% of these analytical p-values are less than 0.05, 
-while after correcting for p-value only ~4% of the empirical p-values are less than 0.05. 
+The median for the naive p-value is higher than the empirical one and there are more pairs that are above the significance line 
+in the naive p-value plot than in the empirical p-value. 
+We observe that ~43% of these analytical p-values are less than 0.05, 
+while only ~4% of the empirical p-values are less than 0.05. 
 
 ## Spatial fold change 
 
