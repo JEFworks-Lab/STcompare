@@ -150,8 +150,10 @@ moransI_merfish_source <- moransI(output$source, filterDist = res)
 end_time <- Sys.time()
 print(end_time - start_time) #Time difference of 44.94201 secs
 
-svg_merfish_target <- moransI_merfish_target %>% filter(minPercentCells > 0.01) %>% rownames()
-svg_merfish_source <- moransI_merfish_source %>% filter(minPercentCells > 0.01) %>% rownames()
+svg_merfish_target <- moransI_merfish_target  %>% rownames()
+svg_merfish_source <- moransI_merfish_source  %>% rownames()
+save(svg_merfish_target, svg_merfish_source, file = "~/ST_compare/data/merfish_data/moransI_20260622.RData")
+load(file = "~/ST_compare/data/merfish_data/moransI_20260622.RData")
 
 svg_int <- intersect(svg_merfish_target, svg_merfish_source)
 svg_uni <- union(svg_merfish_target, svg_merfish_source)
