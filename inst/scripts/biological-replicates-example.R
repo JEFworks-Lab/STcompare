@@ -166,29 +166,62 @@ length(non_svg) #[1] 160
 ## Spatial Correlation ####
 
 # We applied STcompare’s spatial correlation test the genes, calculating a Pearson’s correlation coefficient r and an empirical p-value p_E for each
+genes_only <- rownames(output$source)[!grepl("Blank", rownames(output$source))]
+output <- list(target = output$target[genes_only,], source = output$source[genes_only,])
 
 # To account for the smaller structures observed in the brain we added two additional lower values of 0.01 and 0.05 to the sequence of values tested to find the optimal delta for the Gaussian kernel to generate the permutations.
 deltaList <- rep(list(c(0.01, 0.05, seq(0.1, 0.9, .1))), length(rownames(output$source)))
 
-shortList <- list(target = output$target[1:5,], source = output$source[1:5,])
+#shortList <- list(target = output$target[1:5,], source = output$source[1:5,])
 start_time <- Sys.time()
 merfishCorrelation <- spatialCorrelationGeneExpIterPermutations(
-  shortList, 
+  output, 
   deltaX = deltaList, deltaY = deltaList,
-  nThreads = 5,
+  nThreads = 20,
   BPPARAM = BiocParallel::MulticoreParam()
 )
 end_time <- Sys.time()
-print(end_time - start_time) #Time difference of 17.40188 mins
+print(end_time - start_time) #Time difference of 16.80652 hours
 
+save(merfishCorrelation, file = "~/ST_compare/data/merfish_data/merfish_correlation_delta_0_01_0_9_BH_Iter1000_20260623.RData")
+load(file = "~/ST_compare/data/merfish_data/merfish_correlation_delta_0_01_0_9_BH_Iter1000_20260623.RData")
 ## Results for SVGs ####
+
+#number of genes
+merfishCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>%
+  dim()
 
 #number of genes as svgs
 merfishCorrelation %>%
   dplyr::mutate(rownamesCol = rownames(merfishCorrelation)) %>% 
   dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
   dplyr::filter(rownamesCol %in% svg_int) %>%
+  dim() #[1] 415  11
+
+#check for NA
+merfishCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation)) %>% 
+  dplyr::filter(is.na(pValuePermuteX)) %>% 
   dim()
+
+#replace NA with rows from previous run from 20260622
+tmp_env <- new.env()
+load("~/ST_compare/data/merfish_data/merfish_correlation_delta_0_01_0_9_BH_Iter1000_20260622.RData", envir = tmp_env)
+merfishCorrelation20260622 <- tmp_env$merfishCorrelation
+
+na_rows <- which(is.na(merfishCorrelation$pValuePermuteX))
+row_ids <- rownames(merfishCorrelation)[na_rows]
+merfishCorrelation[row_ids, ] <- merfishCorrelation20260622[row_ids, ]
+
+#check for NA
+merfishCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation)) %>% 
+  dplyr::filter(is.na(pValuePermuteX)) %>% 
+  dim()
+
+save(merfishCorrelation, file = "~/github/STcompare/inst/extdata/merfishCorrelation.RData")
 
 # number of genes as svgs that are significantly positively correlated
 merfishCorrelation %>%
@@ -197,6 +230,15 @@ merfishCorrelation %>%
   dplyr::filter(rownamesCol %in% svg_int) %>%
   dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
   dplyr::filter(correlationCoef > 0) %>% 
+  dim()
+
+# number of genes as svgs that are significantly negatively correlated
+merfishCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
+  dplyr::filter(correlationCoef < 0) %>% 
   dim()
 
 # number of genes as svgs that are not significantly  correlated
@@ -224,10 +266,10 @@ svgNotSig <- merfishCorrelation %>%
   dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
   rownames()
 
-# In total, we identified 86% (358/415) of genes as significantly positively correlated and zero genes as significantly negative correlated with an adjusted empirical p < 0.05 (Figure 13d), suggesting that the most SVGs have not changed in their spatial patterning, as expected. 
+# In total, we identified 93% (384/415) of genes as significantly positively correlated and zero genes as significantly negative correlated with an adjusted empirical p < 0.05 (Figure 13d), suggesting that the most SVGs have not changed in their spatial patterning, as expected. 
 
 
-#The 14% (57/415) of SVGs without significant positive correlation may reflect low expression 
+#The 7% (31/415) of SVGs without significant positive correlation may reflect low expression 
 
 p1 <- merfishCorrelation %>%
   dplyr::mutate(rownamesCol = rownames(merfishCorrelation)) %>% 
