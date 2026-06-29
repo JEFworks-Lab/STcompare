@@ -514,7 +514,9 @@ merfishCorrelation_affine <- spatialCorrelationGeneExpIterPermutations(
   BPPARAM = BiocParallel::MulticoreParam()
 )
 end_time <- Sys.time()
-print(end_time - start_time) #Time difference of 16.80652 hours
+print(end_time - start_time) #Time difference of 7.653494 hours
 
 save(merfishCorrelation_affine, file = "~/ST_compare/data/merfish_data/merfish_correlation_affine_delta_0_01_0_9_BH_Iter1000_20260628.RData")
+load(file = "~/ST_compare/data/merfish_data/merfish_correlation_affine_delta_0_01_0_9_BH_Iter1000_20260628.RData")
+save(merfishCorrelation_affine, file = "~/github/STcompare/inst/extdata/merfishCorrelation_affine.RData")
 
