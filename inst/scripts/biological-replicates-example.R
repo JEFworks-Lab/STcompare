@@ -464,6 +464,27 @@ gridExtra::grid.arrange(gridExtra::arrangeGrob(pltHighS2R2 + ggplot2::theme(lege
                                                ncol=5, nrow = 2, widths = c(3,3,1,3,3))
                         )
 
+
+##### Use STcompare to calculate fold-change similarity score #####
+similarityMerfish <- spatialSimilarity(output, foldChange = 1)
+
+df <- data.frame(gene = rownames(merfishCorrelation_affine[svgSigPos,]),
+                 correlation = merfishCorrelation_affine[svgSigPos, "correlationCoef" ], 
+                 similar = similarityMerfish$similarityTable$percentSimilarity[similarityMerfish$similarityTable$gene %in% svgSigPos])
+head(df)
+
+pltCorSim <- ggplot2::ggplot(df, ggplot2::aes(x = correlation, y = similar)) +
+  ggplot2::geom_point(size = 1, alpha = 1, color = "black") +
+  ggplot2::xlim(c(0,1)) +
+  ggplot2::ylim(c(0,1)) +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_classic() + 
+  ggplot2::labs(x = "Correlation Coefficient, r" , y = "Fold-Change Similarity, S", 
+       title = "Similarity for positively correlated SVGs"
+       )
+
+pltCorSim
+
 #Repeat the above for the affine aligned source coordinates to demonstrate that the results are dependent on the alignment method used.
 
 # extract the cell positions (x, y) after alignment 
@@ -476,6 +497,31 @@ spe_source_affine <- SpatialExperiment::SpatialExperiment(
   assays = list(counts = as(t(gene_source), "dgCMatrix")),
   spatialCoords = as.matrix(pos_source_affine)
 )
+
+df <- rbind(data.frame(pos = SpatialExperiment::spatialCoords(spe_target), sample = "target"),
+            data.frame(pos = SpatialExperiment::spatialCoords(spe_source_affine), sample = "source_affine"))
+
+pltTarget <- df %>%
+  dplyr::filter(sample %in% c("target")) %>%
+  ggplot2::ggplot(ggplot2::aes(x = pos.x, y = pos.y)) + 
+  ggplot2::geom_point(size = 0.5, alpha = 0.25, color = "gray") +
+  ggplot2::theme_void() +
+  ggplot2::labs(title = "Target")
+
+pltSourceAffine <- df %>%
+  dplyr::filter(sample %in% c("source_affine")) %>%
+  ggplot2::ggplot(ggplot2::aes(x = pos.x, y = pos.y)) + 
+  ggplot2::geom_point(size = 0.5, alpha = 0.25, color = "gray") +
+  ggplot2::theme_void() +
+  ggplot2::labs(title = "Source (Affine)")
+
+pltBoth <- df %>%
+  dplyr::filter(sample %in% c("target", "source_affine")) %>%
+  ggplot2::ggplot(ggplot2::aes(x = pos.x, y = pos.y, color = sample)) + 
+  ggplot2::geom_point(size = 0.5, alpha = 0.25) +
+  ggplot2::scale_color_manual(values = c("target" = "blue", "source_affine" = "green")) +
+  ggplot2::theme_void() +
+  ggplot2::labs(title = "Affine Alignment")
 
 # Rasterize ####
 
@@ -519,4 +565,374 @@ print(end_time - start_time) #Time difference of 7.653494 hours
 save(merfishCorrelation_affine, file = "~/ST_compare/data/merfish_data/merfish_correlation_affine_delta_0_01_0_9_BH_Iter1000_20260628.RData")
 load(file = "~/ST_compare/data/merfish_data/merfish_correlation_affine_delta_0_01_0_9_BH_Iter1000_20260628.RData")
 save(merfishCorrelation_affine, file = "~/github/STcompare/inst/extdata/merfishCorrelation_affine.RData")
+load(file = "~/github/STcompare/inst/extdata/merfishCorrelation_affine.RData")
+
+
+## Results for SVGs ####
+
+#number of genes
+merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>%
+  dim()
+
+#number of genes as svgs
+merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% svg_int) %>%
+  dim() #[1] 415  11
+
+# number of genes as svgs that are significantly positively correlated
+merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
+  dplyr::filter(correlationCoef > 0) %>% 
+  dim()
+
+# number of genes as svgs that are significantly negatively correlated
+merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
+  dplyr::filter(correlationCoef < 0) %>% 
+  dim()
+
+# number of genes as svgs that are not significantly  correlated
+merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  dim()
+
+# names of genes as svgs that are significantly positively correlated
+svgSigPos <- merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
+  dplyr::filter(correlationCoef > 0) %>% 
+  rownames()
+
+# names of genes as svgs that are not significantly  correlated
+svgNotSig <- merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% svg_int) %>%
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  rownames()
+
+# In total, we identified 93% (384/415) of genes as significantly positively correlated and zero genes as significantly negative correlated with an adjusted empirical p < 0.05 (Figure 13d), suggesting that the most SVGs have not changed in their spatial patterning, as expected. 
+
+## Results for non-SVGs ####
+
+#number of genes classified as non svgs 
+merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(rownamesCol %in% non_svg) %>%
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dim()
+
+# number of genes as non svgs that are significantly positively correlated
+merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% non_svg) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
+  dplyr::filter(correlationCoef > 0) %>% 
+  dim()
+
+# number of genes as non svgs that are not significantly  correlated
+merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% non_svg) %>%
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  dim()
+
+# names of genes as non svgs that are significantly positively correlated
+nonSVGsig <- merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% non_svg) %>%
+  dplyr::filter(pValuePermuteX < 0.05 & pValuePermuteY < 0.05) %>%
+  dplyr::filter(correlationCoef > 0) %>% 
+  rownames()
+
+# names of genes as non svgs that are not significantly correlated
+nonSVGnotsig <- merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::filter(rownamesCol %in% non_svg) %>%
+  dplyr::filter(pValuePermuteX >= 0.05 | pValuePermuteY >= 0.05) %>% 
+  rownames()
+
+# When performing STcompare’s spatial correlation test on the remaining 68 genes not identified as SVG, 81% (55/68) were identified as not significantly positively correlated using Benjamini-Hochberg adjusted empirical p < 0.05. 
+# The high percentage of non-SVGs identified as not significantly positively correlated is consistent with the expectation that genes not exhibiting autocorrelated spatial expression patterns are less likely to have correlated patterns across replicates. 
+
+# Here we visualize the correlation coefficient and empirical p-value for each gene, colored by whether the gene is an SVG or not. The dashed line indicates the threshold for significance at p < 0.05.
+plt <- merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::mutate(SVG = case_when(rownamesCol %in% non_svg ~ "not",
+                                rownamesCol %in% svg_int ~ "svg",
+                         .default = "Blank")) %>%
+  dplyr::filter(SVG %in% c("svg", "not")) %>% 
+  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
+                                                   .default = pValuePermuteX)) %>%
+  dplyr::mutate(pValueEmpiricalRound = dplyr::case_when(pValueEmpirical == 0 ~ 0.001,
+                                                        .default = pValueEmpirical)) %>%
+  ggplot2::ggplot() + 
+  ggplot2::geom_point(ggplot2::aes(x= correlationCoef, y = -log10(pValueEmpiricalRound), color = SVG), alpha = 0.25, size = 3) +
+  ggplot2::xlim(NA,1) +
+  ggplot2::scale_color_manual(values = c("svg" = "green", "not" = "blue")) +
+  ggplot2::theme_classic() +
+  ggplot2::geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "black")  + 
+  ggplot2::labs(x = "Correlation Coefficient, r" , y = "-log10(p-value)", 
+       title = "Rate of significance for SVGs versus non-SVGs"
+       )
+
+plt
+
+##### Use STcompare to calculate fold-change similarity score #####
+similarityMerfish_affine <- spatialSimilarity(output_affine, foldChange = 1)
+
+# Compare results for the affine aligned source coordinates to demonstrate that the results are dependent on the alignment method used.
+pValueAffine <- merfishCorrelation_affine %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation_affine)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::mutate(SVG = case_when(rownamesCol %in% non_svg ~ "not",
+                                rownamesCol %in% svg_int ~ "svg",
+                         .default = "Blank")) %>%
+  dplyr::filter(SVG %in% c("svg", "not")) %>% 
+  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
+                                                   .default = pValuePermuteX)) %>%
+  dplyr::mutate(pValueEmpiricalRound = dplyr::case_when(pValueEmpirical == 0 ~ 0.001,
+                                                        .default = pValueEmpirical)) %>%
+  dplyr::pull(pValueEmpiricalRound)
+
+pValue <- merfishCorrelation %>%
+  dplyr::mutate(rownamesCol = rownames(merfishCorrelation)) %>% 
+  dplyr::filter(!grepl("Blank", rownamesCol)) %>% 
+  dplyr::mutate(SVG = case_when(rownamesCol %in% non_svg ~ "not",
+                                rownamesCol %in% svg_int ~ "svg",
+                         .default = "Blank")) %>%
+  dplyr::filter(SVG %in% c("svg", "not")) %>% 
+  dplyr::mutate(pValueEmpirical = dplyr::case_when(pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
+                                                   .default = pValuePermuteX)) %>%
+  dplyr::mutate(pValueEmpiricalRound = dplyr::case_when(pValueEmpirical == 0 ~ 0.001,
+                                                        .default = pValueEmpirical)) %>%
+  dplyr::pull(pValueEmpiricalRound)
+
+
+df <- data.frame(gene = rownames(merfishCorrelation_affine),
+                 correlation = merfishCorrelation[, "correlationCoef" ],
+                 correlation_affine = merfishCorrelation_affine[, "correlationCoef" ],
+                 pValue = pValue,
+                 pValueAffine = pValueAffine,
+                 similar = similarityMerfish$similarityTable$percentSimilarity[similarityMerfish$similarityTable$gene %in% genes_only],
+                 similarAffine = similarityMerfish_affine$similarityTable$percentSimilarity[similarityMerfish_affine$similarityTable$gene %in% genes_only]
+                 )
+head(df)
+
+df <- df %>%
+  dplyr::mutate(SVG = case_when(gene %in% non_svg ~ "not",
+                                gene %in% svg_int ~ "svg",
+                         .default = "Blank")) %>%
+  dplyr::filter(SVG %in% c("svg", "not")) %>%
+  dplyr::mutate(SVG = factor(SVG, levels = c("svg", "not"))) %>%
+  dplyr::mutate(correlationDiff = correlation_affine - correlation) %>%
+  dplyr::mutate(similarityDiff = similarAffine - similar) %>%
+  dplyr::mutate(pValueOutcome = case_when(pValue < 0.05 & pValueAffine < 0.05 ~ "both",
+                                          pValue < 0.05 & pValueAffine >= 0.05 ~ "pValue",
+                                          pValue >= 0.05 & pValueAffine < 0.05 ~ "pValueAffine",
+                                          .default = "neither")) %>%
+  dplyr::mutate(pValueOutcome = factor(pValueOutcome, levels = c("both", "pValue", "pValueAffine", "neither")))
+  
+
+#Comparison of correlation coefficients for SVGs versus non-SVGs
+pltCorrelation <- df %>%
+  ggplot2::ggplot() + 
+  ggplot2::geom_point(ggplot2::aes(x= correlation, y = correlation_affine, color = SVG), alpha = 0.25, size = 3) +
+  ggplot2::xlim(0,1) +
+  ggplot2::ylim(0,1) +
+  ggplot2::coord_fixed() +
+  ggplot2::scale_color_manual(values = c("svg" = "green", "not" = "blue")) +
+  ggplot2::theme_classic() +
+  ggplot2::geom_abline(slope = 1, intercept = 0, linetype = 'dashed', color = "black")  +
+  ggplot2::labs(x = "Correlation Coefficient, r" , y = "Correlation Coefficient, r (affine)", 
+       title = "Comparison of correlation coefficients for SVGs versus non-SVGs"
+       )
+
+
+#correlation coefficients difference for SVGs versus non-SVGs with p-value outcomes
+pltCorrelationDiff <- df %>%
+  ggplot2::ggplot(ggplot2::aes(x= SVG, y = correlationDiff)) + 
+  ggplot2::geom_violin(alpha = 0.25, size = 1) +
+  ggplot2::geom_jitter(ggplot2::aes(x= SVG, y = correlationDiff, color = pValueOutcome), width = 0.2, alpha = 0.5, size = 3) +
+  #scale_color_manual(values = c("both" = "black", "pValue" = "red", "pValueAffine" = "blue", "neither" = "gray")) +
+  scale_color_manual(values = palette.colors(palette = "Okabe-Ito")[1:4]) +
+  #viridis::scale_color_viridis(discrete = TRUE, name = "p-value outcome", option = "rocket") +
+  #ggthemes::scale_color_colorblind()
+  ggplot2::theme_classic() +
+  ggplot2::labs(x = "" , y = "correlation coefficient difference, r_affine - r", 
+       title = "Differences in correlation coefficients for affine vs STalign for SVGs versus non-SVGs"
+       )
+
+LegendCorrDiff <- gtable::gtable_filter(ggplot2::ggplotGrob(pltCorrelationDiff), "guide-box")
+
+
+#similarity difference for SVGs versus non-SVGs with p-value outcomes
+df %>%
+  ggplot2::ggplot(ggplot2::aes(x= SVG, y = similarityDiff)) + 
+  ggplot2::geom_violin(alpha = 0.25, size = 1) +
+  ggplot2::geom_jitter(ggplot2::aes(x= SVG, y = similarityDiff, color = pValueOutcome), width = 0.2, alpha = 0.25) +
+  ggplot2::theme_classic() +
+  ggplot2::labs(x = "" , y = "similarity difference, S_affine - S", 
+       title = "Differences in similarity scores for affine vs STalign for SVGs versus non-SVGs"
+       )
+
+# Comparison of similarity scores for SVGs versus non-SVGs
+pltSimilarity <- df %>%
+  ggplot2::ggplot() + 
+  ggplot2::geom_point(ggplot2::aes(x= similar, y = similarAffine, color = SVG), alpha = 0.25, size = 3) +
+  ggplot2::xlim(0,1) +
+  ggplot2::ylim(0,1) +
+  ggplot2::coord_fixed() +
+  ggplot2::scale_color_manual(values = c("svg" = "green", "not" = "blue")) +
+  ggplot2::theme_classic() +
+  ggplot2::geom_abline(slope = 1, intercept = 0, linetype = 'dashed', color = "black")  +
+  ggplot2::labs(x = "Fold-Change Similarity, S" , y = "Fold-Change Similarity, S (affine)", 
+       title = "Comparison of similarity scores for SVGs versus non-SVGs"
+       )
+
+#multi-panel figure of the spatial expression of genes with high and low similarity scores across the two replicates, scatterplots of the gene's expression across the two replicates with points colored by similarity classification, and spatial pattern of similarity score.
+gridExtra::grid.arrange(gridExtra::arrangeGrob(pltTarget,
+                                               pltSourceAffine,
+                                               pltBoth,
+                                               ncol=3, nrow = 1, widths = c(5,5,5)))
+
+file_name = paste0("~/ST_compare/plots/affine_comparison_corr_sim_20260630.pdf")
+pdf(file = file_name, width = 14, height = 6, onefile=FALSE)                                             
+gridExtra::grid.arrange(gridExtra::arrangeGrob(pltCorrelation + ggplot2::theme(legend.position="none"),
+                                               pltCorrelationDiff + ggplot2::theme(legend.position="none"),
+                                               LegendCorrDiff,
+                                               pltSimilarity + ggplot2::theme(legend.position="none"),
+                                               ncol=4, nrow = 1, widths = c(5,8,1,5))
+                        )
+dev.off()
+
+
+correlationDiffSVG <- df %>%
+  dplyr::filter(SVG == "svg") %>%
+  dplyr::pull(correlationDiff)
+
+correlationDiffnonSVG <- df %>%
+  dplyr::filter(SVG == "not") %>%
+  dplyr::pull(correlationDiff)
+
+t.test(correlationDiffSVG, correlationDiffnonSVG)
+
+
+similarityDiffSVG <- df %>%
+  dplyr::filter(SVG == "svg") %>%
+  dplyr::pull(similarityDiff)
+
+similarityDiffnonSVG <- df %>%
+  dplyr::filter(SVG == "not") %>%
+  dplyr::pull(similarityDiff)
+
+t.test(similarityDiffSVG, similarityDiffnonSVG)
+wilcox.test(similarityDiffSVG, similarityDiffnonSVG)
+
+# return a gene with a large difference in correlation coefficient between the two alignment methods and a significant p-value for the original alignment method but not for the affine alignment method.
+df %>%
+  dplyr::filter(pValueOutcome == "pValue") %>%
+  dplyr::filter(SVG == "svg") %>%
+  dplyr::arrange(correlationDiff) %>%
+  head()
+
+
+gene <- "Drd4"
+gene <- "Gabbr1"
+
+# create a color scale that is consistent across the two replicates for the same gene
+
+sharedPixels<- intersect(rownames(SpatialExperiment::spatialCoords(output[[1]])),
+                            rownames(SpatialExperiment::spatialCoords(output[[2]])))
+
+
+minList <- min(c(SummarizedExperiment::assay(output[[1]])[gene, sharedPixels], SummarizedExperiment::assay(output[[2]])[gene, sharedPixels]))
+maxList <- max(c(SummarizedExperiment::assay(output[[1]])[gene, sharedPixels], SummarizedExperiment::assay(output[[2]])[gene, sharedPixels]))
+
+sc <- ggplot2::scale_fill_gradientn(colors=viridis::viridis(20), 
+                           limits = c(minList, maxList),
+                           oob=scales::squish,
+                           name = gene)
+
+# plot the spatial expression of the gene across the two replicates
+pltS2R2 <- SEraster::plotRaster(output[[1]][gene, sharedPixels], name = gene) + 
+  sc + 
+  ggplot2::theme_void()
+pltS2R3 <- SEraster::plotRaster(output[[2]][gene, sharedPixels], name = gene) + 
+  sc + 
+  ggplot2::theme_void() 
+
+#grab repeating legends from plots
+LegendS2R2 <- gtable::gtable_filter(ggplot2::ggplotGrob(pltS2R2), "guide-box")
+LegendS2R3 <- gtable::gtable_filter(ggplot2::ggplotGrob(pltS2R3), "guide-box")
+
+
+sharedPixels_affine <- intersect(rownames(SpatialExperiment::spatialCoords(output_affine[[1]])),
+                            rownames(SpatialExperiment::spatialCoords(output_affine[[2]])))
+
+
+minList <- min(c(SummarizedExperiment::assay(output_affine[[1]])[gene, sharedPixels_affine], SummarizedExperiment::assay(output_affine[[2]])[gene, sharedPixels_affine]))
+maxList <- max(c(SummarizedExperiment::assay(output_affine[[1]])[gene, sharedPixels_affine], SummarizedExperiment::assay(output_affine[[2]])[gene, sharedPixels_affine]))
+
+sc <- ggplot2::scale_fill_gradientn(colors=viridis::viridis(20), 
+                           limits = c(minList, maxList),
+                           oob=scales::squish,
+                           name = gene)
+
+# plot the spatial expression of the gene across the two replicates
+pltS2R2Affine <- SEraster::plotRaster(output_affine[[1]][gene, sharedPixels_affine], name = gene) + 
+  sc + 
+  ggplot2::theme_void()
+pltS2R3Affine <- SEraster::plotRaster(output_affine[[2]][gene, sharedPixels_affine], name = gene) + 
+  sc + 
+  ggplot2::theme_void() 
+
+#grab repeating legends from plots
+LegendAffineS2R2 <- gtable::gtable_filter(ggplot2::ggplotGrob(pltS2R2Affine), "guide-box")
+LegendAffineS2R3 <- gtable::gtable_filter(ggplot2::ggplotGrob(pltS2R3Affine), "guide-box")
+
+
+# plot scatterplot of the gene's expression across the two replicates with points colored by similarity classification
+simPlot <- linearRegression(similarityMerfish, gene) + ggplot2::theme_classic() + ggplot2::coord_fixed()
+simPlotAffine <- linearRegression(similarityMerfish_affine, gene) + ggplot2::theme_classic() + ggplot2::coord_fixed()
+
+
+# plot spatial pattern of similarity score
+classPlot <- pixelClass(similarityMerfish, gene)
+classPlotAffine <- pixelClass(similarityMerfish_affine, gene)
+
+#multi-panel figure of the spatial expression of genes with high and low similarity scores across the two replicates, scatterplots of the gene's expression across the two replicates with points colored by similarity classification, and spatial pattern of similarity score.
+file_name = paste0("~/ST_compare/plots/affine_example_Gabbr1_20260630.pdf")
+pdf(file = file_name, width = 14, height = 6, onefile=FALSE)
+gridExtra::grid.arrange(gridExtra::arrangeGrob(pltS2R2 + ggplot2::theme(legend.position="none"),
+                                               pltS2R3 + ggplot2::theme(legend.position="none"),
+                                               LegendS2R2,
+                                               simPlot, classPlot,
+                                               pltS2R2Affine + ggplot2::theme(legend.position="none"),
+                                               pltS2R3Affine + ggplot2::theme(legend.position="none"),
+                                               LegendAffineS2R2,
+                                               simPlotAffine, classPlotAffine, 
+                                               ncol=5, nrow = 2, widths = c(3,3,1,3,3))
+                        )
+dev.off()
 
