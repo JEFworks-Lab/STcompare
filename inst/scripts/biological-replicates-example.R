@@ -785,6 +785,9 @@ pltCorrelationDiff <- df %>%
 
 LegendCorrDiff <- gtable::gtable_filter(ggplot2::ggplotGrob(pltCorrelationDiff), "guide-box")
 
+df %>%
+dplyr::group_by(SVG, pValueOutcome) %>%
+  dplyr::summarise(n = dplyr::n())
 
 #similarity difference for SVGs versus non-SVGs with p-value outcomes
 df %>%
@@ -836,6 +839,7 @@ correlationDiffnonSVG <- df %>%
   dplyr::pull(correlationDiff)
 
 t.test(correlationDiffSVG, correlationDiffnonSVG)
+wilcox.test(correlationDiffSVG, correlationDiffnonSVG)
 
 
 similarityDiffSVG <- df %>%
