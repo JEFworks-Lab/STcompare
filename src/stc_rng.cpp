@@ -1,4 +1,5 @@
-// stc_rng.cpp -- R-compatible L'Ecuyer-CMRG stream (see stc_rng.h).
+// stc_rng.cpp -- R-compatible L'Ecuyer-CMRG stream and the independent streams (see stc_rng.h).
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -86,6 +87,113 @@ void LecuyerCMRG::rnorm(double* out, std::size_t n) {
 void legacy_noise(int seed, int N, int K, double* out) {
   LecuyerCMRG g(seed);
   for (int k = 0; k < K; k++) g.rnorm(out + (std::size_t)k * N, (std::size_t)N);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Independent streams
+// ---------------------------------------------------------------------------------------------
+
+namespace {
+const std::uint64_t kGolden = 0x9e3779b97f4a7c15ULL;  // SplitMix64's increment
+const std::uint64_t kTag = 0x5354636f6d706172ULL;     // "STcompar": separates these keys from other uses
+const double kTwoPow52 = 4503599627370496.0;          // 2^52
+
+inline std::uint64_t rotl(std::uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
+}  // namespace
+
+std::uint64_t mix64(std::uint64_t z) {
+  z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+  z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+  return z ^ (z >> 31);
+}
+
+std::uint64_t fnv1a64(const char* s, std::size_t n) {
+  std::uint64_t h = 0xcbf29ce484222325ULL;
+  for (std::size_t i = 0; i < n; i++) {
+    h ^= (std::uint64_t)(unsigned char)s[i];
+    h *= 0x100000001b3ULL;
+  }
+  return h;
+}
+
+std::uint64_t stream_key(std::uint32_t seed, const char* name, std::size_t name_len, int direction) {
+  std::uint64_t k = mix64(kTag ^ (std::uint64_t)seed);
+  k = mix64(k ^ fnv1a64(name, name_len));
+  return mix64(k ^ (std::uint64_t)(std::uint32_t)direction);
+}
+
+Xoshiro256ss::Xoshiro256ss(std::uint64_t seed) {
+  // SplitMix64 (Steele, Lea and Flood 2014): x += golden; output mix64(x)
+  for (int j = 0; j < 4; j++) {
+    seed += kGolden;
+    s_[j] = mix64(seed);
+  }
+}
+
+std::uint64_t Xoshiro256ss::next() {
+  // xoshiro256** 1.0 (https://prng.di.unimi.it/xoshiro256starstar.c)
+  const std::uint64_t result = rotl(s_[1] * 5, 7) * 9;
+  const std::uint64_t t = s_[1] << 17;
+  s_[2] ^= s_[0];
+  s_[3] ^= s_[1];
+  s_[1] ^= s_[2];
+  s_[0] ^= s_[3];
+  s_[2] ^= t;
+  s_[3] = rotl(s_[3], 45);
+  return result;
+}
+
+std::uint32_t Xoshiro256ss::bounded(std::uint32_t range) {
+  // Lemire (2019), "Fast random integer generation in an interval", ACM TOMACS 29(1): the high 32 bits of
+  // x * range for a 32-bit x, rejecting the low part below 2^32 mod range, so every value is equally likely.
+  std::uint64_t m = (next() >> 32) * (std::uint64_t)range;
+  std::uint32_t low = (std::uint32_t)m;
+  if (low < range) {
+    const std::uint32_t threshold = (std::uint32_t)(0u - range) % range;
+    while (low < threshold) {
+      m = (next() >> 32) * (std::uint64_t)range;
+      low = (std::uint32_t)m;
+    }
+  }
+  return (std::uint32_t)(m >> 32);
+}
+
+double Xoshiro256ss::norm() {
+  if (has_spare_) {
+    has_spare_ = false;
+    return spare_;
+  }
+  double u, v, s;
+  do {
+    // uniforms in [-1, 1): k * 2^-52 - 1 for k = 0..2^53-1, exact in double
+    u = (double)(next() >> 11) / kTwoPow52 - 1.0;
+    v = (double)(next() >> 11) / kTwoPow52 - 1.0;
+    s = u * u + v * v;
+  } while (s >= 1.0 || s == 0.0);
+  const double f = std::sqrt(-2.0 * std::log(s) / s);
+  spare_ = v * f;
+  has_spare_ = true;
+  return u * f;
+}
+
+std::uint64_t stream_seed(std::uint64_t key, std::uint64_t b, std::uint64_t s) {
+  return mix64(mix64(key ^ b) ^ s);
+}
+
+void stream_permutation(std::uint64_t key, int b, int N, int* perm) {
+  Xoshiro256ss g(stream_seed(key, (std::uint64_t)b, 0));
+  for (int i = 0; i < N; i++) perm[i] = i;
+  for (int i = N - 1; i > 0; i--) {
+    const int j = (int)g.bounded((std::uint32_t)i + 1u);
+    const int t = perm[i];
+    perm[i] = perm[j];
+    perm[j] = t;
+  }
+}
+
+void stream_noise(std::uint64_t key, int b, int k, int N, double* out) {
+  Xoshiro256ss g(stream_seed(key, (std::uint64_t)b, (std::uint64_t)k + 1u));
+  for (int i = 0; i < N; i++) out[i] = g.norm();
 }
 
 }  // namespace stc

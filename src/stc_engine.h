@@ -18,12 +18,19 @@
 //   unit      the tasks that stop together: in gene-wise comparisons the two directions of a gene
 //             (permute X, correlate with Y; permute Y, correlate with X), which run in lockstep on the
 //             same permutations. A failed task fails its unit (legacy NA row).
-//   batch     permutations b_from..b_to (1-based) for a set of active units: the permutation indices
-//             (generated in R from the legacy stream) and the legacy noise (generated here, once per
-//             batch and shared by all tasks, or supplied by the host) are read; the work items
-//             (task x sub-chunk of permutations) are scheduled dynamically over std::thread workers; then
-//             the calling thread scans the new nulls of each unit in permutation order for the stopping
+//   batch     permutations b_from..b_to (1-based) for a set of active units: the work items (task x
+//             sub-chunk of permutations) are scheduled dynamically over std::thread workers; then the
+//             calling thread scans the new nulls of each unit in permutation order for the stopping
 //             rule and retires stopped units.
+//   draws     where the permutation indices and the noise come from (EngineOptions::rng):
+//             RNG_LEGACY   the legacy streams, shared by every task: the permutation indices are
+//                          generated in R and passed with the batch, and the noise is generated here
+//                          once per batch (or supplied by the host);
+//             RNG_STREAMS  independent streams (stc_rng.h): each task has a key, and the worker that
+//                          computes permutation b of a task generates its permutation and noise from
+//                          (key, b) (compareSpatial()).
+//             The numerics do not depend on the mode: process_item() reads the draws through
+//             item_perm() and item_noise() and computes the same operations either way.
 //
 // Every (task, permutation) result is computed by a fixed sequence of operations that does not depend
 // on which other permutations share its work item, so results do not depend on the number of threads,
@@ -86,14 +93,23 @@ enum UnitState {
 bool parallel_for(int n_items, int n_threads, const std::function<void(int, int)>& fn,
                   const std::function<bool()>& interrupted);
 
+enum EngineRng {
+  RNG_LEGACY = 0,   // shared legacy draws (permutations from the host, L'Ecuyer-CMRG noise)
+  RNG_STREAMS = 1   // an independent stream per (task key, permutation): stream_permutation(),
+                    // stream_noise() in stc_rng.h
+};
+
 struct EngineOptions {
   int n_threads = 1;
   int chunk = 16;               // permutations per work item
-  bool keep_surrogates = false; // store the surrogate fields (returnPermutations)
+  bool keep_surrogates = false; // store the surrogate fields (returnPermutations); needs keep_nulls
   int cor_mode = COR_PLAIN;     // see stc_stats.h; .stc_cor_mode() picks it on R's main thread
   double seed = 0.0;            // legacy noise of permutation b: set.seed((int)(seed + b)) under
                                 // L'Ecuyer-CMRG, then one rnorm(N) per grid position
-  bool noise_supplied = false;  // the host supplies the noise of every batch instead
+  bool noise_supplied = false;  // the host supplies the noise of every batch instead (RNG_LEGACY)
+  int rng = RNG_LEGACY;
+  bool keep_nulls = true;       // keep the nulls and delta* of every permutation; otherwise only those
+                                // of the current batch (EngineTask::dstar_count is kept either way)
 };
 
 // One distinct delta value and its smoother.
@@ -110,6 +126,7 @@ struct EngineTask {
   std::vector<int> targets;       // pool columns the surrogates are correlated with
   std::vector<double> rabs;       // |observed r| per target (exceedances: |null| >= rabs)
   int unit = 0;
+  std::uint64_t key = 0;          // stream key (RNG_STREAMS)
   std::vector<double> tvar;       // target variogram: the source on ids
   double cost = 0.0;              // relative cost of one permutation (scheduling only)
   int status = ENG_OK;            // pre-check (before any permutation)
@@ -120,11 +137,14 @@ struct EngineTask {
   int fail_k = -1;
   int fail_status = ENG_OK;
   std::vector<int> dir_fail_b;    // per target: the smallest permutation whose null is NA (INT_MAX)
-  // Outputs for permutations 1..cap (slot b - 1).
+  // Outputs of permutations base + 1 .. base + cap, permutation b in slot b - 1 - base. With
+  // keep_nulls, base = 0 and the slots grow with the batches; otherwise they hold the current batch.
   int cap = 0;
+  int base = 0;
   std::vector<int> dstar;         // grid position of delta*, -1 where the permutation failed
-  std::vector<double> nulls;      // cap x T, permutation-major: nulls[(b - 1) * T + t]
+  std::vector<double> nulls;      // cap x T, permutation-major: nulls[(b - 1 - base) * T + t]
   std::vector<double> surr;       // cap x N, surrogate b at (b - 1) * N (keep_surrogates only)
+  std::vector<int> dstar_count;   // per grid position: permutations 1..len of the unit choosing it
 };
 
 struct EngineUnit {
@@ -176,25 +196,32 @@ class Engine {
 
   // Tasks and units (once per session). pool: n x V column-major. For task t: task_source[t],
   // task_grid[t] (delta indices), task_targets[t] (pool columns), task_rabs[t] (one per target),
-  // task_unit[t]. unit_fail_on_dir: one per unit (units are numbered 0..n_units-1 and each needs a
-  // task). Runs the pre-checks and the target variograms; units with a failed pre-check are FAILED.
+  // task_unit[t], and with RNG_STREAMS task_key[t] (stream_key(); empty otherwise).
+  // unit_fail_on_dir: one per unit (units are numbered 0..n_units-1 and each needs a task). Runs the
+  // pre-checks and the target variograms; units with a failed pre-check are FAILED.
   void define(const double* pool_, int V, const std::vector<int>& task_source,
               const std::vector<std::vector<int>>& task_grid,
               const std::vector<std::vector<int>>& task_targets,
               const std::vector<std::vector<double>>& task_rabs,
-              const std::vector<int>& task_unit, const std::vector<int>& unit_fail_on_dir);
+              const std::vector<int>& task_unit, const std::vector<int>& unit_fail_on_dir,
+              const std::vector<std::uint64_t>& task_key);
 
   // One batch: permutations b_from..b_to (1-based, inclusive) for the listed units, each of which must
   // have len == b_from - 1. perm: n x nb permutation indices, 0-based and validated by the caller
-  // (nb = b_to - b_from + 1). noise: n x kn x nb (column-major) when opt.noise_supplied, with
-  // kn >= the longest grid of the listed units; otherwise nullptr (generated here). A unit is run
-  // only if it is not failed, every count is below h, and len < n_max; after the batch each unit's
-  // new nulls are scanned in permutation order: a failure at b fails the unit, the first b at which a
-  // direction reaches h stops it (len = b, outputs past b are discarded), and len = n_max caps it.
-  // Requires b_to <= n_max. Returns false if interrupted (the units are then unchanged).
+  // (nb = b_to - b_from + 1), with RNG_LEGACY; nullptr with RNG_STREAMS. noise: n x kn x nb
+  // (column-major) when opt.noise_supplied, with kn >= the longest grid of the listed units;
+  // otherwise nullptr. A unit is run only if it is not failed, every count is below h, and
+  // len < n_max; after the batch each unit's new nulls are scanned in permutation order: a failure at
+  // b fails the unit, the first b at which a direction reaches h stops it (len = b, outputs past b
+  // are discarded), and len = n_max caps it. Requires b_to <= n_max. Returns false if interrupted
+  // (the units are then unchanged). interrupted() is also the host's chance to report progress
+  // (batch_progress()) on the calling thread.
   bool run_batch(const std::vector<int>& unit_list, int b_from, int b_to, const int* perm,
                  const double* noise, int kn, double h, int n_max,
                  const std::function<bool()>& interrupted);
+
+  // Task-permutations of the current batch whose work items have finished (any thread may read it).
+  long long batch_progress() const { return batch_done_.load(std::memory_order_relaxed); }
 
   void set_threads(int n_threads, int chunk);
 
@@ -211,15 +238,21 @@ class Engine {
     std::vector<double> rss;      // kmax x C
     std::vector<int> fail_k, fail_st;  // C: first failing grid position and status, or -1
     std::vector<double> surr;     // n: one surrogate (when they are not kept)
+    std::vector<int> perm;        // n x C: permutation indices (RNG_STREAMS)
+    std::vector<double> noise;    // n x C: one noise block per column (RNG_STREAMS)
+    std::vector<const double*> eptr;     // C: noise blocks of the current grid position
     std::vector<double> r;        // T: null correlations of one surrogate
     std::vector<int> rst;         // T: their statuses
     std::vector<const double*> yptr;     // T: target vectors
     std::vector<const CorTarget*> tptr;  // T: target data
   };
 
-  void ensure_capacity(EngineTask& t, int cap);
+  void prepare_slots(EngineTask& t, int b_from, int b_to);
   void size_workspaces(const std::vector<int>& task_list, int n_workers);
+  const int* item_perm(const EngineTask& t, int b, int p, int c, Workspace& w);
+  const double* item_noise(const EngineTask& t, int b, int p, int c, int k, Workspace& w);
   void process_item(int task_index, int p0, int p1, int b_from, Workspace& w);
+  void count_dstar(const EngineUnit& u, int b_from);
   void record_task_failure(int task_index, int b, int k, int status);
   void scan_unit(EngineUnit& u, int b_from, int b_to, double h, int n_max);
   void fail_unit(EngineUnit& u, int b, int task, int dir, int status, const std::string& msg);
@@ -227,6 +260,7 @@ class Engine {
   std::vector<Workspace> ws_;
   std::unique_ptr<std::atomic<int>[]> fail_b_;  // per task: smallest failing permutation (INT_MAX)
   std::mutex fail_mutex_;
+  std::atomic<long long> batch_done_{0};
   // batch inputs (valid during run_batch)
   const int* perm_ = nullptr;
   const double* noise_ = nullptr;

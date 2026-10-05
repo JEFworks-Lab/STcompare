@@ -124,13 +124,22 @@ bool parallel_for(int n_items, int n_threads, const std::function<void(int, int)
   }
 
   bool was_interrupted = false;
+  std::exception_ptr poll_err;
   {
     std::unique_lock<std::mutex> lk(m);
     while (running > 0) {
       cv.wait_for(lk, std::chrono::milliseconds(100));
       if (running > 0 && !stop.load()) {
         lk.unlock();
-        const bool intr = interrupted ? interrupted() : false;
+        bool intr = false;
+        try {
+          intr = interrupted ? interrupted() : false;
+        } catch (...) {
+          // The host's callback failed (for example an R error or interrupt in a progress report,
+          // raised as a C++ exception): stop the workers and rethrow it once they have joined.
+          poll_err = std::current_exception();
+          intr = true;
+        }
         lk.lock();
         if (intr) {
           was_interrupted = true;
@@ -140,6 +149,7 @@ bool parallel_for(int n_items, int n_threads, const std::function<void(int, int)
     }
   }
   for (auto& t : threads) t.join();
+  if (poll_err) std::rethrow_exception(poll_err);
   if (err) std::rethrow_exception(err);
   return !was_interrupted;
 }
@@ -193,13 +203,17 @@ void Engine::define(const double* pool_, int V, const std::vector<int>& task_sou
                     const std::vector<std::vector<int>>& task_grid,
                     const std::vector<std::vector<int>>& task_targets,
                     const std::vector<std::vector<double>>& task_rabs,
-                    const std::vector<int>& task_unit, const std::vector<int>& unit_fail_on_dir) {
+                    const std::vector<int>& task_unit, const std::vector<int>& unit_fail_on_dir,
+                    const std::vector<std::uint64_t>& task_key) {
   if (tasks_defined) throw std::logic_error("the tasks of this session are already defined");
   const int nt = (int)task_source.size();
   const int nu = (int)unit_fail_on_dir.size();
   if ((int)task_grid.size() != nt || (int)task_targets.size() != nt ||
       (int)task_rabs.size() != nt || (int)task_unit.size() != nt) {
     throw std::invalid_argument("task arguments of different lengths");
+  }
+  if (opt.rng == RNG_STREAMS ? (int)task_key.size() != nt : !task_key.empty()) {
+    throw std::invalid_argument("independent streams need one key per task (and only they take keys)");
   }
   for (int t = 0; t < nt; t++) {
     if (task_source[t] < 0 || task_source[t] >= V) throw std::invalid_argument("task source out of range");
@@ -252,6 +266,8 @@ void Engine::define(const double* pool_, int V, const std::vector<int>& task_sou
     T.targets = task_targets[t];
     T.rabs = task_rabs[t];
     T.unit = task_unit[t];
+    if (opt.rng == RNG_STREAMS) T.key = task_key[t];
+    T.dstar_count.assign(T.grid.size(), 0);
     kmax = std::max(kmax, (int)T.grid.size());
     T.dir_fail_b.assign(T.targets.size(), INT_MAX);
     T.target_status.assign(T.targets.size(), ENG_OK);
@@ -339,12 +355,22 @@ void Engine::fail_unit(EngineUnit& U, int b, int task, int dir, int status, cons
 // Batches
 // ---------------------------------------------------------------------------------------------
 
-void Engine::ensure_capacity(EngineTask& T, int cap) {
-  if (T.cap >= cap) return;
-  T.dstar.resize((std::size_t)cap, -1);
-  T.nulls.resize((std::size_t)cap * T.targets.size(), nan_value());
-  if (opt.keep_surrogates) T.surr.resize((std::size_t)cap * n, nan_value());
-  T.cap = cap;
+void Engine::prepare_slots(EngineTask& T, int b_from, int b_to) {
+  if (opt.keep_nulls) {
+    // every permutation is kept: slots 0..b_to - 1 (base 0)
+    if (T.cap >= b_to) return;
+    T.dstar.resize((std::size_t)b_to, -1);
+    T.nulls.resize((std::size_t)b_to * T.targets.size(), nan_value());
+    if (opt.keep_surrogates) T.surr.resize((std::size_t)b_to * n, nan_value());
+    T.cap = b_to;
+    return;
+  }
+  // only the current batch: slots 0..nb - 1 hold permutations b_from..b_to
+  const int nb = b_to - b_from + 1;
+  T.base = b_from - 1;
+  T.cap = nb;
+  T.dstar.assign((std::size_t)nb, -1);
+  T.nulls.assign((std::size_t)nb * T.targets.size(), nan_value());
 }
 
 void Engine::size_workspaces(const std::vector<int>& task_list, int n_workers) {
@@ -375,6 +401,11 @@ void Engine::size_workspaces(const std::vector<int>& task_list, int n_workers) {
     grow(W.fail_k, C);
     grow(W.fail_st, C);
     grow(W.surr, (std::size_t)n);
+    if (opt.rng == RNG_STREAMS) {
+      grow(W.perm, (std::size_t)n * C);
+      grow(W.noise, (std::size_t)n * C);
+    }
+    grow(W.eptr, C);
     grow(W.r, nT);
     grow(W.rst, nT);
     grow(W.yptr, nT);
@@ -391,6 +422,29 @@ void Engine::record_task_failure(int task_index, int b, int k, int status) {
     T.fail_status = status;
     fail_b_[task_index].store(b);
   }
+}
+
+// The permutation indices of column c of a work item: permutation b, at position p = b - b_from of
+// the batch. RNG_LEGACY reads the batch's shared indices; RNG_STREAMS generates the task's own
+// permutation b into the column's buffer.
+const int* Engine::item_perm(const EngineTask& T, int b, int p, int c, Workspace& W) {
+  if (opt.rng == RNG_STREAMS) {
+    int* out = W.perm.data() + (std::size_t)c * n;
+    stream_permutation(T.key, b, n, out);
+    return out;
+  }
+  return perm_ + (std::size_t)p * n;
+}
+
+// The noise block of grid position k for column c (permutation b, batch position p). RNG_STREAMS
+// generates it into the column's buffer, replacing the block generated before for that column.
+const double* Engine::item_noise(const EngineTask& T, int b, int p, int c, int k, Workspace& W) {
+  if (opt.rng == RNG_STREAMS) {
+    double* out = W.noise.data() + (std::size_t)c * n;
+    stream_noise(T.key, b, k, n, out);
+    return out;
+  }
+  return noise_ + ((std::size_t)p * noise_k_ + k) * n;
 }
 
 // One work item: permutations b_from + p0 .. b_from + p1 - 1 of one task (dev/engine-spec.md 2.7).
@@ -415,7 +469,7 @@ void Engine::process_item(int ti, int p0, int p1, int b_from, Workspace& W) {
   //    projection: smooth_project() with the centres would compute the same differences, and
   //    smooth_project_blocked() on the centred columns gives its values bit for bit.
   for (int c = 0; c < C; c++) {
-    const int* pc = perm_ + (std::size_t)(p0 + c) * n;
+    const int* pc = item_perm(T, b_from + p0 + c, p0 + c, c, W);
     for (int j = 0; j < n; j++) Y[(std::size_t)j * ld + c] = src[pc[j]];
   }
   for (int c = 0; c < C; c++) cen[c] = smooth_centre(Y + c, ld, n);
@@ -453,12 +507,13 @@ void Engine::process_item(int ti, int p0, int p1, int b_from, Workspace& W) {
       s0[c] = std::sqrt(std::fabs(b0));
     }
     // hat = X.delta * sqrt(abs(slope)) + rnorm(N) * sqrt(abs(intercept)), on the subsample
+    for (int c = 0; c < C; c++) W.eptr[c] = item_noise(T, b_from + p0 + c, p0 + c, c, k, W);
     for (int r = 0; r < R; r++) {
       const std::size_t i = (std::size_t)ids[r];
       const double* xr = W.Xd.data() + (std::size_t)r * ld;
       double* hr = W.H.data() + (std::size_t)r * ld;
       for (int c = 0; c < C; c++) {
-        const double e = noise_[((std::size_t)(p0 + c) * noise_k_ + k) * n + i];
+        const double e = W.eptr[c][i];
         hr[c] = xr[c] * s1[c] + e * s0[c];
       }
     }
@@ -490,7 +545,8 @@ void Engine::process_item(int ti, int p0, int p1, int b_from, Workspace& W) {
   const int nT = (int)T.targets.size();
   for (int c = 0; c < C; c++) {
     const int b = b_from + p0 + c;
-    double* nul = &T.nulls[(std::size_t)(b - 1) * nT];
+    const std::size_t slot = (std::size_t)(b - 1 - T.base);
+    double* nul = &T.nulls[slot * nT];
     int ks = -1;
     if (W.fail_k[c] >= 0) {
       record_task_failure(ti, b, W.fail_k[c], W.fail_st[c]);
@@ -507,16 +563,16 @@ void Engine::process_item(int ti, int p0, int p1, int b_from, Workspace& W) {
       if (ks < 0) record_task_failure(ti, b, K, ENG_RSS_NAN);
     }
     if (ks < 0) {
-      T.dstar[b - 1] = -1;
+      T.dstar[slot] = -1;
       for (int t = 0; t < nT; t++) nul[t] = nan_value();
       continue;
     }
     const SmoothOperator& op = deltas[T.grid[ks]].op;
-    double* out = opt.keep_surrogates ? &T.surr[(std::size_t)(b - 1) * n] : W.surr.data();
+    double* out = opt.keep_surrogates ? &T.surr[slot * n] : W.surr.data();
     smooth_interp(op, W.Z.data() + W.zoff[ks] + c, ld, 1, cen + c, nullptr, n, out, 1);
     const double a1 = W.s1[(std::size_t)ks * ld + c];
     const double a0 = W.s0[(std::size_t)ks * ld + c];
-    const double* e = noise_ + ((std::size_t)(p0 + c) * noise_k_ + ks) * n;
+    const double* e = item_noise(T, b, p0 + c, c, ks, W);
     for (int i = 0; i < n; i++) out[i] = out[i] * a1 + e[i] * a0;
 
     int nv = 0;
@@ -543,7 +599,7 @@ void Engine::process_item(int ti, int p0, int p1, int b_from, Workspace& W) {
       }
       nul[t] = r;
     }
-    T.dstar[b - 1] = ks;
+    T.dstar[slot] = ks;
   }
 }
 
@@ -576,7 +632,7 @@ void Engine::scan_unit(EngineUnit& U, int b_from, int b_to, double h, int n_max)
     for (std::size_t d = 0; d < nd; d++) {
       const EngineTask& T = tasks[U.dir_task[d]];
       const int j = U.dir_target[d];
-      const double v = T.nulls[(std::size_t)(b - 1) * T.targets.size() + j];
+      const double v = T.nulls[(std::size_t)(b - 1 - T.base) * T.targets.size() + j];
       if (std::fabs(v) >= T.rabs[j]) U.counts[d]++;  // NaN never counts
       if (U.counts[d] >= h) stop = true;
     }
@@ -589,12 +645,27 @@ void Engine::scan_unit(EngineUnit& U, int b_from, int b_to, double h, int n_max)
   if (U.len >= n_max) U.state = UNIT_STOPPED_CAP;
 }
 
+// Add the delta* of permutations b_from..len of a unit's tasks to their counts per grid position.
+void Engine::count_dstar(const EngineUnit& U, int b_from) {
+  for (int t : U.tasks) {
+    EngineTask& T = tasks[t];
+    for (int b = b_from; b <= U.len; b++) {
+      const int ks = T.dstar[(std::size_t)(b - 1 - T.base)];
+      if (ks >= 0) T.dstar_count[ks]++;
+    }
+  }
+}
+
 bool Engine::run_batch(const std::vector<int>& unit_list, int b_from, int b_to, const int* perm,
                        const double* noise, int kn, double h, int n_max,
                        const std::function<bool()>& interrupted) {
   if (!tasks_defined) throw std::logic_error("no tasks defined");
   if (b_from < 1 || b_to < b_from || b_to > n_max) throw std::invalid_argument("invalid batch range");
+  if (opt.rng == RNG_LEGACY && perm == nullptr) {
+    throw std::invalid_argument("the legacy streams need the permutation indices of every batch");
+  }
   const int nb = b_to - b_from + 1;
+  batch_done_.store(0);
 
   // The units to run: re-derive each listed unit's state for this (h, n_max).
   std::vector<int> run_units;
@@ -630,12 +701,16 @@ bool Engine::run_batch(const std::vector<int>& unit_list, int b_from, int b_to, 
       kneed = std::max(kneed, (int)tasks[t].grid.size());
     }
   }
-  for (int t : task_list) ensure_capacity(tasks[t], b_to);
+  for (int t : task_list) prepare_slots(tasks[t], b_from, b_to);
 
   // The legacy noise of the batch, shared by all tasks: block k of permutation b is the k-th
   // rnorm(N) after set.seed(seed + b) under L'Ecuyer-CMRG (block k does not depend on the number of
-  // blocks drawn, so tasks with shorter grids read a prefix).
-  if (opt.noise_supplied) {
+  // blocks drawn, so tasks with shorter grids read a prefix). With independent streams each work
+  // item generates its own draws (item_perm(), item_noise()).
+  if (opt.rng == RNG_STREAMS) {
+    noise_ = nullptr;
+    noise_k_ = 0;
+  } else if (opt.noise_supplied) {
     if (noise == nullptr || kn < kneed) throw std::invalid_argument("the batch needs supplied noise");
     noise_ = noise;
     noise_k_ = kn;
@@ -682,15 +757,20 @@ bool Engine::run_batch(const std::vector<int>& unit_list, int b_from, int b_to, 
         const Item& it = items[i];
         // A task that already failed at an earlier permutation needs no later ones: skipping them
         // cannot change the smallest failing permutation, nor any result a unit keeps.
-        if (b_from + it.p0 > fail_b_[it.task].load(std::memory_order_relaxed)) return;
-        process_item(it.task, it.p0, it.p1, b_from, ws_[w]);
+        if (b_from + it.p0 <= fail_b_[it.task].load(std::memory_order_relaxed)) {
+          process_item(it.task, it.p0, it.p1, b_from, ws_[w]);
+        }
+        batch_done_.fetch_add(it.p1 - it.p0, std::memory_order_relaxed);
       },
       interrupted);
   perm_ = nullptr;
   noise_ = nullptr;
   if (!ok) return false;
 
-  for (int u : run_units) scan_unit(units[u], b_from, b_to, h, n_max);
+  for (int u : run_units) {
+    scan_unit(units[u], b_from, b_to, h, n_max);
+    count_dstar(units[u], b_from);
+  }
   return true;
 }
 

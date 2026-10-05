@@ -1,5 +1,49 @@
 # STcompare 0.1.0.9000
 
+## New main function: `compareSpatial()`
+
+* `compareSpatial(x, y)` compares every gene of two samples rasterized onto one grid, with both tests in one
+  call: the spatial correlation test (the Viladomat null of `spatialCorrelationGeneExp()`) and the spatial
+  similarity of `spatialSimilarity()`. It returns one row per gene in a plain table (no list columns) of class
+  `"STcompareResult"`, with `print()`, `summary()` and `as.data.frame()` methods; the settings, the delta grid
+  used, the call and the run time are attributes, and `keepNulls = TRUE` keeps the null correlations and
+  delta stars of every permutation.
+* Statistical changes compared with the legacy functions, which are unchanged:
+  * Adaptive p-values (Besag and Clifford 1991): the two directions of a gene (x permuted, y permuted) run in
+    lockstep until either has `exceedances = 10` null correlations at least as extreme as the observed one,
+    or until `nPermutations = 10000`. A gene that is clearly not significant stops after a few dozen
+    permutations; a significant gene runs to `nPermutations`, so p-values down to 1 / 10001 are resolved.
+  * One p-value per gene: `exceedances / L` if the gene stopped early after `L` permutations, otherwise
+    `(max(bX, bY) + 1) / (L + 1)`. This is the larger of the two directions' sequential p-values and is valid
+    without assuming that the directions are independent. It is adjusted across genes (`adjustMethod = "BH"`).
+    `exceedances = Inf` gives a fixed number of permutations with `p = max(pX, pY)`.
+  * Independent random streams: the permutations and the noise of each gene, direction and permutation come
+    from their own stream (xoshiro256**, keyed by the seed, the gene name and the direction), so the results
+    do not depend on the number of threads, the gene order or the other genes in the call. The legacy
+    functions share one stream across genes and directions, so that the published results reproduce.
+  * The default delta grid is `c(0.01, 0.05, seq(0.1, 0.9, 0.1))`, the grid of the authors' kidney and MERFISH
+    analyses; deltas too small for the number of shared pixels (`floor(N * delta) < 2`) are dropped with a
+    message. `deltaGridEdge` flags genes whose delta star is mostly at an end of the grid.
+  * Rarely detected genes are not tested for correlation (`minDetected`): by default, a gene must be detected
+    in at least `sqrt(N)` of the `N` shared pixels of each sample (18 of 311, 47 of 2170). The surrogates'
+    values are close to normally distributed, so for genes detected in a few pixels, whose correlation is
+    decided by the pixels where both samples detect them, they give p-values that are far too small (on the
+    whole AKI raster, genes detected in a single pixel of each section were significant). Sparse genes above
+    the threshold can still get p-values that are somewhat too small; the documentation says so.
+* Input checks with actionable errors: the shared pixels are matched by name and their coordinates must agree
+  (pixels of samples rasterized separately are no longer silently mis-paired); gene names must be unique;
+  genes are those present in both samples unless given. A gene with missing values or whose permutations fail
+  gets a `"failed"` row with the reason in `message`, and one warning lists such genes. A gene that is constant
+  or rarely detected in a sample gets a `"skipped"` row (its similarity is still computed), and one message
+  counts such genes, so comparing a whole transcriptome does not warn about the genes that are never detected.
+* The similarity of a gene with negative values is `NA`, with one warning that lists such genes: a fold change
+  needs values that are not negative (`spatialSimilarity()` stops on them).
+* `progress = TRUE` (the default in interactive sessions) shows one progress line with the share of the work
+  done, the genes finished, the permutations so far, the elapsed time and an estimate of the remaining time.
+  The line fits the width of the console, and its final count of permutations is the total of the result.
+  `nThreads` defaults to `getOption("STcompare.nThreads", 1L)`.
+* Selecting rows of a result with `[` keeps its class and settings; selecting columns gives a plain data frame.
+
 ## A compiled engine replaces the R implementation
 
 * `viladomatCorrelation()`, `spatialCorrelation()`, `spatialCorrelationGeneExp()`,
@@ -29,6 +73,9 @@
   * The global random number generator state is left unchanged. The permutations are still drawn with
     `set.seed(seed)` under the session's RNG kinds, and the noise of permutation b with `set.seed(seed + b)`
     under L'Ecuyer-CMRG.
+* A user interrupt stops the compiled code within about 0.1 s, and an error that R raises while it runs, such
+  as the time limit of `setTimeLimit()`, is an R error that `tryCatch()` can catch. `nThreads` must be a whole
+  number.
 * Failures no longer print errors. Where the R implementation returned an NA row (for example a constant gene
   or a missing value), there is still an NA row, plus one `warning()` per gene that gives the reason. Inputs that
   crashed R or failed with an unrelated error also give an NA row and a warning:

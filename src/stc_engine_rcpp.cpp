@@ -1,33 +1,96 @@
 // stc_engine_rcpp.cpp -- Rcpp entry points of the permutation engine (src/stc_engine.h), used by
 // R/engine.R. Every R object is validated and copied here, on R's main thread, before any worker
-// thread starts; the engine itself never touches R. The only R call made while workers run is the
-// interrupt check below, on the main thread.
+// thread starts; the engine itself never touches R. The only R calls made while workers run are the
+// interrupt check and the optional progress callback below, both on the main thread.
 //
 // Every export has a dot-prefixed name (not exported by NAMESPACE's exportPattern) and rng = false
 // (no GetRNGstate()/PutRNGstate(), which would create a .Random.seed; see src/stc_rcpp.cpp).
 #include <Rcpp.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <climits>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "stc_engine.h"
+#include "stc_rng.h"
 
 namespace {
 
-void check_interrupt_fn(void*) { R_CheckUserInterrupt(); }
+SEXP check_interrupt_fn(void*) {
+  R_CheckUserInterrupt();
+  return R_NilValue;
+}
 
-// TRUE when the user has asked for an interrupt. R_CheckUserInterrupt() jumps out on an interrupt;
-// R_ToplevelExec() catches the jump and returns FALSE (the interrupt is then consumed and re-raised
-// below with Rcpp's InterruptedException, after the workers have joined). Main thread only.
-bool r_interrupted() { return R_ToplevelExec(check_interrupt_fn, nullptr) == FALSE; }
+// The interrupt check of the main thread while workers run. R_CheckUserInterrupt() jumps out of the C++
+// code on a user interrupt, and on an error that R raises there, such as a time limit of setTimeLimit().
+// Rcpp's unwind protection turns that jump into an Rcpp::LongjumpException, which stc::parallel_for()
+// rethrows once the workers have joined; the Rcpp wrapper of the entry point then resumes the jump, so R
+// sees the interrupt or the error as it was raised (the calling handlers of tryCatch() included). The
+// check therefore never returns true. Main thread only.
+bool r_interrupted() {
+  Rcpp::unwindProtect(check_interrupt_fn, nullptr);
+  return false;
+}
+
+// The main thread's poll while workers run: the interrupt check, and, when the host passed an R
+// function, progress(done()) at most every 200 ms (for the engine, done() is the task-permutations of the
+// batch whose work items have finished). An interrupt, or an error or interrupt in progress(), becomes a C++
+// exception (Rcpp's unwind protection), which stc::parallel_for() rethrows once the workers have joined;
+// Rcpp then resumes it.
+class Poll {
+ public:
+  Poll(SEXP progress, std::function<double()> done)
+      : progress_(progress), done_(std::move(done)), last_(clock::now()) {}
+  bool operator()() {
+    if (r_interrupted()) return true;
+    if (Rf_isFunction(progress_)) {
+      const clock::time_point now = clock::now();
+      if (now - last_ >= std::chrono::milliseconds(200)) {
+        last_ = now;
+        Rcpp::Function f(progress_);
+        f(done_());
+      }
+    }
+    return false;
+  }
+
+ private:
+  typedef std::chrono::steady_clock clock;
+  SEXP progress_;
+  std::function<double()> done_;
+  clock::time_point last_;
+};
+
+// The stream keys of tasks (RNG_STREAMS): stc::stream_key(seed, name, direction) with the UTF-8 bytes
+// of each name.
+std::vector<std::uint64_t> stream_keys(double seed, SEXP names, SEXP dirs, int nt) {
+  if (TYPEOF(names) != STRSXP || Rf_xlength(names) != nt) Rcpp::stop("task_names must have one name per task");
+  if (TYPEOF(dirs) != INTSXP || Rf_xlength(dirs) != nt) Rcpp::stop("task_dirs must have one direction per task");
+  std::vector<std::uint64_t> key((std::size_t)nt);
+  const std::uint32_t s = (std::uint32_t)(int)seed;  // an integer seed (checked in R), as unsigned
+  for (int t = 0; t < nt; t++) {
+    SEXP ch = STRING_ELT(names, t);
+    if (ch == NA_STRING) Rcpp::stop("task_names must not contain NA");
+    const char* u = Rf_translateCharUTF8(ch);
+    const int d = INTEGER(dirs)[t];
+    if (d == NA_INTEGER || d < 1) Rcpp::stop("task_dirs must be positive integers");
+    key[(std::size_t)t] = stc::stream_key(s, u, std::strlen(u), d);
+  }
+  return key;
+}
 
 SEXP engine_tag() { return Rf_install("stc_engine_session"); }
 
@@ -73,12 +136,15 @@ int check_threads(int n_threads, int chunk) {
 // order), ids the 0-based variogram subsample, plan the result of .stc_variog_plan() on ids (ok = FALSE
 // gives tasks that fail their pre-check with plan$reason), deltas the distinct delta values of all
 // tasks: their smoothers are built here, in parallel. cor_mode from .stc_cor_mode(); seed the legacy
-// seed (noise of permutation b: set.seed(seed + b) under L'Ecuyer-CMRG); noise_supplied: the noise of
-// every batch comes from R instead.
+// seed (noise of permutation b: set.seed(seed + b) under L'Ecuyer-CMRG) or, with rng = 1, the seed of
+// the stream keys; noise_supplied: the noise of every batch comes from R instead. rng: 0 the legacy
+// draws, 1 independent streams per task (src/stc_rng.h). keep_nulls = FALSE keeps only the current
+// batch's nulls and delta* (the counts of delta* per grid position are kept either way).
 // [[Rcpp::export(name = ".stc_engine_new", rng = false)]]
 SEXP stc_engine_new(Rcpp::NumericVector x1, Rcpp::NumericVector x2, Rcpp::IntegerVector ids,
                     Rcpp::List plan, Rcpp::NumericVector deltas, int cor_mode, double seed,
-                    bool noise_supplied, int n_threads, int chunk, bool keep_surrogates) {
+                    bool noise_supplied, int n_threads, int chunk, bool keep_surrogates, int rng = 0,
+                    bool keep_nulls = true) {
   const R_xlen_t n = x1.size();
   if (x2.size() != n) Rcpp::stop("x1 and x2 must have the same length");
   if (n < 2 || n > INT_MAX / 2) Rcpp::stop("the engine needs at least 2 points");
@@ -93,6 +159,12 @@ SEXP stc_engine_new(Rcpp::NumericVector x1, Rcpp::NumericVector x2, Rcpp::Intege
   if (!std::isfinite(seed)) Rcpp::stop("seed must be finite");
   check_threads(n_threads, chunk);
   if (deltas.size() < 1) Rcpp::stop("no delta values");
+  if (rng != stc::RNG_LEGACY && rng != stc::RNG_STREAMS) Rcpp::stop("rng must be 0 (legacy) or 1 (streams)");
+  if (rng == stc::RNG_STREAMS) {
+    if (noise_supplied) Rcpp::stop("independent streams generate their own noise");
+    if (seed != std::floor(seed) || seed < INT_MIN || seed > INT_MAX) Rcpp::stop("seed must be an integer");
+  }
+  if (keep_surrogates && !keep_nulls) Rcpp::stop("keep_surrogates needs keep_nulls");
 
   bool plan_ok = plan.containsElementNamed("ok") && Rcpp::as<bool>(plan["ok"]);
   std::string reason = plan.containsElementNamed("reason") ? Rcpp::as<std::string>(plan["reason"]) : "";
@@ -132,6 +204,8 @@ SEXP stc_engine_new(Rcpp::NumericVector x1, Rcpp::NumericVector x2, Rcpp::Intege
   opt.cor_mode = cor_mode;
   opt.seed = seed;
   opt.noise_supplied = noise_supplied;
+  opt.rng = rng;
+  opt.keep_nulls = keep_nulls;
 
   std::unique_ptr<stc::Engine> e(new stc::Engine());
   const bool ok = e->build(x1.begin(), x2.begin(), (int)n, ids.begin(), (int)ids.size(), vt, plan_ok,
@@ -169,11 +243,14 @@ Rcpp::List stc_engine_deltas(SEXP session) {
 
 // Tasks and units of a session (once). pool: N x V data vectors. Per task (0-based indices):
 // task_source (pool column), task_grid (list of delta indices), task_targets (list of pool columns),
-// task_rabs (list of |r| per target), task_unit. unit_fail_on_dir: one logical per unit.
+// task_rabs (list of |r| per target), task_unit. unit_fail_on_dir: one logical per unit. Sessions with
+// independent streams also take task_names and task_dirs (the name and direction of each task's stream
+// key; see src/stc_rng.h).
 // [[Rcpp::export(name = ".stc_engine_define", rng = false)]]
 Rcpp::List stc_engine_define(SEXP session, Rcpp::NumericMatrix pool, Rcpp::IntegerVector task_source,
                              Rcpp::List task_grid, Rcpp::List task_targets, Rcpp::List task_rabs,
-                             Rcpp::IntegerVector task_unit, Rcpp::LogicalVector unit_fail_on_dir) {
+                             Rcpp::IntegerVector task_unit, Rcpp::LogicalVector unit_fail_on_dir,
+                             SEXP task_names = R_NilValue, SEXP task_dirs = R_NilValue) {
   stc::Engine* e = get_engine(session);
   if (e->tasks_defined) Rcpp::stop("the tasks of this session are already defined");
   if (pool.nrow() != e->n) Rcpp::stop("nrow(pool) must equal the number of points");
@@ -196,8 +273,14 @@ Rcpp::List stc_engine_define(SEXP session, Rcpp::NumericMatrix pool, Rcpp::Integ
     if (unit_fail_on_dir[u] == NA_LOGICAL) Rcpp::stop("unit_fail_on_dir must not contain NA");
     fod[u] = unit_fail_on_dir[u] ? 1 : 0;
   }
+  std::vector<std::uint64_t> keys;
+  if (e->opt.rng == stc::RNG_STREAMS) {
+    keys = stream_keys(e->opt.seed, task_names, task_dirs, nt);
+  } else if (!Rf_isNull(task_names) || !Rf_isNull(task_dirs)) {
+    Rcpp::stop("task_names and task_dirs are only for sessions with independent streams");
+  }
   // R_xlen_t-safe: pool has n * V values
-  e->define(pool.begin(), pool.ncol(), src, grid, targets, rabs, unit, fod);
+  e->define(pool.begin(), pool.ncol(), src, grid, targets, rabs, unit, fod, keys);
 
   Rcpp::IntegerVector status(nt);
   Rcpp::CharacterVector message(nt);
@@ -213,11 +296,13 @@ Rcpp::List stc_engine_define(SEXP session, Rcpp::NumericMatrix pool, Rcpp::Integ
 }
 
 // One batch: permutations b_from..b_to for the listed units (0-based), with perm the N x nb matrix of
-// 1-based permutation indices (column j is permutation b_from + j - 1), noise NULL or N x K x nb normals
-// (sessions with noise_supplied), and the stopping rule h (Inf: none) and cap n_max >= b_to.
+// 1-based permutation indices (column j is permutation b_from + j - 1; NULL with independent streams),
+// noise NULL or N x K x nb normals (sessions with noise_supplied), and the stopping rule h (Inf: none)
+// and cap n_max >= b_to. progress: NULL or an R function called on the main thread while the workers
+// run, as progress(done) with done the task-permutations of the batch finished so far.
 // [[Rcpp::export(name = ".stc_engine_run", rng = false)]]
 void stc_engine_run(SEXP session, Rcpp::IntegerVector units, int b_from, int b_to,
-                    Rcpp::IntegerMatrix perm, SEXP noise, double h, int n_max) {
+                    SEXP perm, SEXP noise, double h, int n_max, SEXP progress = R_NilValue) {
   stc::Engine* e = get_engine(session);
   if (!e->tasks_defined) Rcpp::stop("the session has no tasks (see .stc_engine_define())");
   if (b_from == NA_INTEGER || b_to == NA_INTEGER || n_max == NA_INTEGER || b_from < 1 ||
@@ -227,17 +312,25 @@ void stc_engine_run(SEXP session, Rcpp::IntegerVector units, int b_from, int b_t
   if (std::isnan(h) || h < 1) Rcpp::stop("h must be at least 1 (Inf for no stopping)");
   const int n = e->n;
   const int nb = b_to - b_from + 1;
-  if (perm.nrow() != n || perm.ncol() != nb) Rcpp::stop("perm must be an N x (b_to - b_from + 1) matrix");
+  if (!Rf_isNull(progress) && !Rf_isFunction(progress)) Rcpp::stop("progress must be NULL or a function");
   std::vector<int> ul = int_vector(units, "units");
   for (int u : ul) {
     if (u < 0 || u >= (int)e->units.size()) Rcpp::stop("unit index out of range");
   }
-  std::vector<int> P((std::size_t)n * nb);
-  const int* pp = perm.begin();
-  for (std::size_t q = 0; q < P.size(); q++) {
-    const int v = pp[q];
-    if (v == NA_INTEGER || v < 1 || v > n) Rcpp::stop("permutation index out of range");
-    P[q] = v - 1;
+  std::vector<int> P;
+  if (e->opt.rng == stc::RNG_STREAMS) {
+    if (!Rf_isNull(perm)) Rcpp::stop("a session with independent streams draws its own permutations (perm must be NULL)");
+  } else {
+    if (TYPEOF(perm) != INTSXP || !Rf_isMatrix(perm) || Rf_nrows(perm) != n || Rf_ncols(perm) != nb) {
+      Rcpp::stop("perm must be an N x (b_to - b_from + 1) integer matrix");
+    }
+    P.resize((std::size_t)n * nb);
+    const int* pp = INTEGER(perm);
+    for (std::size_t q = 0; q < P.size(); q++) {
+      const int v = pp[q];
+      if (v == NA_INTEGER || v < 1 || v > n) Rcpp::stop("permutation index out of range");
+      P[q] = v - 1;
+    }
   }
   std::vector<double> noise_copy;
   int kn = 0;
@@ -251,8 +344,9 @@ void stc_engine_run(SEXP session, Rcpp::IntegerVector units, int b_from, int b_t
   } else if (!Rf_isNull(noise)) {
     Rcpp::stop("this session generates its own noise (noise must be NULL)");
   }
-  const bool ok = e->run_batch(ul, b_from, b_to, P.data(), noise_copy.empty() ? nullptr : noise_copy.data(),
-                               kn, h, n_max, r_interrupted);
+  Poll poll(progress, [e]() { return (double)e->batch_progress(); });
+  const bool ok = e->run_batch(ul, b_from, b_to, P.empty() ? nullptr : P.data(),
+                               noise_copy.empty() ? nullptr : noise_copy.data(), kn, h, n_max, poll);
   if (!ok) throw Rcpp::internal::InterruptedException();
 }
 
@@ -285,7 +379,9 @@ Rcpp::List stc_engine_units(SEXP session) {
 
 // Results of tasks (0-based) for the permutations their unit keeps (1..len): dstar (1-based grid
 // positions, NA where a permutation failed), nulls (len x T), surrogates (N x len, or NULL), the
-// pre-check status and message, and per target its pre-check status and first failing permutation.
+// pre-check status and message, per target its pre-check status and first failing permutation, and
+// dstar_count (per grid position, the permutations 1..len whose delta* it is). Sessions with
+// keep_nulls = FALSE return dstar and nulls for no permutation (only dstar_count).
 // [[Rcpp::export(name = ".stc_engine_task_results", rng = false)]]
 Rcpp::List stc_engine_task_results(SEXP session, Rcpp::IntegerVector tasks, bool surrogates) {
   stc::Engine* e = get_engine(session);
@@ -295,7 +391,7 @@ Rcpp::List stc_engine_task_results(SEXP session, Rcpp::IntegerVector tasks, bool
     const int t = tasks[q];
     if (t == NA_INTEGER || t < 0 || t >= (int)e->tasks.size()) Rcpp::stop("task index out of range");
     const stc::EngineTask& T = e->tasks[t];
-    const int L = std::min(e->units[T.unit].len, T.cap);
+    const int L = e->opt.keep_nulls ? std::min(e->units[T.unit].len, T.cap) : 0;
     const int nT = (int)T.targets.size();
     Rcpp::IntegerVector dstar(L);
     for (int b = 0; b < L; b++) dstar[b] = T.dstar[b] >= 0 ? T.dstar[b] + 1 : NA_INTEGER;
@@ -318,9 +414,33 @@ Rcpp::List stc_engine_task_results(SEXP session, Rcpp::IntegerVector tasks, bool
         Rcpp::_["dstar"] = dstar, Rcpp::_["nulls"] = nulls, Rcpp::_["surrogates"] = surr,
         Rcpp::_["status"] = T.status, Rcpp::_["message"] = T.message,
         Rcpp::_["target_status"] = Rcpp::IntegerVector(T.target_status.begin(), T.target_status.end()),
-        Rcpp::_["dir_fail_b"] = dfb);
+        Rcpp::_["dir_fail_b"] = dfb,
+        Rcpp::_["dstar_count"] = Rcpp::IntegerVector(T.dstar_count.begin(), T.dstar_count.end()));
   }
   return out;
+}
+
+// Test hook for the independent streams (src/stc_rng.h): the key of (seed, name, direction) as 16 hex
+// digits, and the draws of permutation b: perm (1-based, what X[perm] permutes) and noise (N x K, column
+// k + 1 the block of grid position k).
+// [[Rcpp::export(name = ".stc_stream_draws", rng = false)]]
+Rcpp::List stc_stream_draws(int seed, Rcpp::CharacterVector name, int direction, int b, int N, int K) {
+  if (seed == NA_INTEGER) Rcpp::stop("seed must be an integer");
+  if (name.size() != 1) Rcpp::stop("name must be a single string");
+  if (b == NA_INTEGER || b < 1 || N == NA_INTEGER || N < 1 || K == NA_INTEGER || K < 0) {
+    Rcpp::stop("need b >= 1, N >= 1 and K >= 0");
+  }
+  Rcpp::IntegerVector dir = Rcpp::IntegerVector::create(direction);
+  const std::uint64_t key = stream_keys((double)seed, name, dir, 1)[0];
+  char hex[17];
+  std::snprintf(hex, sizeof hex, "%016llx", (unsigned long long)key);
+  std::vector<int> p((std::size_t)N);
+  stc::stream_permutation(key, b, N, p.data());
+  Rcpp::IntegerVector perm(N);
+  for (int i = 0; i < N; i++) perm[i] = p[(std::size_t)i] + 1;
+  Rcpp::NumericMatrix noise(N, K);
+  for (int k = 0; k < K; k++) stc::stream_noise(key, b, k, N, noise.begin() + (std::size_t)k * N);
+  return Rcpp::List::create(Rcpp::_["key"] = std::string(hex), Rcpp::_["perm"] = perm, Rcpp::_["noise"] = noise);
 }
 
 // Change the number of worker threads and the permutations per work item of a session.
@@ -333,22 +453,28 @@ void stc_engine_set_threads(SEXP session, int n_threads, int chunk) {
 
 // Test hook for the thread pool (stc::parallel_for()): n_items items on n_threads workers; item i
 // sleeps sleep_ms milliseconds, then records the worker that ran it; item fail_item (0-based; -1 for
-// none) throws instead. Returns the worker of every item (NA for items abandoned after a failure), or
-// an R error carrying the worker's message; an interrupt while it waits is re-raised in R.
+// none) throws instead. progress: NULL or an R function, called on the main thread as for the engine
+// (Poll) with the number of finished items. Returns the worker of every item (NA for items abandoned
+// after a failure), or an R error carrying the worker's message or progress()'s error; an interrupt
+// while it waits is re-raised in R.
 // [[Rcpp::export(name = ".stc_parallel_selftest", rng = false)]]
 Rcpp::IntegerVector stc_parallel_selftest(int n_items, int n_threads, int fail_item = -1,
-                                          int sleep_ms = 0) {
+                                          int sleep_ms = 0, SEXP progress = R_NilValue) {
   if (n_items == NA_INTEGER || n_items < 0) Rcpp::stop("n_items must be non-negative");
   check_threads(n_threads, 1);
+  if (!Rf_isNull(progress) && !Rf_isFunction(progress)) Rcpp::stop("progress must be NULL or a function");
   std::vector<int> who((std::size_t)n_items, NA_INTEGER);
+  std::atomic<int> finished(0);
+  Poll poll(progress, [&finished]() { return (double)finished.load(); });
   const bool ok = stc::parallel_for(
       n_items, n_threads,
-      [&who, fail_item, sleep_ms](int i, int w) {
+      [&who, &finished, fail_item, sleep_ms](int i, int w) {
         if (sleep_ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
         if (i == fail_item) throw std::runtime_error("item " + std::to_string(i) + " failed on a worker");
         who[(std::size_t)i] = w;
+        finished.fetch_add(1);
       },
-      r_interrupted);
+      poll);
   if (!ok) throw Rcpp::internal::InterruptedException();
   return Rcpp::IntegerVector(who.begin(), who.end());
 }

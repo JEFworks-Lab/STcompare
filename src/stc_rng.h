@@ -1,4 +1,8 @@
-// stc_rng.h -- R's L'Ecuyer-CMRG generator and its Inversion normals, reproduced exactly.
+// stc_rng.h -- the random draws of the engine:
+//   - legacy streams (the exported legacy functions): R's L'Ecuyer-CMRG generator and its Inversion
+//     normals, reproduced exactly (below);
+//   - independent streams (compareSpatial()): one stream per (task key, permutation, sub-stream),
+//     generated from xoshiro256** (see "Independent streams" further down).
 //
 // The legacy code draws its noise inside BiocParallel tasks, where the RNG kind is L'Ecuyer-CMRG
 // (dev/engine-spec.md, section 2.6): set.seed(seed + b), then rnorm(N) once per delta. This stream
@@ -58,6 +62,56 @@ class LecuyerCMRG {
 // set.seed(seed) under L'Ecuyer-CMRG, the noise matchingVariograms() adds for the k-th delta.
 // out has N * K values, block k at out + k * N (an N x K column-major matrix).
 void legacy_noise(int seed, int N, int K, double* out);
+
+// ---------------------------------------------------------------------------------------------
+// Independent streams (compareSpatial(); dev/compare-spatial-spec.md, section 3)
+// ---------------------------------------------------------------------------------------------
+//
+// Every task (a gene and a direction: permute x, or permute y) has a 64-bit key
+//
+//   key = mix(mix(mix(T ^ seed) ^ fnv1a64(name)) ^ direction)
+//
+// where mix() is SplitMix64's finaliser (a bijection of 64-bit integers with full avalanche), T a
+// fixed tag, seed the 32-bit seed (as unsigned), name the gene name's UTF-8 bytes and direction 1
+// (x permuted) or 2 (y permuted). Permutation b (1-based) of the task draws from independent
+// sub-streams s = 0, 1, ..., each a xoshiro256** generator (Blackman and Vigna 2018) whose state is
+// four SplitMix64 outputs from the seed mix(mix(key ^ b) ^ s):
+//   - s = 0: the permutation, Fisher-Yates (Durstenfeld) on 0..N-1, i = N-1 down to 1 swapping i with
+//     an index drawn uniformly from 0..i by Lemire's unbiased bounded-integer method (32-bit draws:
+//     the upper half of each 64-bit output);
+//   - s = 1 + k: the noise added for position k of the delta grid, N standard normals by Marsaglia's
+//     polar method (uniforms in [-1, 1) with 53-bit resolution; a pair per accepted point).
+// So the draws of (task, b) depend on nothing but (seed, name, direction, b): not on the number of
+// threads, the work items, the batches, the gene order or the other genes of the call. A block can be
+// regenerated at any time (the engine draws block k* a second time for the full-length surrogate
+// instead of keeping every block). The normals use std::log() and std::sqrt() of the platform's C
+// library, so they can differ in the last bit between platforms (never between runs); everything else
+// is integer arithmetic. Nothing here touches R.
+std::uint64_t mix64(std::uint64_t z);
+std::uint64_t fnv1a64(const char* s, std::size_t n);
+std::uint64_t stream_key(std::uint32_t seed, const char* name, std::size_t name_len, int direction);
+
+class Xoshiro256ss {
+ public:
+  explicit Xoshiro256ss(std::uint64_t seed);  // state: four SplitMix64 outputs from seed
+  std::uint64_t next();
+  std::uint32_t bounded(std::uint32_t range);  // uniform in 0..range-1 (Lemire 2019), range >= 1
+  double norm();                               // standard normal (Marsaglia's polar method)
+
+ private:
+  std::uint64_t s_[4];
+  double spare_ = 0.0;
+  bool has_spare_ = false;
+};
+
+// The seed of sub-stream s of permutation b of the task with key `key`.
+std::uint64_t stream_seed(std::uint64_t key, std::uint64_t b, std::uint64_t s);
+
+// Permutation b of a task: perm (N values) receives a permutation of 0..N-1 (sub-stream 0).
+void stream_permutation(std::uint64_t key, int b, int N, int* perm);
+
+// The noise of permutation b for grid position k: N standard normals (sub-stream 1 + k).
+void stream_noise(std::uint64_t key, int b, int k, int N, double* out);
 
 }  // namespace stc
 
