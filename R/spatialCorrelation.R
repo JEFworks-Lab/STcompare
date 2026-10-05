@@ -1,144 +1,3 @@
-#' matchingVariograms
-#'
-#' @description Function to create a permutation of spatial dataset X by
-#'   starting with a randomly shuffled version of X and then smoothing it until
-#'   the variogram of this permutation matches the variogram of the unmodified X
-#'
-#' @param X.randomized \code{numeric vector} random permutation of the values of
-#'   X across its x,y-coordinates.
-#'
-#' @param long \code{numeric vector}: y-coordinates of points in dataset X
-#'
-#' @param lat \code{numeric vector}: x-coordinates of points in dataset X
-#'
-#' @param delta \code{numeric vector} Given a point in dataset X, the
-#'   percentage of neighbors which should be within the smoothing kernel. This
-#'   can be a list or a single numeric. Input to `locfit::lp` as `nn`
-#'
-#' @param target_variog \code{variogram} variogram of dataset X that will be
-#'   used as target when doing the matching. See geoR::variog
-#'
-#' @param prctile \code{numeric}: the max distance that should be used for
-#'   evaluating the fit between the variograms from the permuted data and the
-#'   target variogram. Can be determined from calculating all distances between
-#'   the points and then calculating a specified quantile. Input to
-#'   `geoR::variog` as `max.dist`
-#'
-#' @param ids \code{integer}: indices from 1 to the number of points in the
-#'   dataset X
-#'
-#' @param i \code{integer} the number indicating the ith permutation
-#'
-#' @param seed \code{integer} Seed for the random number generator. Default \code{0}.
-#'
-#' @return The output is returned as a list.
-#'  \itemize{
-#'   \item{\code{residus}}{numeric vector of length of delta, sum of squares of
-#'   the residuals between the target variogram and the permuation variogram
-#'   for each delta}
-#'   \item{\code{delta.star.id}}{integer, the index of the delta that minimizes
-#'   the residual sum of squares}
-#'   \item{\code{hat.X.delta.star}}{numeric vector of length of X.randomized,
-#'   permutation generated from optimal delta, whose variogram best matches
-#'   the variogram of X}
-#'   }
-#'
-#' @references
-#' adapted from:
-#' Viladomat, Júlia et al. “Assessing the significance of global and
-#'   local correlations under spatial autocorrelation: a nonparametric
-#'   approach.” Biometrics vol. 70,2 (2014): 409-18. doi:10.1111/biom.12139
-#'
-#' @export
-#'
-#' @examples
-#'
-#' data(quakes)
-#'
-#' #remove duplicated positions
-#' quakes_data <- quakes[!duplicated(cbind(quakes$lat, quakes$long)),]
-#'
-#' lat <- quakes_data$lat
-#' long <- quakes_data$long
-#' X <- quakes_data$depth
-#' ids <- 1:length(X)
-#'
-#' #number of permutations
-#' B <- 3
-#'
-#' #sequence of deltas
-#' delta <- seq(0.1,0.9,0.1)
-#'
-#' # maximum distance for the variogram set at the 25% percentile of
-#' # the distribution of pairs of distances:
-#' dists <- dist(cbind(lat, long))
-#' prctile <- quantile(dists, probs = 0.25)
-#'
-#' # variogram of variable X that will be used as target when doing the matching:
-#' target_variog <- geoR::variog(data = X, coords = cbind(long, lat),
-#'                               max.dist = prctile, option = "bin",
-#'                               messages = FALSE)
-#'
-#' # create B random permutations of the values of X across locations:
-#' X.randomized <- lapply(1:B, function(i) {
-#'    sample(X, size = length(X), replace = FALSE)
-#' })
-#'
-#' # create B permutations of the values of X with variograms that match the
-#' #target variogram of X:
-#' output <- lapply(1:B, function(i) {
-#'   output <- matchingVariograms(X.randomized[[i]], long, lat,
-#'                                delta, target_variog, prctile, ids, i)
-#' })
-#'
-#' output
-#'
-matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
-                                prctile, ids, i, seed = 0 ) {
-
-  set.seed(seed)
-
-  #initialize vectors for fitting variograms for each delta
-  variog.X.delta <- vector(mode = "list", length = length(delta))
-  linear.fit <- variog.X.delta
-  hat.X.delta <- variog.X.delta
-  resid.sum.squares <- rep(0, length(delta))
-
-  for (k in 1:length(delta)) {
-    # smooth X.randomized using locfit:
-    fit <- locfit::locfit(X.randomized ~ locfit::lp(long, lat, nn = delta[k],
-                                                    deg = 0),
-                          kern = "gauss", maxk = 300)
-    X.delta <- fitted(fit)
-    # variogram of X.delta:
-    variog.X.delta[[k]] <- geoR::variog(data = X.delta[ids],
-                                        coords = cbind(long[ids],lat[ids]),
-                                        option = "bin", max.dist = prctile,
-                                        messages = FALSE)
-
-    # linear regression between the target and X.delta variograms:
-    linear.fit[[k]] <- lm(target_variog$v ~ 1 + variog.X.delta[[k]]$v)
-    # least square estimates:
-    bet.hat <- as.numeric(linear.fit[[k]]$coefficients)
-    # transformed X.delta:
-    hat.X.delta[[k]] <- X.delta * sqrt(abs(bet.hat[2])) + rnorm(length(X.delta)) * sqrt(abs(bet.hat[1]))
-    variog.hat.X.delta <- geoR::variog(data = hat.X.delta[[k]][ids],
-                                       coords = cbind(long[ids],lat[ids]),
-                                       option = "bin", max.dist = prctile,
-                                       messages = FALSE)
-
-    # sum of squares of the residuals:
-    resid.sum.squares[k] <- sum((variog.hat.X.delta$v-target_variog$v) ^ 2)
-  }
-  # delta that minimizes the residual sum of squares:
-  delta.star.id <- which.min(resid.sum.squares)
-  # permutation for which its variogram matches the variogram of X:
-  hat.X.delta.star <- hat.X.delta[[delta.star.id]]
-  return(list(residus = resid.sum.squares,
-              delta.star.id = delta.star.id,
-              hat.X.delta.star = hat.X.delta.star ))
-}
-
 #' viladomatCorrelation
 #'
 #' @description Function to calculate Pearson's correlation between two spatial
@@ -148,13 +7,39 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #'   permuting dataset X by randomly shuffling the values and then smoothing to
 #'   maintain the original degree of autocorrelation of X
 #'
+#' @details Each permutation shuffles the values of X across the locations,
+#'   smooths the shuffled values with a Gaussian kernel whose nearest-neighbour
+#'   bandwidth covers a proportion delta of the locations, and rescales the
+#'   smoothed values and adds Gaussian noise so that their variogram matches the
+#'   variogram of X (Viladomat et al. 2014). This is repeated for every delta,
+#'   and the delta whose variogram matches best (delta star) gives the permuted
+#'   field. If X has more than 1000 values, the variograms use a random
+#'   subsample of 1000 locations.
+#'
+#'   The computation is done by compiled code (C++), which reimplements the
+#'   local-constant kernel smoother of \code{locfit} (its adaptive k-d tree with
+#'   vertex interpolation, \code{nn = delta}, \code{kern = "gauss"}) and the
+#'   binned variogram of \code{geoR::variog()}. It gives the same results as the
+#'   original R implementation: the same delta star for every permutation and
+#'   the same null correlations up to floating-point rounding (about 1e-14 on
+#'   the published analyses).
+#'
+#'   If the null cannot be computed (for example X is constant or has missing
+#'   values, \eqn{N \times delta < 2}{N * delta < 2} for a delta, or the
+#'   variogram has fewer than 2 bins), every element of the result is \code{NA}
+#'   and a warning gives the reason. If Y has missing values or is constant, the
+#'   permutations are returned, and \code{nullCorGlobal} and
+#'   \code{pValueGlobal} are \code{NA} with a warning.
+#'
 #' @param data \code{matrix} A N x 4 matrix of with the first column as the
 #'   values of X, the second column as the values of Y, the third column as the
 #'   x-coordinates, and the fourth column as the y-coordinates.
 #'
 #' @param delta \code{numeric vector} Given a point in dataset X, the percentage
 #'   of neighbors which should be within the smoothing kernel. This can be a
-#'   list or a single numeric. Input to `locfit::lp` as `nn`
+#'   single numeric or a vector of candidate values; the best one is chosen for
+#'   every permutation. Each delta must satisfy \eqn{N \times delta \ge 2}{N *
+#'   delta >= 2}.
 #'
 #' @param maxDistPrctile \code{numeric}: Percentile of distances between pixels
 #'   to use as max distance in when calculating variograms. At greater distances
@@ -169,25 +54,26 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #'   \eqn{1 / (nPermutations + 1)}, for example about 0.0099 when
 #'   \code{nPermutations <- 100}
 #'
-#' @param nThreads \code{integer}: Number of threads for parallelization.
-#'   Default = 1. Inputting this argument when the \code{BPPARAM} argument is
-#'   \code{NULL} would set parallel execution back-end to be
-#'   \code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
-#'   setting this argument to be the number of cores available
-#'   (\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
-#'   is not \code{NULL}, the \code{BPPARAM} argument would override
-#'   \code{nThreads} argument.
+#' @param nThreads \code{integer}: Number of threads of the compiled code.
+#'   Default = 1. The permutations are distributed over the threads, and the
+#'   results do not depend on the number of threads. We recommend the number of
+#'   cores available (\code{parallel::detectCores(logical = FALSE)}).
 #'
-#' @param BPPARAM \code{BiocParallelParam}: Optional additional argument for
-#'   parallelization. This argument is provided for advanced users of
-#'   \code{BiocParallel} for further flexibility for setting up
-#'   parallel-execution back-end. Default is NULL. If provided, this is assumed
-#'   to be an instance of \code{BiocParallelParam}.
+#' @param BPPARAM \code{BiocParallelParam}: Optional. If not \code{NULL}, its
+#'   number of workers (\code{BiocParallel::bpnworkers(BPPARAM)}) is used as the
+#'   number of threads instead of \code{nThreads}. No BiocParallel back-end is
+#'   started (nothing is forked). Default is \code{NULL}.
 #'
-#' @param seed \code{integer}: Seed for the random number generator. Default \code{0}.
+#' @param seed \code{integer}: Seed for the random number generator. Default
+#'   \code{0}. The permutations are drawn after \code{set.seed(seed)} with the
+#'   session's random number generator kinds (\code{RNGkind()}), and the noise
+#'   of permutation \eqn{b} after \code{set.seed(seed + b)} with
+#'   \code{"L'Ecuyer-CMRG"}. The results depend on the seed only, and the
+#'   global random number generator state (\code{.Random.seed}) is left
+#'   unchanged.
 #'
 #' @return The output is returned as a list.
-#'  \itemize{
+#'  \describe{
 #'   \item{\code{deltaStarMedian}}{numeric, the median of the deltas that minimize
 #'   the residual sum of squares across each permutation}
 #'   \item{\code{deltaStar}}{numeric vector of length of `nPermutations`,
@@ -198,7 +84,7 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #'   absolute value of the observed correlation}
 #'   \item{\code{nullCorGlobal}}{a B x 1 matrix, where B is `nPermutations`.
 #'   This matrix is the correlation coefficients between the permutations and
-#'   X that compose that null distribution used to calculate the empirical p-value}
+#'   Y that compose that null distribution used to calculate the empirical p-value}
 #'   \item{\code{permutations}}{a N x B matrix, where B is `nPermutations`.
 #'   Each column is the resulting values of a permutation of X}
 #'   }
@@ -230,111 +116,40 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #' maxDistPrctile <- 0.25
 #'
 #' #number of permutations
-#' nPermutations <- 3
+#' nPermutations <- 10
 #'
 #' resultsPermuteX <- viladomatCorrelation(data, delta, maxDistPrctile, nPermutations)
+#' resultsPermuteX$pValueGlobal
+#' resultsPermuteX$deltaStar
 #'
 viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
                                  nThreads = 1, BPPARAM = NULL, seed = 0) {
-
-  ## Set up parallel execution back-end with BiocParallel
-  if (is.null(BPPARAM)) {
-    BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
+  if (length(dim(data)) != 2L || ncol(data) < 4L) {
+    stop("data must be a matrix or data frame with 4 columns: X, Y and the two coordinates")
   }
+  X <- .stc_values(data[, 1], "data[, 1] (X)")
+  Y <- .stc_values(data[, 2], "data[, 2] (Y)")
+  pos <- cbind(data[, 3], data[, 4])
+  nThreads <- .stc_threads(nThreads, BPPARAM)
+  B <- .stc_check_nperm(nPermutations)
 
-  set.seed(seed)
-
-  # load the data X, Y and the coordinates of the N data locations:
-  X <- data[,1]
-  Y <- data[,2]
-  lat <- data[,3]
-  long <- data[,4]
-  N <- length(X)
-
-  # If N is too big, we take a subsample of size N_s every time we calculate a
-  # variogram:
-  N_s <- 1000
-  if (length(X) > N_s) {
-    ids <- sample(N, N_s)
-    X_s <- X[ids]
-    long_s <- long[ids]
-    lat_s <- lat[ids]
-  } else {
-    X_s <- X
-    long_s <- long
-    lat_s <- lat
-    ids <- 1:N
+  e <- .stc_engine_correlate(X, Y, pos, deltaX = list(delta), nPermutations = B, seed = seed,
+                             maxDistPrctile = maxDistPrctile, nThreads = nThreads,
+                             returnPermutations = TRUE, mode = "forward")
+  if (e$status[1] != "ok") {
+    warning("viladomatCorrelation: no permutations (all results are NA): ", e$message[1], call. = FALSE)
+    return(list(deltaStarMedian = NA_real_, deltaStar = NA_real_, pValueGlobal = NA_real_,
+                nullCorGlobal = NA_real_, permutations = NA_real_))
   }
-
-  # maximum distance for the variogram set at the 25% percentile of
-  # the distribution of pairs of distances:
-  dists <- dist(cbind(lat_s, long_s))
-  prctile <- quantile(dists, probs = maxDistPrctile)
-
-  # variogram of variable X that will be used as target when doing the matching:
-  target_variog <- geoR::variog(data = X_s, coords = cbind(long_s,lat_s),
-                                max.dist = prctile,
-                                option = "bin", messages = FALSE)
-
-  # ALGORITHM:
-  # It returns B random fields with the same autocorrelation
-  # as X but independent of Y, stored in permutations. The basis
-  # to calculate B realizations of the null we are interested in.
-
-  B <- nPermutations
-  permutations <- vector(mode = "list", length = B)
-
-
-  # random permutation of the values of X across locations:
-  X.randomized <- lapply(1:B, function(i) {
-    sample(X, size = length(X), replace = FALSE)
-  })
-
-  output <- BiocParallel::bplapply(1:B, function(i) {
-    # smoothing and scaling step to match the target variogram:
-    output <- matchingVariograms(X.randomized[[i]], long, lat,
-                                 delta, target_variog, prctile, ids, i,
-                                 seed = seed + i)
-  }, BPPARAM=BPPARAM)
-
-
-  permutations <- do.call(cbind, BiocParallel::bplapply(1:B, function(i) {
-    # store permutations after smoothing and scaling to match the target
-    # variogram
-    hat.X.delta.star <- output[[i]]$hat.X.delta.star
-    c(hat.X.delta.star)
-  }, BPPARAM=BPPARAM)
-  )
-
-  delta.star <- do.call(cbind, BiocParallel::bplapply(1:B, function(i) {
-    # index of delta that minimizes the residual sum of squares between between
-    # the target and X.delta variograms for each permutation
-    delta.star.id <- output[[i]]$delta.star.id
-    # evaluate the delta at that index
-    c(delta[delta.star.id])
-  }, BPPARAM=BPPARAM)
-  )
-
-  # store median of the delta stars to return
-  delta.star.median<- median(delta.star)
-
-  # ASSESSING THE SINGLE PEARSON'S CORRELATION COEFFICIENT (GLOBAL CORRELATION):
-  # observed global correlation:
-  cor.global.obs <- as.vector(cor(X,Y))
-
-  # null distribution for the global correlation:
-  cor.global <- cor(permutations,Y)
-
-  # p-value: (b + 1) / (B + 1), where b counts the null correlations that are
-  # at least as extreme as the observed one, so it is never 0
-  extreme <- sum(abs(cor.global) >= abs(cor.global.obs))
-  p.value.global <- (extreme + 1) / (B + 1)
-
-  return(list(deltaStarMedian = delta.star.median,
-              deltaStar = c(delta.star),
-              pValueGlobal = p.value.global,
-              nullCorGlobal = cor.global,
-              permutations = permutations))
+  if (nzchar(e$message[1])) {
+    warning("viladomatCorrelation: nullCorGlobal or pValueGlobal is NA: ", e$message[1], call. = FALSE)
+  }
+  deltaStar <- e$deltaStarX[[1]]
+  list(deltaStarMedian = stats::median(deltaStar),
+       deltaStar = deltaStar,
+       pValueGlobal = e$pX[1],
+       nullCorGlobal = matrix(e$nullX[[1]], ncol = 1L),
+       permutations = e$permutationsX[[1]])
 }
 
 
@@ -346,6 +161,34 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   p-values from empirical null distributions generated from permuting the
 #'   datasets and then smoothing to maintain the original degree of
 #'   autocorrelation
+#'
+#' @details The null distribution of the correlation is built twice: by
+#'   permuting X while keeping Y fixed, and by permuting Y while keeping X fixed
+#'   (see \code{\link{viladomatCorrelation}} for how a permutation keeps the
+#'   autocorrelation). Both directions use the same seed, so they use the same
+#'   shuffles of the locations. The empirical p-value of a direction is
+#'   \eqn{(b + 1) / (B + 1)}, where \eqn{b} is the number of null correlations
+#'   whose absolute value is at least the absolute value of the observed
+#'   correlation and \eqn{B} is \code{nPermutations}; it is never 0.
+#'
+#'   The computation is done by compiled code (C++) that reimplements the
+#'   \code{locfit} smoother and the \code{geoR} variogram of the original R
+#'   implementation and gives the same results: the same delta star for every
+#'   permutation, and the same null correlations up to floating-point rounding
+#'   (about 1e-14 on the published analyses). Results do not depend on the
+#'   number of threads, and the global random number generator state is left
+#'   unchanged.
+#'
+#'   If the null cannot be computed in a direction, the columns computed from
+#'   permutations are \code{NA} (an NA row) and a warning gives the reason.
+#'   This happens when X or Y is constant or has missing values, when
+#'   \eqn{N \times delta < 2}{N * delta < 2} for a delta (fewer than 2
+#'   locations in the smoothing neighbourhood), when \code{maxDistPrctile} is
+#'   so small that the variogram has fewer than 2 bins, or with exactly
+#'   duplicated coordinates and a delta so small that the neighbourhood holds
+#'   no more than the copies of a location. \code{correlationCoef} and
+#'   \code{pValueNaive} are still computed by \code{cor.test()} where possible
+#'   (on the complete pairs if there are missing values).
 #'
 #' @param X \code{numeric} or \code{matrix}: a 1 x N numeric vector or matrix
 #'   with N observations
@@ -394,25 +237,27 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   permutations used to calculate the null correlations and the empirical
 #'   p-value.
 #'
-#' @param nThreads \code{integer}: Number of threads for parallelization.
-#'   Default = 1. Inputting this argument when the \code{BPPARAM} argument is
-#'   \code{NULL} would set parallel execution back-end to be
-#'   \code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
-#'   setting this argument to be the number of cores available
-#'   (\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
-#'   is not \code{NULL}, the \code{BPPARAM} argument would override
-#'   \code{nThreads} argument.
+#' @param nThreads \code{integer}: Number of threads of the compiled code.
+#'   Default = 1. The permutations are distributed over the threads, and the
+#'   results do not depend on the number of threads. We recommend the number of
+#'   cores available (\code{parallel::detectCores(logical = FALSE)}).
 #'
-#' @param BPPARAM \code{BiocParallelParam}: Optional additional argument for
-#'   parallelization. This argument is provided for advanced users of
-#'   \code{BiocParallel} for further flexibility for setting up
-#'   parallel-execution back-end. Default is NULL. If provided, this is assumed
-#'   to be an instance of \code{BiocParallelParam}.
+#' @param BPPARAM \code{BiocParallelParam}: Optional. If not \code{NULL}, its
+#'   number of workers (\code{BiocParallel::bpnworkers(BPPARAM)}) is used as the
+#'   number of threads instead of \code{nThreads}. No BiocParallel back-end is
+#'   started (nothing is forked). Default is \code{NULL}.
 #'
-#' @param seed \code{integer}: Seed for the random number generator. Default \code{0}.
+#' @param seed \code{integer}: Seed for the random number generator. Default
+#'   \code{0}. The permutations are drawn after \code{set.seed(seed)} with the
+#'   session's random number generator kinds (\code{RNGkind()}), and the noise
+#'   of permutation \eqn{b} after \code{set.seed(seed + b)} with
+#'   \code{"L'Ecuyer-CMRG"}. The results depend on the seed only, and the
+#'   global random number generator state (\code{.Random.seed}) is left
+#'   unchanged.
 #'
-#' @return The output is returned as a \code{data.frame} containing the columns:
-#' \itemize{
+#' @return The output is returned as a \code{data.frame} with one row (named
+#'   \code{"cor"}) containing the columns:
+#' \describe{
 #'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
 #'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
 #'   observations}
@@ -428,10 +273,10 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
 #'   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
 #'   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-#'   \item{\code{nullCorrelationsX}}{correlation coefficients for pairing Y and
-#'   all permutations of X}
-#'   \item{\code{nullCorrelationsY}}{correlation coefficients for pairing X and
-#'   all permutations of Y}
+#'   \item{\code{nullCorrelationsX}}{list of a B x 1 matrix: the correlation
+#'   coefficients for pairing Y and all permutations of X}
+#'   \item{\code{nullCorrelationsY}}{list of a B x 1 matrix: the correlation
+#'   coefficients for pairing X and all permutations of Y}
 #'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
 #'   length of X and B is `nPermutations`. Each column is the resulting values
 #'   of a permutation of X}
@@ -451,7 +296,8 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'
 #' cor <- spatialCorrelation(X = quakes_data$depth,
 #'                           Y = quakes_data$mag,
-#'                           pos = cbind(quakes_data$lat, quakes_data$long))
+#'                           pos = cbind(quakes_data$lat, quakes_data$long),
+#'                           nThreads = 2)
 #' cor
 #'
 #' # plot the delta star (the delta which minimizes the difference between the
@@ -469,7 +315,8 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'                           Y = quakes_data$mag,
 #'                           pos = cbind(quakes_data$lat, quakes_data$long),
 #'                           deltaX = seq(0.05, 0.9, 0.05),
-#'                           deltaY = seq(0.02, 0.5, 0.02))
+#'                           deltaY = seq(0.02, 0.5, 0.02),
+#'                           nThreads = 2)
 #'
 #' cor2
 #'
@@ -488,7 +335,7 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'                 x = "Longitude", y = "Latitude",
 #'                 color = "Depth (km)") +
 #'   ggplot2::theme_minimal() +
-#'   ggplot2::coord_map()
+#'   ggplot2::coord_quickmap()
 #'
 #' p2 <- ggplot2::ggplot(quakes_data,
 #'                       ggplot2::aes(x = long, y = lat, color = mag)) +
@@ -498,7 +345,7 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'                 x = "Longitude", y = "Latitude",
 #'                 color = "Richter Magnitude") +
 #'   ggplot2::theme_minimal() +
-#'   ggplot2::coord_map()
+#'   ggplot2::coord_quickmap()
 #'
 #' p1
 #' p2
@@ -508,123 +355,19 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
                                returnPermutations = FALSE,
                                nThreads = 1, BPPARAM = NULL,
                                seed = 0){
+  X <- .stc_values(X, "X")
+  Y <- .stc_values(Y, "Y")
+  if (length(X) != length(Y)) stop("X and Y must have the same length")
+  if (length(X) < 3L) stop("X and Y must have at least 3 values")
+  nThreads <- .stc_threads(nThreads, BPPARAM)
+  B <- .stc_check_nperm(nPermutations)
 
-  ## Set up parallel execution back-end with BiocParallel
-  if (is.null(BPPARAM)) {
-    BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
-  }
-
-  ## Organize data into dataframes
-  dataForward <- data.frame(X = X,
-                            Y = Y,
-                            x = pos[,1],
-                            y = pos[,2])
-
-  dataReverse <- data.frame(X = dataForward$Y,
-                            Y = dataForward$X,
-                            x = dataForward$x,
-                            y = dataForward$y)
-
-  ## If deltas to test are not supplied, try 0.1 to 0.9 for each dataset
-  if (is.null(deltaX)){
-    deltaX = seq(0.1,0.9,0.1)
-  }
-
-  if (is.null(deltaY)){
-    deltaY = seq(0.1,0.9,0.1)
-  }
-
-  tryCatch({
-    ## Calculate Pearson's correlation and return data frame with correlation
-    #estimate and naive p-value assuming independence
-    corDF <- cor.test(dataForward$X, dataForward$Y)
-
-    ## Calculate corrected p-value for Pearson's correlation
-    resultsPermuteX <- viladomatCorrelation(dataForward, delta = deltaX,
-                                            maxDistPrctile = maxDistPrctile,
-                                            nPermutations = nPermutations,
-                                            nThreads = nThreads,
-                                            BPPARAM = BPPARAM,
-                                            seed = seed)
-    resultsPermuteY <- viladomatCorrelation(dataReverse, delta = deltaY,
-                                            maxDistPrctile = maxDistPrctile,
-                                            nPermutations = nPermutations,
-                                            nThreads = nThreads,
-                                            BPPARAM = BPPARAM,
-                                            seed = seed)
-
-    ## Store correlation value, naive p-value, and corrected p-value for
-    #permuting either source and target as dataframe with 1 row
-    if(returnPermutations == TRUE){
-      output <- data.frame(correlationCoef = corDF$estimate,
-                           pValueNaive = corDF$p.value,
-                           pValuePermuteX = resultsPermuteX[["pValueGlobal"]],
-                           pValuePermuteY = resultsPermuteY[["pValueGlobal"]],
-                           deltaStarMedianX = resultsPermuteX[["deltaStarMedian"]],
-                           deltaStarMedianY = resultsPermuteY[["deltaStarMedian"]],
-                           deltaStarX = I(list(resultsPermuteX[["deltaStar"]])),
-                           deltaStarY = I(list(resultsPermuteY[["deltaStar"]])),
-                           nullCorrelationsX = I(list(resultsPermuteX[["nullCorGlobal"]])),
-                           nullCorrelationsY = I(list(resultsPermuteY[["nullCorGlobal"]])),
-                           permutationsX = I(list(resultsPermuteX[["permutations"]])),
-                           permutationsY = I(list(resultsPermuteY[["permutations"]]))
-      )
-    } else {
-      output <- data.frame(correlationCoef = corDF$estimate,
-                           pValueNaive = corDF$p.value,
-                           pValuePermuteX = resultsPermuteX[["pValueGlobal"]],
-                           pValuePermuteY = resultsPermuteY[["pValueGlobal"]],
-                           deltaStarMedianX = resultsPermuteX[["deltaStarMedian"]],
-                           deltaStarMedianY = resultsPermuteY[["deltaStarMedian"]],
-                           deltaStarX = I(list(resultsPermuteX[["deltaStar"]])),
-                           deltaStarY = I(list(resultsPermuteY[["deltaStar"]])),
-                           nullCorrelationsX = I(list(resultsPermuteX[["nullCorGlobal"]])),
-                           nullCorrelationsY = I(list(resultsPermuteY[["nullCorGlobal"]]))
-      )
-    }
-
-    return(output)
-
-  }
-  ,
-
-  error = function(cond) {
-    print(cond)
-    #if get error in the main correction function return NA for corrected
-    #p-values (permuting source or permuting target) as dataframe with 1 row
-
-    if(returnPermutations == TRUE){
-      output <- data.frame(correlationCoef = corDF$estimate,
-                           pValueNaive = corDF$p.value,
-                           pValuePermuteX = NA,
-                           pValuePermuteY = NA,
-                           deltaStarMedianX = NA,
-                           deltaStarMedianY = NA,
-                           deltaStarX = NA,
-                           deltaStarY = NA,
-                           nullCorrelationsX = NA,
-                           nullCorrelationsY = NA,
-                           permutationsX = NA,
-                           permutationsY = NA)
-    }
-    else {
-      output <- data.frame(correlationCoef = corDF$estimate,
-                           pValueNaive = corDF$p.value,
-                           pValuePermuteX = NA,
-                           pValuePermuteY = NA,
-                           deltaStarMedianX = NA,
-                           deltaStarMedianY = NA,
-                           deltaStarX = NA,
-                           deltaStarY = NA,
-                           nullCorrelationsX = NA,
-                           nullCorrelationsY = NA)
-    }
-
-    return(output)
-
-  }
-  )
-
+  naive <- .stc_cor_tests(matrix(X), matrix(Y))
+  e <- .stc_engine_correlate(X, Y, pos, deltaX = list(deltaX), deltaY = list(deltaY),
+                             nPermutations = B, seed = seed, maxDistPrctile = maxDistPrctile,
+                             nThreads = nThreads, returnPermutations = returnPermutations)
+  .stc_warn_na_rows("spatialCorrelation", NULL, e, naive)
+  .stc_result_table(naive, e, isTRUE(returnPermutations), "cor")
 }
 
 #' spatialCorrelationGeneExp
@@ -635,6 +378,21 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   it calculates empirical p-values from empirical null distributions
 #'   generated from permuting the datasets and then smoothing to maintain the
 #'   original degree of autocorrelation
+#'
+#' @details For every gene (row), the correlation of its values in the two
+#'   datasets over their shared pixels is tested as in
+#'   \code{\link{spatialCorrelation}}: with nulls from permutations of X and
+#'   from permutations of Y. All genes are computed in one call of the compiled
+#'   code, which shares the smoothing operators and the shuffles of the
+#'   locations between genes and distributes the permutations of all genes
+#'   over \code{nThreads} threads. The results are the same as for one gene at
+#'   a time and do not depend on the number of threads.
+#'
+#'   Genes for which a null cannot be computed (see
+#'   \code{\link{spatialCorrelation}}: for example a gene that is constant or
+#'   has missing values on the shared pixels, or \eqn{N \times delta < 2}{N *
+#'   delta < 2}) get \code{NA} in every column computed from permutations, and
+#'   one warning per such gene gives the reason.
 #'
 #' @param input \code{list} List of two SpatialExperiment objects with matched
 #'   spatial locations. The first element corresponds to the first
@@ -693,30 +451,28 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   \code{NULL}. If no value is supplied for \code{assayName}, then the first
 #'   assay is used as a default
 #'
-#' @param nThreads \code{integer}: Number of threads for parallelization.
-#'   Default = 1. Inputting this argument when the \code{BPPARAM} argument is
-#'   \code{NULL} would set parallel execution back-end to be
-#'   \code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
-#'   setting this argument to be the number of cores available
-#'   (\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
-#'   is not \code{NULL}, the \code{BPPARAM} argument would override
-#'   \code{nThreads} argument.
+#' @param nThreads \code{integer}: Number of threads of the compiled code.
+#'   Default = 1. The permutations of all genes are distributed over the
+#'   threads, and the results do not depend on the number of threads. We
+#'   recommend the number of cores available
+#'   (\code{parallel::detectCores(logical = FALSE)}).
 #'
-#' @param BPPARAM \code{BiocParallelParam}: Optional additional argument for
-#'   parallelization. This argument is provided for advanced users of
-#'   \code{BiocParallel} for further flexibility for setting up
-#'   parallel-execution back-end. Default is NULL. If provided, this is assumed
-#'   to be an instance of \code{BiocParallelParam}.
+#' @param BPPARAM \code{BiocParallelParam}: Optional. If not \code{NULL}, its
+#'   number of workers (\code{BiocParallel::bpnworkers(BPPARAM)}) is used as the
+#'   number of threads instead of \code{nThreads}. No BiocParallel back-end is
+#'   started (nothing is forked). Default is \code{NULL}.
 #'
-#' @param verbose \code{logical}: indicate whether to print row number and name
-#'   to show progress as the function iterates through the rows of the
-#'   SpatialExperiments to calculate a correlation coefficient and empirical
-#'   p-value for each row
+#' @param verbose \code{logical}: if \code{TRUE} (default), print a message
+#'   when the computation starts (genes, permutations and threads) and when it
+#'   ends (elapsed time).
 #'
-#' @param seed \code{integer}: Seed for the random number generator used to
-#'   generate noise in the variogram matching step. Ensures reproducibility of
-#'   empirical p-values regardless of parallelization back-end. Default is
-#'   \code{0}.
+#' @param seed \code{integer}: Seed for the random number generator. Default
+#'   \code{0}. The permutations are drawn after \code{set.seed(seed)} with the
+#'   session's random number generator kinds (\code{RNGkind()}), and the noise
+#'   of permutation \eqn{b} after \code{set.seed(seed + b)} with
+#'   \code{"L'Ecuyer-CMRG"}; every gene uses the same seed. The results depend
+#'   on the seed only, and the global random number generator state
+#'   (\code{.Random.seed}) is left unchanged.
 #'
 #' @param adjustMethod \code{character}: multiple-testing correction method
 #'   passed to \code{stats::p.adjust()}. It is applied across all genes,
@@ -727,7 +483,7 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #' @return The output is returned as a \code{data.frame}. The rownames are the
 #'   rownames of the SpatialExperiments. The names of the columns and their
 #'   contents are as follows:
-#' \itemize{
+#' \describe{
 #'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
 #'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
 #'   observations}
@@ -744,8 +500,10 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
 #'   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
 #'   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-#'   \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all permuations of X}
-#'   \item{\code{nullCorrelationsY}}{correlation coefficients for X and all permuations of Y}
+#'   \item{\code{nullCorrelationsX}}{list of B x 1 matrices: the correlation
+#'   coefficients for Y and all permutations of X}
+#'   \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
+#'   coefficients for X and all permutations of Y}
 #'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
 #'   Each column is the resulting values of a permutation of X}
 #'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the length of Y and B is `nPermutations`.
@@ -761,14 +519,14 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #' ##### Rasterize to get pixels at matched spatial locations #####
 #' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
 #'                assay_name = 'counts', resolution = 0.2, fun = "mean",
-#'                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+#'                square = FALSE)
 #'
 #' ##### Use STcompare to calculate Pearson's correlation coefficient #####
 #' rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
 #' rastGexpListAC <- list(A = rastKidney$A, C = rastKidney$C)
 #'
-#' negCorrelation <- spatialCorrelationGeneExp(rastGexpListAB, nThreads = 5)
-#' posCorrelation <- spatialCorrelationGeneExp(rastGexpListAC, nThreads = 5)
+#' negCorrelation <- spatialCorrelationGeneExp(rastGexpListAB, nThreads = 2)
+#' posCorrelation <- spatialCorrelationGeneExp(rastGexpListAC, nThreads = 2)
 #'
 #' negCorrelation
 #' posCorrelation
@@ -788,80 +546,33 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
     stop("adjustMethod must be one of: ",
          paste(stats::p.adjust.methods, collapse = ", "))
   }
+  nThreads <- .stc_threads(nThreads, BPPARAM)
+  B <- .stc_check_nperm(nPermutations)
+  d <- .stc_pair_input(input, assayName)
+  G <- length(d$genes)
+  deltaX <- .stc_gene_deltas(deltaX, G, "deltaX")
+  deltaY <- .stc_gene_deltas(deltaY, G, "deltaY")
 
-  ## set up parallel execution back-end with BiocParallel
-  if (is.null(BPPARAM)) {
-    BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
+  t0 <- proc.time()
+  if (verbose) {
+    message(sprintf("spatialCorrelationGeneExp: %d gene(s) x 2 directions on %d shared pixels, %d permutations, %d thread(s)",
+                    G, nrow(d$pos), B, nThreads))
   }
-
-  #Determine the positions of shared pixels between two rasterized spatial
-  #experiments
-  source <- input[[1]]
-  target <- input[[2]]
-  shared_pixels <- intersect(rownames(SpatialExperiment::spatialCoords(source)),
-                             rownames(SpatialExperiment::spatialCoords(target)))
-  pos <- SpatialExperiment::spatialCoords(source)[shared_pixels,]
-
-  #If lists of deltas to test are not supplied, try 0.1 to 0.9 for both datasets
-  #for each gene
-  if (is.null(deltaX)){
-    deltaX <- rep(list(seq(0.1,0.9,0.1)), length(rownames(source)))
-  }
-
-  if (is.null(deltaY)){
-    deltaY <- rep(list(seq(0.1,0.9,0.1)), length(rownames(source)))
-  }
-
-  ## if name of assay to use in the SpatialExperiment object is not provided,
-  ## use the first assay as a default
-  if (is.null(assayName)) {
-    assayName <- 1
-  }
-
-  #calculate Pearson's correlation of expression between shared pixels in
-  #datasets for each gene, naive p-value assuming independence and corrected
-  #p-value using empirical null from permutations
-  correctedCorrelation <- do.call(rbind,
-                                  lapply(1:length(rownames(source)),
-                                         function(i) {
-
-    #store name of gene
-    g <- rownames(source)[i]
-
-    #print number of iteration and name of gene
-    if (verbose) {
-      message(paste0(i, ': ', g))
-    }
-
-    #store gene expression matrices from SpatialExperiments for gene "g"
-    X <- SummarizedExperiment::assays(source)[[assayName]][g, shared_pixels]
-    Y <- SummarizedExperiment::assays(target)[[assayName]][g, shared_pixels]
-
-    #calculate correlation, naive p-value, corrected p-value using empirical
-    #null from permutations
-    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations,
-                                 deltaX = deltaX[[i]], deltaY = deltaY[[i]],
-                                 maxDistPrctile = maxDistPrctile,
-                                 returnPermutations = returnPermutations,
-                                 nThreads = nThreads, BPPARAM = BPPARAM,
-                                 seed = seed)
-
-    #name row of dataframe with gene name
-    row.names(output) <- g
-
-    return(output)
-
-  }))
+  naive <- .stc_cor_tests(d$X, d$Y)
+  e <- .stc_engine_correlate(d$X, d$Y, d$pos, deltaX = deltaX, deltaY = deltaY, nPermutations = B,
+                             seed = seed, maxDistPrctile = maxDistPrctile, nThreads = nThreads,
+                             returnPermutations = returnPermutations)
+  n_na <- .stc_warn_na_rows("spatialCorrelationGeneExp", paste0("gene ", d$genes), e, naive)
+  out <- .stc_result_table(naive, e, isTRUE(returnPermutations), make.unique(d$genes, sep = ""))
 
   # mht correct for pValuePermuteX and pValuePermuteY separately, across genes
-  correctedCorrelation$pValuePermuteX <- stats::p.adjust(
-    correctedCorrelation$pValuePermuteX, method = adjustMethod
-  )
-  correctedCorrelation$pValuePermuteY <- stats::p.adjust(
-    correctedCorrelation$pValuePermuteY, method = adjustMethod
-  )
-
-  return(correctedCorrelation)
+  out$pValuePermuteX <- stats::p.adjust(out$pValuePermuteX, method = adjustMethod)
+  out$pValuePermuteY <- stats::p.adjust(out$pValuePermuteY, method = adjustMethod)
+  if (verbose) {
+    message(sprintf("spatialCorrelationGeneExp: done in %s (%d of %d gene(s) with NA permutation p-values)",
+                    .stc_elapsed(t0), n_na, G))
+  }
+  out
 }
 
 #' spatialCorrelationGeneExpWithinSample
@@ -873,6 +584,17 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'   generated from permuting the data and then smoothing to maintain the
 #'   original degree of autocorrelation
 #'
+#' @details Every pair of rows (genes) is tested as in
+#'   \code{\link{spatialCorrelation}}, with the first gene of the pair as X and
+#'   the second as Y. A gene's permutations do not depend on its partner, so
+#'   the compiled code computes the permutations of every gene once and
+#'   correlates them with every other gene, on \code{nThreads} threads. The
+#'   results are the same as for one pair at a time and do not depend on the
+#'   number of threads. Pairs with a gene for which a null cannot be computed
+#'   (for example a constant gene) get \code{NA} in every column computed from
+#'   permutations, and one warning per such pair gives the reason. The
+#'   empirical p-values are not adjusted for multiple testing.
+#'
 #' @param input \code{SpatialExperiment} A SpatialExperiment object. See
 #'   \code{assayName} parameter if the SpatialExperiment object has more than
 #'   one assay.
@@ -882,28 +604,20 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'   determine the precision of the p-value. Default is \code{100}, such that
 #'   the smallest possible p-value is \eqn{1 / 101}, about 0.0099
 #'
-#' @param deltaX \code{list}: List of single numerics or list of numeric vectors
+#' @param delta \code{list}: List of single numerics or list of numeric vectors
 #'   to use for delta, the parameter controlling the degree of smoothing in
-#'   permutations of X. The length of the list should the same as the number of
-#'   rows in the SpatialExperiment.  Delta is a proportion calculated by
-#'   dividing k neighbors by N total observations (columns) in X, where k is the
-#'   number of neighbors in the permutation of X that should be within the
+#'   permutations of each row (gene). The length of the list should the same as
+#'   the number of rows in the SpatialExperiment. Delta is a proportion
+#'   calculated by dividing k neighbors by N total observations (columns), where
+#'   k is the number of neighbors in the permutation that should be within the
 #'   radius smoothed by the Gaussian kernel to achieve the amount of
-#'   autocorrelation present in the original X. If a single delta is not known,
-#'   a sequence of deltas can be inputted and the best delta will be found such
-#'   that it minimizes the sum of squares of the residuals between the variogram
-#'   of the permutation generated from the delta and the variogram of the
-#'   target. Default is \code{NULL}. If no value is supplied for \code{deltaX},
-#'   \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from 0.1 to 0.9, will be
-#'   used to find the best delta for each row (gene) in X.
-#'
-#' @param deltaY \code{list}: List of single numerics or list of numeric vectors
-#'   to use for delta, the parameter controlling the degree of smoothing in
-#'   permutations of Y. \code{deltaY} is like \code{deltaX} but for permuting
-#'   data in Y instead of X. Default is \code{NULL}. If no value is supplied for
-#'   \code{deltaY}, \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from 0.1
-#'   to 0.9, will be used to find the best delta for permutations for each row
-#'   (gene) in Y.
+#'   autocorrelation present in the original data. If a single delta is not
+#'   known, a sequence of deltas can be inputted and the best delta will be
+#'   found such that it minimizes the sum of squares of the residuals between
+#'   the variogram of the permutation generated from the delta and the
+#'   variogram of the target. Default is \code{NULL}. If no value is supplied
+#'   for \code{delta}, \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from
+#'   0.1 to 0.9, will be used to find the best delta for each row (gene).
 #'
 #' @param maxDistPrctile \code{numeric}: percentile of distances between pixels
 #'   to use as max distance in when calculating variograms. Default = 0.25. At
@@ -923,51 +637,59 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'   \code{NULL}. If no value is supplied for \code{assayName}, then the first
 #'   assay is used as a default
 #'
-#' @param nThreads \code{integer}: Number of threads for parallelization.
-#'   Default = 1. Inputting this argument when the \code{BPPARAM} argument is
-#'   \code{NULL} would set parallel execution back-end to be
-#'   \code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
-#'   setting this argument to be the number of cores available
-#'   (\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
-#'   is not \code{NULL}, the \code{BPPARAM} argument would override
-#'   \code{nThreads} argument.
+#' @param nThreads \code{integer}: Number of threads of the compiled code.
+#'   Default = 1. The permutations of all genes are distributed over the
+#'   threads, and the results do not depend on the number of threads. We
+#'   recommend the number of cores available
+#'   (\code{parallel::detectCores(logical = FALSE)}).
 #'
-#' @param BPPARAM \code{BiocParallelParam}: Optional additional argument for
-#'   parallelization. This argument is provided for advanced users of
-#'   \code{BiocParallel} for further flexibility for setting up
-#'   parallel-execution back-end. Default is NULL. If provided, this is assumed
-#'   to be an instance of \code{BiocParallelParam}.
+#' @param BPPARAM \code{BiocParallelParam}: Optional. If not \code{NULL}, its
+#'   number of workers (\code{BiocParallel::bpnworkers(BPPARAM)}) is used as the
+#'   number of threads instead of \code{nThreads}. No BiocParallel back-end is
+#'   started (nothing is forked). Default is \code{NULL}.
 #'
-#' @param verbose \code{logical}: indicate whether to print row number and name
-#'   to show progress as the function iterates through the rows of the
-#'   SpatialExperiments to calculate a correlation coefficient and empirical
-#'   p-value for each row
+#' @param verbose \code{logical}: if \code{TRUE} (default), print a message
+#'   when the computation starts (genes, pairs, permutations and threads) and
+#'   when it ends (elapsed time).
 #'
-#' @param seed \code{integer}: Seed for the random number generator used to
-#'   generate noise in the variogram matching step. Ensures reproducibility of
-#'   empirical p-values regardless of parallelization back-end. Default is
-#'   \code{0}.
+#' @param seed \code{integer}: Seed for the random number generator. Default
+#'   \code{0}. The permutations are drawn after \code{set.seed(seed)} with the
+#'   session's random number generator kinds (\code{RNGkind()}), and the noise
+#'   of permutation \eqn{b} after \code{set.seed(seed + b)} with
+#'   \code{"L'Ecuyer-CMRG"}; every gene uses the same seed. The results depend
+#'   on the seed only, and the global random number generator state
+#'   (\code{.Random.seed}) is left unchanged.
 #'
-#' @return The output is returned as a \code{data.frame}. The rownames are
-#'   arbitrary. The names of the columns and their contents are as follows:
-#' \itemize{
+#' @return The output is returned as a \code{data.frame} with one row per pair
+#'   of rows (genes), in the order of \code{combn(rownames(input), 2)}. The
+#'   rownames are arbitrary (\code{"cor"}, \code{"cor1"}, ...). The names of the
+#'   columns and their contents are as follows:
+#' \describe{
 #'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
 #'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
 #'   observations}
-#'   \item{\code{pValuePermuteX}}{the p-value when creating an empirical null from permutations
-#'   of observations in X}
+#'   \item{\code{pValuePermuteX}}{the p-value when creating an empirical null
+#'   from permutations of the first gene of the pair, computed as
+#'   \eqn{(b + 1) / (B + 1)} (see \code{\link{spatialCorrelation}})}
 #'   \item{\code{pValuePermuteY}}{the p-value when creating an empirical null from
-#'   permutations of observations in Y}
+#'   permutations of the second gene of the pair}
 #'   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
 #'   minimizes the difference between the variogram of the permutation and the
-#'   variogram of observations) across permutations of X}
-#'   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
-#'   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
-#'   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-#'   \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all permuations of X}
-#'   \item{\code{nullCorrelationsY}}{correlation coefficients for X and all permuations of Y}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
-#'   Each column is the resulting values of a permutation of X}
+#'   variogram of observations) across permutations of the first gene}
+#'   \item{\code{deltaStarMedianY}}{the median delta star across permutations
+#'   of the second gene}
+#'   \item{\code{deltaStarX}}{list of delta star for all permutations of the
+#'   first gene}
+#'   \item{\code{deltaStarY}}{list of delta star for all permutations of the
+#'   second gene}
+#'   \item{\code{nullCorrelationsX}}{list of B x 1 matrices: the correlation
+#'   coefficients for the second gene and all permutations of the first}
+#'   \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
+#'   coefficients for the first gene and all permutations of the second}
+#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
+#'   number of pixels and B is `nPermutations`. Each column is the resulting
+#'   values of a permutation of the first gene}
+#'   \item{\code{permutationsY}}{(optional) the same for the second gene}
 #'   \item{\code{first}}{the name of the first row in the pair}
 #'   \item{\code{second}}{the name of the second row in the pair}
 #'   }
@@ -981,13 +703,22 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #' ##### Rasterize to get pixels at matched spatial locations #####
 #' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
 #'                assay_name = 'counts', resolution = 0.2, fun = "mean",
-#'                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+#'                square = FALSE)
 #'
-#' sc_within_sample <- spatialCorrelationGeneExpWithinSample(
-#'                       input = rastKidney,
-#'                       assayName = "A"
-#'                       )
-#'sc_within_sample
+#' # one SpatialExperiment whose three rows are the gene in samples A, C and
+#' # B, on the pixels the three samples share
+#' shared <- Reduce(intersect, lapply(rastKidney, colnames))
+#' expr <- t(sapply(rastKidney, function(s) {
+#'   SummarizedExperiment::assay(s)[1, shared]
+#' }))
+#' speACB <- SpatialExperiment::SpatialExperiment(
+#'   assays = list(pixelval = expr),
+#'   spatialCoords = SpatialExperiment::spatialCoords(rastKidney$A)[shared, ])
+#'
+#' sc_within_sample <- spatialCorrelationGeneExpWithinSample(speACB,
+#'                                                           nThreads = 2)
+#' sc_within_sample[, c("first", "second", "correlationCoef",
+#'                      "pValuePermuteX", "pValuePermuteY")]
 #'
 spatialCorrelationGeneExpWithinSample <- function(input,
                                                   nPermutations = 100,
@@ -999,66 +730,43 @@ spatialCorrelationGeneExpWithinSample <- function(input,
                                                   BPPARAM = NULL,
                                                   verbose = TRUE,
                                                   seed = 0){
-
-  ## set up parallel execution back-end with BiocParallel
-  if (is.null(BPPARAM)) {
-    BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
-  }
-
-  #Store positions of pixels in the rasterized spatial experiment
-  pos <- SpatialExperiment::spatialCoords(input)
-
-  #If lists of deltas to test are not supplied, try 0.1 to 0.9 for each gene
-  if (is.null(delta)){
-    delta <- rep(list(seq(0.1,0.9,0.1)), length(rownames(input)))
-  }
-  names(delta) <- rownames(input)
-
-  ## if name of assay to use in the SpatialExperiment object is not provided,
-  ## use the first assay as a default
+  nThreads <- .stc_threads(nThreads, BPPARAM)
+  B <- .stc_check_nperm(nPermutations)
   if (is.null(assayName)) {
     assayName <- 1
   }
+  genes <- rownames(input)
+  G <- length(genes)
+  if (G < 2L) stop("input must have at least 2 rows (genes)")
+  pos <- SpatialExperiment::spatialCoords(input)
+  M <- t(as.matrix(SummarizedExperiment::assay(input, assayName)))
+  storage.mode(M) <- "double"
+  colnames(M) <- genes
+  delta <- .stc_gene_deltas(delta, G, "delta")
+  pairs <- utils::combn(G, 2L)
 
-  #identify all unique combinations of pairs of genes
-  genePairs <- combn(rownames(input), 2)
-  #store number of pairs of genes
-  n <- dim(genePairs)[2]
-
-  correctedCorrelation <- do.call(rbind, lapply(1:n, function(i) {
-
-    #store names of genes in the ith pair
-    g <- genePairs[1,i]
-    g2 <- genePairs[2,i]
-
-    #print number of iteration and names of genes in the pair
-    if (verbose) {
-      message(paste0(i, ': ', g, ' and ', g2))
-    }
-
-    #store gene expression matrices for genes in the pair
-    X <- SummarizedExperiment::assay(input, assayName)[g, ]
-    Y <- SummarizedExperiment::assay(input, assayName)[g2, ]
-
-    #calculate correlation, naive p-value, corrected p-value using empirical
-    #null from permutations
-    output <- spatialCorrelation(X, Y, pos, nPermutations = nPermutations,
-                                 deltaX = delta[[g]], deltaY = delta[[g2]],
-                                 maxDistPrctile = maxDistPrctile,
-                                 returnPermutations = returnPermutations,
-                                 nThreads = nThreads,
-                                 BPPARAM = BPPARAM,
-                                 seed = seed)
-
-    #add columns with gene names from the pair
-    output$first <- g
-    output$second <- g2
-
-
-    return(output)
-    }))
-
-  return(correctedCorrelation)
+  t0 <- proc.time()
+  if (verbose) {
+    message(sprintf("spatialCorrelationGeneExpWithinSample: %d genes (%d pairs) on %d pixels, %d permutations, %d thread(s)",
+                    G, ncol(pairs), nrow(M), B, nThreads))
+  }
+  e <- .stc_engine_correlate(M, pos = pos, deltaX = delta, nPermutations = B, seed = seed,
+                             maxDistPrctile = maxDistPrctile, nThreads = nThreads,
+                             returnPermutations = returnPermutations, mode = "within")
+  # cor.test() of every pair, with the engine's cor(M[, i], M[, j]) as the estimate where cor.test()
+  # would compute that same value
+  naive <- .stc_cor_tests(M, M, pairs[1, ], pairs[2, ], r_pairs = attr(e, "state")$r[t(pairs)])
+  labels <- sprintf("genes %s and %s", genes[pairs[1, ]], genes[pairs[2, ]])
+  n_na <- .stc_warn_na_rows("spatialCorrelationGeneExpWithinSample", labels, e, naive)
+  out <- .stc_result_table(naive, e, isTRUE(returnPermutations),
+                           make.unique(rep("cor", ncol(pairs)), sep = ""))
+  out$first <- genes[pairs[1, ]]
+  out$second <- genes[pairs[2, ]]
+  if (verbose) {
+    message(sprintf("spatialCorrelationGeneExpWithinSample: done in %s (%d of %d pairs with NA permutation p-values)",
+                    .stc_elapsed(t0), n_na, ncol(pairs)))
+  }
+  out
 }
 
 #' plotCorrelationGeneExp

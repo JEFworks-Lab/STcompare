@@ -1,10 +1,10 @@
 # Spec: the C++ engine (legacy-compatible mode)
 
-This is the contract for `engine = "cpp"` in the existing exported functions. It is phase 1 of `cpp-backend-plan.md`. The evidence for every semantic rule below is in `investigation/01` (smoother), `02` (variogram), `04` (RNG streams) and `05` (method).
+This is the contract for the C++ engine, which (since 2026-10-04) is the only implementation behind the existing exported functions; the legacy R implementation was removed and survives only as stored outputs (test fixtures and the published results in `inst/extdata`). It is phase 1 of `cpp-backend-plan.md`. The evidence for every semantic rule below is in `investigation/01` (smoother), `02` (variogram), `04` (RNG streams) and `05` (method).
 
 ## 1. Goals
 
-1. **Same results as `engine = "R"`** for every input where the R code succeeds:
+1. **Same results as the legacy R implementation** (as pinned by the fixtures and the published results) for every input where the R code succeeded:
    - identical `deltaStarX`/`deltaStarY` for every permutation;
    - identical `pValuePermuteX`/`pValuePermuteY`;
    - `nullCorrelationsX`/`Y` and `permutationsX`/`Y` equal within a relative tolerance of about 1e-9.
@@ -12,13 +12,13 @@ This is the contract for `engine = "cpp"` in the existing exported functions. It
    Bit-identical nulls are not a goal. Two things prevent them:
    - R's `lm()` is not bit-stable across BLAS builds.
    - The OLS intercept suffers catastrophic cancellation, which amplifies last-bit differences in the smoothed values or the fit to about 1e-11 in the nulls.
-2. **The same NA behaviour as `engine = "R"`.** Inputs on which the R code returns an NA row get an NA row here too, plus a `warning()` naming the gene and the reason. Where the R code crashes R, this engine returns an NA row and a warning instead.
+2. **The same NA behaviour as the legacy R code.** Inputs on which the R code returned an NA row get an NA row here too, plus a `warning()` naming the gene and the reason. Where the R code crashes R, this engine returns an NA row and a warning instead.
 3. **Speed:**
-   - at least 50× faster than `engine = "R"` per gene on one thread at N = 1000–2000 pixels, default delta grid, B = 100;
+   - at least 50× faster than the legacy R code per gene on one thread at N = 1000–2000 pixels, default delta grid, B = 100;
    - at least 8× speedup on 16 threads for 64 or more genes;
    - results that never depend on the number of threads.
-4. **No R API calls from worker threads:** no `Rcpp` objects, R memory or `R_CheckUserInterrupt`. Everything runs on plain C++ buffers copied before the threads start.
-5. **The global RNG state is restored** after every call, under both engines. This is a side-effect fix only; the legacy streams themselves are reproduced exactly.
+4. **No R API calls from worker threads:** no `Rcpp` objects, R memory or `R_CheckUserInterrupt`. Everything runs on plain C++ buffers copied before the threads start. The one R entry point that worker threads call is Rmath's `Rf_qnorm5()`, a pure function, for the noise (2.6).
+5. **The global RNG state is restored** after every call. This is a side-effect fix only; the legacy streams themselves are reproduced exactly.
 
 Non-goals for this phase: the new main function with independent per-gene streams and other statistical changes (phase 3), and a vectorised `spatialSimilarity()`. The C++ must still keep "where permutations and noise come from" behind one small interface, so that a per-task stream mode can be added later without touching the numerics.
 
@@ -74,8 +74,9 @@ Notation for one call of `spatialCorrelation(X, Y, pos, nPermutations = B, delta
      - `delta <= 0`.
    - **Coordinates:** FP contraction off in the tree and distance code, and the exact coordinate doubles (no rescaling).
 6. **Noise** for permutation b. Inside a BiocParallel task, legacy R runs `RNGkind("L'Ecuyer-CMRG")`, then `set.seed(seed + b)`, then for each delta index k in the gene's grid order, `rnorm(N)`. So the noise is the k-th block of N normals of that stream.
-   - The C++ reproduces this bit for bit: R's `RNG_Init` scrambling for L'Ecuyer-CMRG, its `unif_rand`, and Inversion `norm_rand` with `BIG = 134217728`, calling R's own `Rf_qnorm5`. This is a pure function that never warns for p in (0, 1).
-   - If `RNGkind()[2] != "Inversion"`, generate the noise in R instead, slow but exact.
+   - The normals are always Inversion normals, whatever the session's `normal.kind`. BiocParallel (1.44) runs its tasks under L'Ecuyer-CMRG with Inversion normals and Rejection sampling, whatever `RNGkind()` is in the calling session, so the legacy noise never depended on the session's normal kind, and the engine keeps that definition (tested in `test-engine.R`).
+   - The C++ reproduces this stream bit for bit: R's `RNG_Init` scrambling for L'Ecuyer-CMRG, its `unif_rand`, and Inversion `norm_rand` with `BIG = 134217728`, calling R's own `Rf_qnorm5` (`src/stc_rng.h`). For the p in (0, 1] that the generator produces, `Rf_qnorm5` reads only its arguments, allocates nothing and never warns, so worker threads may call it (the exception in 1.4). Calling it, rather than porting its AS241 polynomials to C++, keeps the inversion identical to `rnorm()` on every platform: whether those polynomials are evaluated with fused multiply-adds depends on how R itself was compiled.
+   - Noise drawn in R with `rnorm()` (`noise = "R"` in `.stc_engine_correlate()`) exists only as a test hook for the C++ stream; it gives identical results.
    - The block index is the position in the delta grid, not the delta value. `deltaX` and `deltaY` may differ, and so may per-gene grids.
 7. **Per permutation b** (both directions):
    - `x_b <- X[idx[, b]]`.
@@ -90,7 +91,7 @@ Notation for one call of `spatialCorrelation(X, Y, pos, nPermutations = B, delta
    - The surrogate is `hat_{k*}` at all N points.
 8. **Null correlation:** `cor(surrogate_b, target_vector)` with R's own algorithm. Means are two-pass in `long double` (R's `MEAN` macro in `cov.c`), followed by centred cross-products and sums of squares, then clamped to [-1, 1].
 9. **R side:**
-   - `r <- cor.test(X, Y)` as now;
+   - `r <- cor.test(X, Y)` as now (for the genes or pairs whose values are all finite, its estimate and p-value are computed all at once with `cor.test()`'s own arithmetic, `.stc_cor_tests()`; identical values);
    - `p <- (sum(abs(null) >= abs(r)) + 1) / (B + 1)`;
    - `deltaStarMedian <- median(deltaStar)`.
 10. **NA rows.** When any step fails for a gene (in either direction), every permutation-derived column of that gene is NA, exactly like the legacy `tryCatch`.
@@ -123,31 +124,42 @@ Notation for one call of `spatialCorrelation(X, Y, pos, nPermutations = B, delta
    - variograms evaluated over a tile of columns, with the pair loop outermost so the inner loop over columns vectorises. Per-column summation order is unchanged.
 7. **Thread count.** If `BPPARAM` is not NULL, use `BiocParallel::bpnworkers(BPPARAM)`; otherwise use `nThreads`. Never fork in the cpp path.
 
-## 4. R API
+## 4. R API (revised 2026-10-04: the C++ engine is the only implementation)
 
-- Exported functions gain `engine = c("cpp", "R")` as their **last** argument, so positional calls keep working. Functions: `viladomatCorrelation`, `spatialCorrelation`, `spatialCorrelationGeneExp`, `spatialCorrelationGeneExpIterPermutations`, `spatialCorrelationGeneExpWithinSample`. Their output shape is unchanged.
-- **`spatialCorrelationGeneExpIterPermutations(engine = "cpp")`.** Round k+1 extends the promoted genes' nulls with permutations `nPermutations[k] + 1 .. nPermutations[k + 1]` instead of recomputing them. This is exact by the prefix property. Genes with NA p-values are never promoted; the legacy code crashes on them.
+The maintainer decided that the legacy R implementation is not kept. There is **no `engine` argument**: the exported functions keep their names, arguments and output structure, and are computed by the C++ engine.
+- Functions: `viladomatCorrelation`, `spatialCorrelation`, `spatialCorrelationGeneExp`, `spatialCorrelationGeneExpIterPermutations`, `spatialCorrelationGeneExpWithinSample`.
+- `matchingVariograms()` is removed. It was a legacy helper whose interface takes a geoR variogram object.
+- The legacy R code paths, and the calls to locfit, geoR and `BiocParallel::bplapply` in them, are deleted. geoR and locfit move to Suggests: the component tests use them as references.
+- **Threads:** `nThreads` sets C++ threads. A non-NULL `BPPARAM` is still accepted and sets the thread count through `BiocParallel::bpnworkers()`. Nothing forks.
+- **`spatialCorrelationGeneExpIterPermutations`.** Round k+1 extends the promoted genes' nulls with permutations `nPermutations[k] + 1 .. nPermutations[k + 1]` instead of recomputing them. This is exact by the prefix property. Genes with NA p-values are never promoted; the legacy code crashed on them.
 - **Internal helpers** live in `R/engine.R`, and their C++ entry points are dot-prefixed so the `exportPattern` does not export them.
 - **`verbose`.** One message at the start (genes, directions, permutations, threads) and one at the end (elapsed time).
 
-## 5. Acceptance tests
+## 5. Acceptance tests (revised 2026-10-04: lean; nothing re-runs the legacy R code)
 
-- **Component tests** (`tests/testthat/test-cpp-components.R`):
-  - variogram `u`, `n` and `v` `identical()` to `geoR::variog` on fixture coordinates and random layouts, including duplicated points and exact bin-edge ties;
-  - the tree replica `identical()` to `fitted(locfit(...))`, and the operator within 1e-13 relative;
-  - C++ L'Ecuyer normals `identical()` to R's `rnorm` for several seeds;
-  - `cor` within 1e-15 of R's `cor()`.
-- **Reference tests:** every fixture test that runs `engine = "R"` also runs `engine = "cpp"`, with identical `deltaStar` and p-values and nulls within 1e-9.
-- **Randomized equivalence** of `engine = "cpp"` against `engine = "R"`:
-  - irregular and lattice coordinates, N from 30 to 1500, B from 5 to 20;
-  - per-gene and per-direction delta grids, several seeds and `maxDistPrctile` values.
-- **Edge cases** (cpp matches R's NA rows, and never crashes):
-  - constant gene, NA, `delta * N < 2`, duplicated coordinates;
-  - `delta > 1`, a `maxDistPrctile` so small that fewer than 2 bins remain;
-  - sparse `dgCMatrix` assays, single-gene inputs.
-- **Thread determinism:** `nThreads` 1, 2 and 4 give `identical()` outputs.
-- **Global RNG:** `.Random.seed` is unchanged after calls under both engines.
-- **Benchmarks** (`bench/`, excluded from the build): per-gene time for R vs cpp on the AKI (311 px) and brain (2170 px) fixture genes, and thread scaling.
+- **Main acceptance test: the published analyses** (`bench/validate-published.R`).
+  - Rebuild the inputs from the Zenodo and 10x downloads (`data-raw/`, cached outside the repo). Run every published analysis through the exported functions with the authors' parameters, then compare per gene with `inst/extdata`:
+    - `correlationCoef` and `pValueNaive`;
+    - the number of permutations per gene (the same screening decisions);
+    - identical delta*;
+    - nulls within 1e-9 relative;
+    - identical exceedance counts.
+  - Analyses: kidney Visium (iterative and fixed B = 100, 1,046 genes each), MERFISH replicates (affine 483 genes; STalign 483 genes, of which the 122 rows whose stored p-values do not follow from the stored nulls, because the authors patched the table with rows of an earlier run, are compared like the others but counted separately: 116 such rows show it through `pValuePermuteX` and 6 more only through `pValuePermuteY`), brain MERFISH vs Visium (325 genes) and cell types (16).
+  - This runs in minutes on 16 threads; the authors needed about 200 CPU-hours.
+- **Default test suite:** about a minute, at most 2 threads.
+  - Component tests: C++ against geoR, locfit and R's RNG, `cor()` and `lm()`, skipped if geoR or locfit is not installed.
+  - Fixture tests through the exported functions against the stored legacy outputs: identical delta*, nulls within 1e-9, p-values computed from the nulls, NA rows. Platform gating stays as it is.
+  - Edge cases that must give an NA row and a warning, never a crash:
+    - constant gene, NA, `delta * N < 2`, duplicated coordinates;
+    - `delta > 1`, a `maxDistPrctile` so small that fewer than 2 bins remain;
+    - sparse `dgCMatrix` assays, single-gene inputs.
+  - Determinism:
+    - `identical()` outputs for 1, 2 and 4 threads and for different batch and sub-chunk sizes;
+    - adaptive stopping with h = ∞ equals fixed B;
+    - session continuation equals one longer run;
+    - `.Random.seed` is unchanged.
+- **Opt-in slow tier** (`STCOMPARE_SLOW_TESTS=true`): all realistic-fixture genes, and the calibration jobs.
+- **Benchmarks** (`bench/`, excluded from the build): per-gene timings on the fixture genes and thread scaling.
 
 ## 6. Adaptive stopping support (added 2026-10-04)
 

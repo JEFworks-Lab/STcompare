@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <unordered_map>
 #include <utility>
@@ -609,6 +610,126 @@ void smooth_project(const SmoothOperator& op, const double* Y, std::size_t ldy, 
       }
     }
   }
+}
+
+namespace {
+
+// Two doubles in one SIMD register (GCC and clang vector extensions: SSE2 on x86-64, NEON on arm64).
+// Arithmetic on it is lane-wise IEEE arithmetic, and stc_fp.h's pragmas forbid contracting a * b + c
+// into a fused multiply-add here as anywhere else, so every lane computes exactly what scalar code
+// computes. (The plain loops were not vectorised: clang unrolled them into scalar code.)
+typedef double v2d __attribute__((vector_size(16)));
+
+inline v2d load2(const double* p) {
+  v2d v;
+  std::memcpy(&v, p, sizeof v);
+  return v;
+}
+
+inline void store2(double* p, v2d v) { std::memcpy(p, &v, sizeof v); }
+
+// Four rows of Z (vertices k..k+3) for 2 * NV columns: one pass over j with 4 x NV vector
+// accumulators held in registers (smooth_project() reloads and stores Z[k, b] for every j because Z
+// may alias Y). Per accumulator lane the operations are those of smooth_project(): start at 0, add
+// w[j] * y[j] for j = 0, 1, ..., n - 1.
+template <int NV>
+void project_rows4(const double* w0, const double* w1, const double* w2, const double* w3, int n,
+                   const double* Y, std::size_t ldy, double* z0, double* z1, double* z2, double* z3) {
+  const v2d zero = {0.0, 0.0};
+  v2d a0[NV], a1[NV], a2[NV], a3[NV];
+  for (int v = 0; v < NV; v++) {
+    a0[v] = zero;
+    a1[v] = zero;
+    a2[v] = zero;
+    a3[v] = zero;
+  }
+  for (int j = 0; j < n; j++) {
+    const double* yj = Y + (std::size_t)j * ldy;
+    const v2d x0 = {w0[j], w0[j]}, x1 = {w1[j], w1[j]}, x2 = {w2[j], w2[j]}, x3 = {w3[j], w3[j]};
+    for (int v = 0; v < NV; v++) {
+      const v2d y = load2(yj + 2 * v);
+      a0[v] += x0 * y;
+      a1[v] += x1 * y;
+      a2[v] += x2 * y;
+      a3[v] += x3 * y;
+    }
+  }
+  for (int v = 0; v < NV; v++) {
+    store2(z0 + 2 * v, a0[v]);
+    store2(z1 + 2 * v, a1[v]);
+    store2(z2 + 2 * v, a2[v]);
+    store2(z3 + 2 * v, a3[v]);
+  }
+}
+
+template <int NV>
+void project_rows1(const double* w0, int n, const double* Y, std::size_t ldy, double* z0) {
+  const v2d zero = {0.0, 0.0};
+  v2d a0[NV];
+  for (int v = 0; v < NV; v++) a0[v] = zero;
+  for (int j = 0; j < n; j++) {
+    const double* yj = Y + (std::size_t)j * ldy;
+    const v2d x0 = {w0[j], w0[j]};
+    for (int v = 0; v < NV; v++) a0[v] += x0 * load2(yj + 2 * v);
+  }
+  for (int v = 0; v < NV; v++) store2(z0 + 2 * v, a0[v]);
+}
+
+// All rows of Z for the 2 * NV columns starting at Y and Z.
+template <int NV>
+void project_cols(const SmoothOperator& op, const double* Y, std::size_t ldy, double* Z,
+                  std::size_t ldz) {
+  const int m = op.m, n = op.n;
+  const double* W = op.Wn.data();
+  int k = 0;
+  for (; k + 4 <= m; k += 4) {
+    const double* w0 = W + (std::size_t)k * n;
+    project_rows4<NV>(w0, w0 + n, w0 + 2 * (std::size_t)n, w0 + 3 * (std::size_t)n, n, Y, ldy,
+                      Z + (std::size_t)k * ldz, Z + (std::size_t)(k + 1) * ldz,
+                      Z + (std::size_t)(k + 2) * ldz, Z + (std::size_t)(k + 3) * ldz);
+  }
+  for (; k < m; k++) project_rows1<NV>(W + (std::size_t)k * n, n, Y, ldy, Z + (std::size_t)k * ldz);
+}
+
+// One column (an odd column count): the scalar sums, four rows at a time.
+void project_col1(const SmoothOperator& op, const double* Y, std::size_t ldy, double* Z,
+                  std::size_t ldz) {
+  const int m = op.m, n = op.n;
+  const double* W = op.Wn.data();
+  int k = 0;
+  for (; k + 4 <= m; k += 4) {
+    const double* w0 = W + (std::size_t)k * n;
+    const double *w1 = w0 + n, *w2 = w0 + 2 * (std::size_t)n, *w3 = w0 + 3 * (std::size_t)n;
+    double a0 = 0.0, a1 = 0.0, a2 = 0.0, a3 = 0.0;
+    for (int j = 0; j < n; j++) {
+      const double y = Y[(std::size_t)j * ldy];
+      a0 += w0[j] * y;
+      a1 += w1[j] * y;
+      a2 += w2[j] * y;
+      a3 += w3[j] * y;
+    }
+    Z[(std::size_t)k * ldz] = a0;
+    Z[(std::size_t)(k + 1) * ldz] = a1;
+    Z[(std::size_t)(k + 2) * ldz] = a2;
+    Z[(std::size_t)(k + 3) * ldz] = a3;
+  }
+  for (; k < m; k++) {
+    const double* w0 = W + (std::size_t)k * n;
+    double a0 = 0.0;
+    for (int j = 0; j < n; j++) a0 += w0[j] * Y[(std::size_t)j * ldy];
+    Z[(std::size_t)k * ldz] = a0;
+  }
+}
+
+}  // namespace
+
+void smooth_project_blocked(const SmoothOperator& op, const double* Y, std::size_t ldy, int B,
+                            double* Z, std::size_t ldz) {
+  int c = 0;
+  for (; c + 8 <= B; c += 8) project_cols<4>(op, Y + c, ldy, Z + c, ldz);
+  for (; c + 4 <= B; c += 4) project_cols<2>(op, Y + c, ldy, Z + c, ldz);
+  for (; c + 2 <= B; c += 2) project_cols<1>(op, Y + c, ldy, Z + c, ldz);
+  for (; c < B; c++) project_col1(op, Y + c, ldy, Z + c, ldz);
 }
 
 void smooth_interp(const SmoothOperator& op, const double* Z, std::size_t ldz, int B,

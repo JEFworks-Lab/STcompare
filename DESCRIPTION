@@ -1,7 +1,7 @@
 Package: STcompare
 Type: Package
 Title: Framework for Spatial Transcriptomic Data Comparision 
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R: 
     c(
       person(
@@ -29,9 +29,7 @@ RoxygenNote: 7.3.3
 Imports: 
     BiocParallel,
     dplyr,
-    geoR,
     ggplot2,
-    locfit,
     Rcpp,
     SEraster (>= 0.1.0),
     SpatialExperiment,
@@ -41,7 +39,9 @@ Depends:
     R (>= 4.3.0)
 Suggests: 
     class,
+    geoR,
     knitr,
+    locfit,
     rmarkdown, 
     reshape2,
     testthat (>= 3.1.7)

@@ -1,7 +1,8 @@
 # Component tests of the compiled engine's building blocks (src/stc_*.cpp, R/engine.R) against the R
 # code they replace: geoR::variog(), fitted(locfit()), rnorm() under L'Ecuyer-CMRG, cor() and lm()
-# (dev/engine-spec.md, section 5). No exported function uses these blocks yet. Labels ("exact",
-# "portable") are explained in helper-fixtures.R.
+# (dev/engine-spec.md, section 5). geoR and locfit are suggested packages: the tests that use them as
+# references are skipped when they are not installed. Labels ("exact", "portable") are explained in
+# helper-fixtures.R.
 #
 # Coordinate conventions: lat = pos[, 1] and long = pos[, 2]. The variogram takes geoR's column order
 # (long, lat) and the smoother locfit's order lp(long, lat), so x1 = long and x2 = lat in both.
@@ -149,6 +150,7 @@ skip_if_locfit_rounds_differently <- function() {
 # --- variogram ----------------------------------------------------------------------------------
 
 test_that("portable: the variogram plan and evaluator are identical() to geoR::variog on the fixture coordinate sets", {
+  skip_if_not_installed("geoR")
   local_default_rng()
   set.seed(11)
   for (nm in cpp_sets) {
@@ -183,6 +185,7 @@ for (nm in cpp_sets) {
 }
 
 test_that("portable: the variogram is identical() to geoR on random layouts, duplicated points and exact bin-edge ties", {
+  skip_if_not_installed("geoR")
   local_default_rng()
   set.seed(20261004)
   for (L in random_layouts(15)) {
@@ -215,6 +218,7 @@ test_that("portable: the variogram is identical() to geoR on random layouts, dup
 })
 
 test_that("portable: variogram inputs on which geoR fails give ok = FALSE or an R error, never a crash", {
+  skip_if_not_installed("geoR")
   x <- c(0, 1, 2, 3)
   y <- c(0, 0, 0, 0)
   # no pair closer than max.dist: geoR's max() is -Inf and seq() fails
@@ -255,6 +259,7 @@ test_that("portable: variogram inputs on which geoR fails give ok = FALSE or an 
 # --- smoother -----------------------------------------------------------------------------------
 
 test_that("portable: the smoother replica and the factored operator agree with fitted(locfit()) to 1e-13 (fixture sets, delta > 1)", {
+  skip_if_not_installed("locfit")
   for (r in smoother_fixture_runs()) {
     expect_identical(r$op$status, 0L, info = r$info)
     expect_identical(r$exact$status, 0L, info = r$info)
@@ -271,6 +276,7 @@ test_that("portable: the smoother replica and the factored operator agree with f
 })
 
 test_that("exact: the smoother replica is identical() to fitted(locfit()) (fixture sets, default delta grid, delta > 1)", {
+  skip_if_not_installed("locfit")
   skip_if_locfit_rounds_differently()
   for (r in smoother_fixture_runs()) {
     expect_identical(r$exact$fitted, r$ref$fitted, info = r$info)
@@ -280,6 +286,7 @@ test_that("exact: the smoother replica is identical() to fitted(locfit()) (fixtu
 })
 
 test_that("portable: the smoother agrees with locfit on random layouts and duplicated points; block and row-subset application", {
+  skip_if_not_installed("locfit")
   for (r in smoother_random_runs()) {
     expect_identical(r$op$status, 0L, info = r$info)
     expect_identical(c(r$op$nv, r$op$nvm), as.integer(c(r$ref$nv, r$ref$nvm)), info = r$info)
@@ -299,6 +306,7 @@ test_that("portable: the smoother agrees with locfit on random layouts and dupli
 })
 
 test_that("exact: the smoother replica is identical() to fitted(locfit()) on random layouts and duplicated points", {
+  skip_if_not_installed("locfit")
   skip_if_locfit_rounds_differently()
   for (r in smoother_random_runs()) {
     expect_identical(r$exact$fitted, r$ref$fitted, info = r$info)
@@ -307,6 +315,7 @@ test_that("exact: the smoother replica is identical() to fitted(locfit()) on ran
 })
 
 test_that("portable: the factored operator is offset-invariant (1e3 + N(0, 1) and 1e6 + N(0, 1) against fitted(locfit()))", {
+  skip_if_not_installed("locfit")
   # Rows of Wn and M sum to 1 only to rounding, so M (Wn y) on raw values is off by about eps * |mean(y)|. The
   # operator centres y first (as locfit does); what is left is one rounding of the result. Bound: 1e-14 of
   # the spread of the data plus 2 eps max|fitted|. The uncentred operator exceeds it 2 to 4 times here.
@@ -378,6 +387,7 @@ test_that("portable, slow: duplicated coordinates at N = 5000 with k = 2 end wit
 })
 
 test_that("portable: the smoother returns error statuses instead of failing or crashing", {
+  skip_if_not_installed("locfit")
   cs <- fx$cases$kidney_AB_jitter
   x1 <- cs$input$pos[, 2]
   x2 <- cs$input$pos[, 1]
@@ -660,6 +670,8 @@ test_that("portable: least squares makes lm()'s NA-slope decisions on near-degen
 # --- the blocks together ------------------------------------------------------------------------
 
 test_that("portable: the blocks chained replay permutation 1 like the reference kernels (kidney_AB_jitter: RSS 1e-10, same deltaStar)", {
+  skip_if_not_installed("geoR")
+  skip_if_not_installed("locfit")
   cs <- fx$cases$kidney_AB_jitter
   lat <- cs$input$pos[, 1]
   long <- cs$input$pos[, 2]

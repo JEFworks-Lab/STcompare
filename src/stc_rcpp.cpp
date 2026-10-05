@@ -198,10 +198,12 @@ Rcpp::List stc_smoother_fitted_exact(Rcpp::NumericVector x1, Rcpp::NumericVector
 // Apply a factored operator (as returned by .stc_smoother()) to the columns of Y (N x B):
 // M[rows, ] %*% (Wn %*% (Y - c)) + c, with c the centring constant of each column (locfit's
 // parametric component; see smooth_centre() in stc_smoother.h). rows: 1-based data points to
-// return, or NULL for all.
+// return, or NULL for all. blocked: subtract the centres first and project with
+// smooth_project_blocked(), as the engine does (the same values; for tests).
 // [[Rcpp::export(name = ".stc_smoother_apply", rng = false)]]
 Rcpp::NumericMatrix stc_smoother_apply(Rcpp::List op, Rcpp::NumericMatrix Y,
-                                       Rcpp::Nullable<Rcpp::IntegerVector> rows = R_NilValue) {
+                                       Rcpp::Nullable<Rcpp::IntegerVector> rows = R_NilValue,
+                                       bool blocked = false) {
   if (!op.containsElementNamed("Wn") || !op.containsElementNamed("M") || Rf_isNull(op["Wn"]) ||
       Rf_isNull(op["M"])) {
     Rcpp::stop("the smoother has no operator (see its status and message)");
@@ -251,7 +253,14 @@ Rcpp::NumericMatrix stc_smoother_apply(Rcpp::List op, Rcpp::NumericMatrix Y,
     for (int j = 0; j < o.n; j++) Yt[(std::size_t)j * B + b] = yb[j];
   }
   const double* cen = B > 0 ? centre.data() : nullptr;
-  stc::smooth_project(o, Yt.data(), (std::size_t)B, B, cen, Z.data(), (std::size_t)B);
+  if (blocked) {
+    for (int j = 0; j < o.n; j++) {
+      for (int b = 0; b < B; b++) Yt[(std::size_t)j * B + b] = Yt[(std::size_t)j * B + b] - centre[b];
+    }
+    stc::smooth_project_blocked(o, Yt.data(), (std::size_t)B, B, Z.data(), (std::size_t)B);
+  } else {
+    stc::smooth_project(o, Yt.data(), (std::size_t)B, B, cen, Z.data(), (std::size_t)B);
+  }
   stc::smooth_interp(o, Z.data(), (std::size_t)B, B, cen, rows.isNotNull() ? r0.data() : nullptr,
                      nrows, out.data(), (std::size_t)B);
   Rcpp::NumericMatrix res(nrows, B);

@@ -136,6 +136,13 @@ double smooth_centre(const double* y, std::size_t inc, int n);
 void smooth_project(const SmoothOperator& op, const double* Y, std::size_t ldy, int B,
                     const double* centre, double* Z, std::size_t ldz);
 
+// Z = Wn Y for a block of B columns whose centres were already subtracted: bit-identical to
+// smooth_project(op, Y, ldy, B, nullptr, Z, ldz), but register-blocked (4 vertices x 8 columns per
+// pass over j, with the accumulators in registers), about twice as fast. Every Z[k, b] is still
+// 0 + Wn[k, 0] Y[0, b] + Wn[k, 1] Y[1, b] + ... summed in ascending j. The engine's kernel.
+void smooth_project_blocked(const SmoothOperator& op, const double* Y, std::size_t ldy, int B,
+                            double* Z, std::size_t ldz);
+
 // out = M[rows, ] Z + centre for a block of B columns (the centre is added after the sum, as
 // locfit adds its parametric component back).
 //   Z  m x B, row-major; out  nrows x B, row-major (out[r * ldo + b]).

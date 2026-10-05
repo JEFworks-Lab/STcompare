@@ -10,6 +10,115 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// stc_engine_new
+SEXP stc_engine_new(Rcpp::NumericVector x1, Rcpp::NumericVector x2, Rcpp::IntegerVector ids, Rcpp::List plan, Rcpp::NumericVector deltas, int cor_mode, double seed, bool noise_supplied, int n_threads, int chunk, bool keep_surrogates);
+RcppExport SEXP _STcompare_stc_engine_new(SEXP x1SEXP, SEXP x2SEXP, SEXP idsSEXP, SEXP planSEXP, SEXP deltasSEXP, SEXP cor_modeSEXP, SEXP seedSEXP, SEXP noise_suppliedSEXP, SEXP n_threadsSEXP, SEXP chunkSEXP, SEXP keep_surrogatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type x1(x1SEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type x2(x2SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type ids(idsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type plan(planSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type deltas(deltasSEXP);
+    Rcpp::traits::input_parameter< int >::type cor_mode(cor_modeSEXP);
+    Rcpp::traits::input_parameter< double >::type seed(seedSEXP);
+    Rcpp::traits::input_parameter< bool >::type noise_supplied(noise_suppliedSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    Rcpp::traits::input_parameter< int >::type chunk(chunkSEXP);
+    Rcpp::traits::input_parameter< bool >::type keep_surrogates(keep_surrogatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(stc_engine_new(x1, x2, ids, plan, deltas, cor_mode, seed, noise_supplied, n_threads, chunk, keep_surrogates));
+    return rcpp_result_gen;
+END_RCPP
+}
+// stc_engine_deltas
+Rcpp::List stc_engine_deltas(SEXP session);
+RcppExport SEXP _STcompare_stc_engine_deltas(SEXP sessionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type session(sessionSEXP);
+    rcpp_result_gen = Rcpp::wrap(stc_engine_deltas(session));
+    return rcpp_result_gen;
+END_RCPP
+}
+// stc_engine_define
+Rcpp::List stc_engine_define(SEXP session, Rcpp::NumericMatrix pool, Rcpp::IntegerVector task_source, Rcpp::List task_grid, Rcpp::List task_targets, Rcpp::List task_rabs, Rcpp::IntegerVector task_unit, Rcpp::LogicalVector unit_fail_on_dir);
+RcppExport SEXP _STcompare_stc_engine_define(SEXP sessionSEXP, SEXP poolSEXP, SEXP task_sourceSEXP, SEXP task_gridSEXP, SEXP task_targetsSEXP, SEXP task_rabsSEXP, SEXP task_unitSEXP, SEXP unit_fail_on_dirSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type session(sessionSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type pool(poolSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type task_source(task_sourceSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type task_grid(task_gridSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type task_targets(task_targetsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type task_rabs(task_rabsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type task_unit(task_unitSEXP);
+    Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type unit_fail_on_dir(unit_fail_on_dirSEXP);
+    rcpp_result_gen = Rcpp::wrap(stc_engine_define(session, pool, task_source, task_grid, task_targets, task_rabs, task_unit, unit_fail_on_dir));
+    return rcpp_result_gen;
+END_RCPP
+}
+// stc_engine_run
+void stc_engine_run(SEXP session, Rcpp::IntegerVector units, int b_from, int b_to, Rcpp::IntegerMatrix perm, SEXP noise, double h, int n_max);
+RcppExport SEXP _STcompare_stc_engine_run(SEXP sessionSEXP, SEXP unitsSEXP, SEXP b_fromSEXP, SEXP b_toSEXP, SEXP permSEXP, SEXP noiseSEXP, SEXP hSEXP, SEXP n_maxSEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< SEXP >::type session(sessionSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type units(unitsSEXP);
+    Rcpp::traits::input_parameter< int >::type b_from(b_fromSEXP);
+    Rcpp::traits::input_parameter< int >::type b_to(b_toSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerMatrix >::type perm(permSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type noise(noiseSEXP);
+    Rcpp::traits::input_parameter< double >::type h(hSEXP);
+    Rcpp::traits::input_parameter< int >::type n_max(n_maxSEXP);
+    stc_engine_run(session, units, b_from, b_to, perm, noise, h, n_max);
+    return R_NilValue;
+END_RCPP
+}
+// stc_engine_units
+Rcpp::List stc_engine_units(SEXP session);
+RcppExport SEXP _STcompare_stc_engine_units(SEXP sessionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type session(sessionSEXP);
+    rcpp_result_gen = Rcpp::wrap(stc_engine_units(session));
+    return rcpp_result_gen;
+END_RCPP
+}
+// stc_engine_task_results
+Rcpp::List stc_engine_task_results(SEXP session, Rcpp::IntegerVector tasks, bool surrogates);
+RcppExport SEXP _STcompare_stc_engine_task_results(SEXP sessionSEXP, SEXP tasksSEXP, SEXP surrogatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type session(sessionSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type tasks(tasksSEXP);
+    Rcpp::traits::input_parameter< bool >::type surrogates(surrogatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(stc_engine_task_results(session, tasks, surrogates));
+    return rcpp_result_gen;
+END_RCPP
+}
+// stc_engine_set_threads
+void stc_engine_set_threads(SEXP session, int n_threads, int chunk);
+RcppExport SEXP _STcompare_stc_engine_set_threads(SEXP sessionSEXP, SEXP n_threadsSEXP, SEXP chunkSEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< SEXP >::type session(sessionSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    Rcpp::traits::input_parameter< int >::type chunk(chunkSEXP);
+    stc_engine_set_threads(session, n_threads, chunk);
+    return R_NilValue;
+END_RCPP
+}
+// stc_parallel_selftest
+Rcpp::IntegerVector stc_parallel_selftest(int n_items, int n_threads, int fail_item, int sleep_ms);
+RcppExport SEXP _STcompare_stc_parallel_selftest(SEXP n_itemsSEXP, SEXP n_threadsSEXP, SEXP fail_itemSEXP, SEXP sleep_msSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< int >::type n_items(n_itemsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    Rcpp::traits::input_parameter< int >::type fail_item(fail_itemSEXP);
+    Rcpp::traits::input_parameter< int >::type sleep_ms(sleep_msSEXP);
+    rcpp_result_gen = Rcpp::wrap(stc_parallel_selftest(n_items, n_threads, fail_item, sleep_ms));
+    return rcpp_result_gen;
+END_RCPP
+}
 // stc_variog_pairs
 Rcpp::List stc_variog_pairs(Rcpp::NumericVector x1, Rcpp::NumericVector x2, double max_dist, Rcpp::NumericVector lims, bool keep_nugget, int pairs_min);
 RcppExport SEXP _STcompare_stc_variog_pairs(SEXP x1SEXP, SEXP x2SEXP, SEXP max_distSEXP, SEXP limsSEXP, SEXP keep_nuggetSEXP, SEXP pairs_minSEXP) {
@@ -66,14 +175,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // stc_smoother_apply
-Rcpp::NumericMatrix stc_smoother_apply(Rcpp::List op, Rcpp::NumericMatrix Y, Rcpp::Nullable<Rcpp::IntegerVector> rows);
-RcppExport SEXP _STcompare_stc_smoother_apply(SEXP opSEXP, SEXP YSEXP, SEXP rowsSEXP) {
+Rcpp::NumericMatrix stc_smoother_apply(Rcpp::List op, Rcpp::NumericMatrix Y, Rcpp::Nullable<Rcpp::IntegerVector> rows, bool blocked);
+RcppExport SEXP _STcompare_stc_smoother_apply(SEXP opSEXP, SEXP YSEXP, SEXP rowsSEXP, SEXP blockedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< Rcpp::List >::type op(opSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Y(YSEXP);
     Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::IntegerVector> >::type rows(rowsSEXP);
-    rcpp_result_gen = Rcpp::wrap(stc_smoother_apply(op, Y, rows));
+    Rcpp::traits::input_parameter< bool >::type blocked(blockedSEXP);
+    rcpp_result_gen = Rcpp::wrap(stc_smoother_apply(op, Y, rows, blocked));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -146,11 +256,19 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_STcompare_stc_engine_new", (DL_FUNC) &_STcompare_stc_engine_new, 11},
+    {"_STcompare_stc_engine_deltas", (DL_FUNC) &_STcompare_stc_engine_deltas, 1},
+    {"_STcompare_stc_engine_define", (DL_FUNC) &_STcompare_stc_engine_define, 8},
+    {"_STcompare_stc_engine_run", (DL_FUNC) &_STcompare_stc_engine_run, 8},
+    {"_STcompare_stc_engine_units", (DL_FUNC) &_STcompare_stc_engine_units, 1},
+    {"_STcompare_stc_engine_task_results", (DL_FUNC) &_STcompare_stc_engine_task_results, 3},
+    {"_STcompare_stc_engine_set_threads", (DL_FUNC) &_STcompare_stc_engine_set_threads, 3},
+    {"_STcompare_stc_parallel_selftest", (DL_FUNC) &_STcompare_stc_parallel_selftest, 4},
     {"_STcompare_stc_variog_pairs", (DL_FUNC) &_STcompare_stc_variog_pairs, 6},
     {"_STcompare_stc_variog_eval", (DL_FUNC) &_STcompare_stc_variog_eval, 3},
     {"_STcompare_stc_smoother", (DL_FUNC) &_STcompare_stc_smoother, 5},
     {"_STcompare_stc_smoother_fitted_exact", (DL_FUNC) &_STcompare_stc_smoother_fitted_exact, 5},
-    {"_STcompare_stc_smoother_apply", (DL_FUNC) &_STcompare_stc_smoother_apply, 3},
+    {"_STcompare_stc_smoother_apply", (DL_FUNC) &_STcompare_stc_smoother_apply, 4},
     {"_STcompare_stc_lecuyer_seed", (DL_FUNC) &_STcompare_stc_lecuyer_seed, 1},
     {"_STcompare_stc_lecuyer_runif", (DL_FUNC) &_STcompare_stc_lecuyer_runif, 2},
     {"_STcompare_stc_lecuyer_rnorm", (DL_FUNC) &_STcompare_stc_lecuyer_rnorm, 2},

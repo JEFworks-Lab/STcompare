@@ -66,6 +66,13 @@ void cor_target_prepare(const double* y, int n, int mode, CorTarget& t);
 int cor_with_target(const double* x, std::size_t incx, const double* y, const CorTarget& t,
                     double* r);
 
+// r[j] = cor(x, ys[j]) for nt targets, each bit-identical to cor_with_target(x, incx, ys[j], *ts[j],
+// &r[j]) with the same status in status[j]: the same operations in the same order, except that the
+// mean and the standard deviation of x are computed once for all targets (the within-sample engine
+// correlates one surrogate with every other gene). All targets must have the same n and mode.
+void cor_with_targets(const double* x, std::size_t incx, int nt, const double* const* ys,
+                      const CorTarget* const* ts, double* r, int* status);
+
 // ---------------------------------------------------------------------------------------------
 // Least squares with intercept, the fit lm(y ~ 1 + x) makes in matchingVariograms() (y = target
 // variogram, x = candidate variogram; dev/engine-spec.md, section 2.7):

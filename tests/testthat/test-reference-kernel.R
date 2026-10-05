@@ -1,12 +1,13 @@
-# Tier 0: reference tests of the legacy R implementation (fixtures/kernel_fixture.rds, built by
-# data-raw/build_test_fixtures.R tier0; see data-raw/README.md). Labels ("exact", "portable", "canary",
-# "fixture integrity") are explained in helper-fixtures.R.
+# Tier 0: the exported functions (computed by the compiled engine) against the stored outputs of the
+# original R implementation (fixtures/kernel_fixture.rds, built by data-raw/build_test_fixtures.R tier0; see
+# data-raw/README.md). Labels ("exact", "portable", "canary", "fixture integrity") are explained in
+# helper-fixtures.R.
 #
 # Cases (B = 10 unless noted): kidney_AB (hexagonal lattice, many pixel pairs tied at max.dist), kidney_AC,
 # kidney_AB_jitter (jittered coordinates), quakes_irregular (datasets::quakes, coordinates on a 0.01-degree
 # grid), brain_Oprk1_subsample (N = 2170 > 1000: variogram subsample; B = 5), kidney_AB_jitter_seed17
 # (seed = 17, maxDistPrctile = 0.3, deltaX != deltaY; B = 3), brain_Oprk1_N1000 (N = 1000 exactly: no
-# subsample; B = 2). Lines marked "C++:" (helper-fixtures.R) are where a compiled backend's kernels go.
+# subsample; B = 2).
 
 fx <- fx_read("kernel_fixture.rds")
 KF <- "kernel_fixture.rds"
@@ -63,7 +64,7 @@ test_that("canary: tier-0 inputs are reproducible from data(speKidney), SEraster
   expect_identical(b1k$pos, br$pos[1:1000, ])
 })
 
-test_that("canary: RNG streams on every platform (subsample, permutation order, noise of permutation 1)", {
+test_that("canary: R's RNG streams match the fixture on every platform (subsample, permutation order, noise of permutation 1)", {
   local_default_rng()
   for (cs in fx$cases) {
     N <- length(cs$input$X)
@@ -76,7 +77,7 @@ test_that("canary: RNG streams on every platform (subsample, permutation order, 
       expect_identical(idx, cs$intermediate[[dir]]$perm_index, info = paste(cs$name, dir))
       expect_identical(cs$intermediate[[dir]]$detail$noise_seed, cs$input$seed + 1, info = paste(cs$name, dir))
     }
-    # the package draws sample(X, length(X)), which consumes the same stream
+    # the original code drew sample(X, length(X)), which consumes the same stream
     set.seed(cs$input$seed)
     if (N > 1000) invisible(sample(N, 1000))
     expect_identical(sample(cs$input$X, N), cs$input$X[cs$intermediate$forward$perm_index[, 1]], info = cs$name)
@@ -84,104 +85,67 @@ test_that("canary: RNG streams on every platform (subsample, permutation order, 
     # differences of R's qnorm() between platforms
     pd <- cs$intermediate$forward$detail$per_delta
     if (!is.null(pd[[1]]$noise)) {
-      noise <- ref_noise(N, cs$input$seed + 1, length(pd))                       # C++: RNG (or injected)
+      noise <- ref_noise(N, cs$input$seed + 1, length(pd))
       for (k in seq_along(pd)) expect_equal(noise[, k], pd[[k]]$noise, tolerance = 1e-14, info = paste(cs$name, k))
+      # the C++ generator of the engine draws the same normals
+      expect_equal(.stc_legacy_noise(as.integer(cs$input$seed + 1), N, length(pd)), noise, tolerance = 1e-14, info = cs$name)
     }
   }
 })
 
 for (nm in names(fx$cases)) {
-  test_that(sprintf("canary (exact): %s: permutation 1 replayed with the reference kernels matches the fixture", nm), {
+  test_that(sprintf("exact: %s: spatialCorrelation() reproduces the stored nulls (1e-9), deltaStar, raw counts and permuted fields", nm), {
     skip_if_not_exact(KF, nm)
     cs <- fx$cases[[nm]]
-    lat <- cs$input$pos[, 1]
-    long <- cs$input$pos[, 2]
-    for (dir in dirs) {
-      cap <- cs$intermediate[[dir]]
-      d <- cap$detail
-      rp <- fx_replay(cs, dir)
-      info <- paste(nm, dir)
-      expect_equal(rp$prctile, cap$prctile, tolerance = tol, info = info)
-      expect_identical(as.numeric(rp$target$n), as.numeric(cap$target_variog$n), info = info)
-      expect_equal(rp$target$u, cap$target_variog$u, tolerance = tol, info = info)
-      expect_equal(rp$target$v, cap$target_variog$v, tolerance = tol, info = info)
-      expect_equal(rp$target$bins.lim, cap$target_variog$bins.lim, tolerance = tol, info = info)
-      for (k in seq_along(rp$delta)) {
-        p <- d$per_delta[[k]]
-        r <- rp$per[[k]]
-        info_k <- sprintf("%s %s delta=%g", nm, dir, rp$delta[k])
-        expect_identical(as.numeric(r$n1), as.numeric(cap$target_variog$n), info = info_k)
-        expect_equal(r$v1, p$variog_fitted_v, tolerance = tol, info = info_k)
-        expect_equal(r$bet, p$lm_coef, tolerance = tol, info = info_k)
-        expect_equal(r$v2, p$variog_hat_v, tolerance = tol, info = info_k)
-        expect_equal(r$rss, p$rss, tolerance = tol, info = info_k)
-        if (!is.null(p$fitted)) {   # complete vectors: kidney_AB, kidney_AB_jitter, quakes_irregular (forward)
-          expect_equal(r$xd, p$fitted, tolerance = tol, info = info_k)
-          expect_equal(r$hat, p$hat, tolerance = tol, info = info_k)
-          expect_equal(ref_smooth(rp$xr, long, lat, rp$delta[k], exact = TRUE), p$fitted_exact_evdat,
-                       tolerance = tol, info = info_k)
-        }
-      }
-      expect_equal(rp$rss, d$residus, tolerance = tol, info = info)
-      expect_equal(rp$rss, cap$residus[, d$i], tolerance = tol, info = info)
-      expect_identical(rp$argmin, d$delta_star_id, info = info)
-    }
-  })
-}
-
-for (nm in names(fx$cases)) {
-  test_that(sprintf("exact: %s: matchingVariograms() and spatialCorrelation() reproduce the stored RSS, nulls, deltaStar and raw p-values", nm), {
-    skip_if_not_exact(KF, nm)
-    cs <- fx$cases[[nm]]
-    for (dir in dirs) {
-      mv <- fx_mv(cs, dir)
-      d <- cs$intermediate[[dir]]$detail
-      expect_equal(mv$residus, d$residus, tolerance = tol, info = paste(nm, dir))
-      expect_identical(mv$delta.star.id, d$delta_star_id, info = paste(nm, dir))
-      if (!is.null(d$hat_star)) expect_equal(as.numeric(mv$hat.X.delta.star), d$hat_star, tolerance = tol, info = paste(nm, dir))
-    }
     o <- fx_case_run(cs)
-    e <- cs$expected
     for (dir in names(dirs)) {
-      ed <- e[[dirs[[dir]]]]
+      ed <- cs$expected[[dirs[[dir]]]]
       info <- paste(nm, dir)
       null <- as.numeric(o[[paste0("nullCorrelations", dir)]][[1]])
-      expect_equal(null, ed$nullCor, tolerance = tol, info = info)
+      expect_close(null, ed$nullCor, info = info)
       expect_identical(as.numeric(o[[paste0("deltaStar", dir)]][[1]]), ed$deltaStar, info = info)
       expect_identical(o[[paste0("deltaStarMedian", dir)]], ed$deltaStarMedian, info = info)
       expect_identical(sum(abs(null) > abs(ed$r_obs)), ed$nExtreme, info = info)
-      expect_equal(o[[paste0("pValuePermute", dir)]], stc_empirical_p(ed$nullCor, ed$r_obs), info = info)
+      expect_identical(o[[paste0("pValuePermute", dir)]], stc_empirical_p(ed$nullCor, ed$r_obs), info = info)
       P <- o[[paste0("permutations", dir)]][[1]]
-      expect_equal(perm_fingerprint(P), ed$perm_fingerprint, tolerance = tol, info = info)
-      if (!is.null(ed$perm1)) expect_equal(as.numeric(P[, 1]), ed$perm1, tolerance = tol, info = info)
+      expect_close(perm_fingerprint(P), ed$perm_fingerprint, info = paste(info, "fingerprint"))
+      if (!is.null(ed$perm1)) expect_close(P[, 1], ed$perm1, info = paste(info, "permutation 1"))
     }
   })
 }
 
 for (nm in names(fx$cases)) {
-  test_that(sprintf("portable: %s: matchingVariograms() equals the reference kernels on this machine; spatialCorrelation() follows the p-value definition and agrees loosely with the fixture", nm), {
+  test_that(sprintf("portable: %s: spatialCorrelation() output structure, the p-value definition and loose agreement with the fixture", nm), {
     cs <- fx$cases[[nm]]
-    for (dir in dirs) {
-      mv <- fx_mv(cs, dir)
-      rp <- fx_replay(cs, dir)
-      expect_equal(mv$residus, rp$rss, tolerance = tol, info = paste(nm, dir))
-      expect_identical(mv$delta.star.id, rp$argmin, info = paste(nm, dir))
-      expect_equal(as.numeric(mv$hat.X.delta.star), rp$hat_star, tolerance = tol, info = paste(nm, dir))
-    }
     o <- fx_case_run(cs)
     e <- cs$expected
-    r <- unname(o$correlationCoef)
+    N <- length(cs$input$X)
+    B <- cs$input$nPermutations
+    expect_s3_class(o, "data.frame")
+    expect_identical(dim(o), c(1L, 12L))
+    expect_identical(rownames(o), "cor")
+    expect_identical(names(o), c("correlationCoef", "pValueNaive", "pValuePermuteX", "pValuePermuteY",
+                                 "deltaStarMedianX", "deltaStarMedianY", "deltaStarX", "deltaStarY",
+                                 "nullCorrelationsX", "nullCorrelationsY", "permutationsX", "permutationsY"))
+    r <- o$correlationCoef
     expect_equal(r, e$spatialCorrelation$correlationCoef, tolerance = tol)
     expect_equal(o$pValueNaive, e$spatialCorrelation$pValueNaive, tolerance = 1e-10)
     for (dir in names(dirs)) {
       info <- paste(nm, dir)
-      null <- as.numeric(o[[paste0("nullCorrelations", dir)]][[1]])
-      ds <- as.numeric(o[[paste0("deltaStar", dir)]][[1]])
-      expect_length(null, cs$input$nPermutations)
-      expect_equal(o[[paste0("pValuePermute", dir)]], stc_empirical_p(null, r), info = info)
+      nc <- o[[paste0("nullCorrelations", dir)]]
+      expect_s3_class(nc, "AsIs")
+      expect_identical(dim(nc[[1]]), c(as.integer(B), 1L), info = info)
+      expect_null(dimnames(nc[[1]]))
+      null <- as.numeric(nc[[1]])
+      ds <- o[[paste0("deltaStar", dir)]][[1]]
+      expect_type(ds, "double")
+      expect_length(ds, B)
+      expect_identical(o[[paste0("pValuePermute", dir)]], stc_empirical_p(null, r), info = info)
       expect_true(all(ds %in% dir_delta(cs, dir)), info = info)
       expect_identical(o[[paste0("deltaStarMedian", dir)]], stats::median(ds), info = info)
-      expect_identical(dim(o[[paste0("permutations", dir)]][[1]]), as.integer(c(length(cs$input$X), cs$input$nPermutations)), info = info)
+      P <- o[[paste0("permutations", dir)]][[1]]
+      expect_identical(dim(P), as.integer(c(N, B)), info = info)
+      expect_null(dimnames(P))
       expect_nulls_close(null, e[[dirs[[dir]]]]$nullCor, info = info)
     }
   })
@@ -191,25 +155,27 @@ test_that("portable: swapping X and Y swaps the two directions, and 3 permutatio
   cs <- fx$cases$quakes_irregular
   o10 <- fx_case_run(cs)
   local_default_rng()
-  o3 <- quiet_locfit(spatialCorrelation(cs$input$Y, cs$input$X, cs$input$pos, nPermutations = 3))
-  expect_equal(unname(o3$correlationCoef), unname(o10$correlationCoef), tolerance = 1e-15)
-  expect_equal(as.numeric(o3$nullCorrelationsX[[1]]), as.numeric(o10$nullCorrelationsY[[1]])[1:3], tolerance = tol)
-  expect_equal(as.numeric(o3$nullCorrelationsY[[1]]), as.numeric(o10$nullCorrelationsX[[1]])[1:3], tolerance = tol)
-  expect_identical(as.numeric(o3$deltaStarX[[1]]), as.numeric(o10$deltaStarY[[1]])[1:3])
-  expect_identical(as.numeric(o3$deltaStarY[[1]]), as.numeric(o10$deltaStarX[[1]])[1:3])
+  o3 <- spatialCorrelation(cs$input$Y, cs$input$X, cs$input$pos, nPermutations = 3)
+  expect_equal(o3$correlationCoef, o10$correlationCoef, tolerance = 1e-15)
+  expect_identical(as.numeric(o3$nullCorrelationsX[[1]]), as.numeric(o10$nullCorrelationsY[[1]])[1:3])
+  expect_identical(as.numeric(o3$nullCorrelationsY[[1]]), as.numeric(o10$nullCorrelationsX[[1]])[1:3])
+  expect_identical(o3$deltaStarX[[1]], o10$deltaStarY[[1]][1:3])
+  expect_identical(o3$deltaStarY[[1]], o10$deltaStarX[[1]][1:3])
+  expect_identical(o3$permutationsX, NULL)
 })
 
 test_that("portable: with returnPermutations = FALSE, pValuePermuteX/Y come from their own directions (quakes)", {
   cs <- fx$cases$quakes_irregular
   ot <- fx_case_run(cs)
   of <- fx_memo("sc_false:quakes_irregular", fx_sc_case(cs))                      # default returnPermutations
-  r <- unname(of$correlationCoef)
+  r <- of$correlationCoef
   nx <- as.numeric(of$nullCorrelationsX[[1]])
   ny <- as.numeric(of$nullCorrelationsY[[1]])
-  expect_false(any(c("permutationsX", "permutationsY") %in% names(of)))
+  expect_identical(names(of), names(ot)[1:10])
   expect_identical(nx, as.numeric(ot$nullCorrelationsX[[1]]))
   expect_identical(ny, as.numeric(ot$nullCorrelationsY[[1]]))
-  # this case has pX != pY (0 and 0.4 at B = 10 on every platform tested), so a swap is detected
+  # this case has pX != pY at B = 10 on every platform tested, so a swap is detected
+  expect_false(identical(of$pValuePermuteX, of$pValuePermuteY))
   expect_equal(of$pValuePermuteX, stc_empirical_p(nx, r))
   expect_equal(of$pValuePermuteY, stc_empirical_p(ny, r))
 })
@@ -222,50 +188,71 @@ test_that("exact: quakes with returnPermutations = FALSE reproduces the stored r
   expect_equal(of$pValuePermuteY, stc_empirical_p(cs$expected$reverse$nullCor, cs$expected$reverse$r_obs))
 })
 
-test_that("portable: the empirical p-value is (b + 1) / (B + 1) and ties count as extreme", {
-  q <- fx$cases$quakes_irregular$input
-  X <- sort(q$X)
-  Y <- q$Y
-  local_default_rng()
-  # every null field is X itself, so every |null correlation| equals |r| exactly
-  o <- testthat::with_mocked_bindings(
-    viladomatCorrelation(cbind(X, Y, q$pos[, 1], q$pos[, 2]), 0.5, 0.25, 4, BPPARAM = BiocParallel::SerialParam()),
-    matchingVariograms = function(X.randomized, ...) {
-      list(residus = 0, delta.star.id = 1L, hat.X.delta.star = sort(X.randomized))
-    },
-    .package = "STcompare")
-  expect_identical(abs(as.numeric(o$nullCorGlobal)), rep(abs(as.vector(stats::cor(X, Y))), 4))
-  # all 4 nulls tie with |r|, so b = 4 and p = (4 + 1) / (4 + 1)
-  expect_identical(o$pValueGlobal, 1)
-})
-
-test_that("portable: results do not depend on the number of workers (nThreads = 2)", {
-  skip_on_cran()
-  skip_on_os("windows")
+test_that("portable: results do not depend on the number of threads or on BPPARAM (kidney_AB_jitter)", {
   cs <- fx$cases$kidney_AB_jitter
   o1 <- fx_case_run(cs)
   o2 <- fx_sc_case(cs, returnPermutations = TRUE, nThreads = 2)
-  for (k in c("nullCorrelationsX", "nullCorrelationsY", "deltaStarX", "deltaStarY", "permutationsX", "permutationsY")) {
-    expect_identical(o2[[k]][[1]], o1[[k]][[1]], info = k)
+  expect_identical(o2, o1)
+  # BPPARAM sets the number of threads (bpnworkers()); nothing is forked
+  o3 <- fx_sc_case(cs, returnPermutations = TRUE, nThreads = 7, BPPARAM = BiocParallel::SerialParam())
+  expect_identical(o3, o1)
+})
+
+test_that("portable: viladomatCorrelation() is the X direction of spatialCorrelation(), with its own output structure", {
+  cs <- fx$cases$kidney_AB_jitter_seed17
+  inp <- cs$input
+  o <- fx_case_run(cs)
+  local_default_rng()
+  v <- viladomatCorrelation(cbind(inp$X, inp$Y, inp$pos), inp$deltaX, inp$maxDistPrctile, inp$nPermutations,
+                            seed = inp$seed)
+  expect_identical(names(v), c("deltaStarMedian", "deltaStar", "pValueGlobal", "nullCorGlobal", "permutations"))
+  expect_identical(v$deltaStar, o$deltaStarX[[1]])
+  expect_identical(v$deltaStarMedian, o$deltaStarMedianX)
+  expect_identical(v$nullCorGlobal, o$nullCorrelationsX[[1]])
+  expect_identical(v$permutations, o$permutationsX[[1]])
+  expect_identical(v$pValueGlobal, o$pValuePermuteX)
+  # the reverse direction is viladomatCorrelation() with X and Y swapped
+  local_default_rng()
+  vr <- viladomatCorrelation(data.frame(inp$Y, inp$X, inp$pos), inp$deltaY, inp$maxDistPrctile, inp$nPermutations,
+                             seed = inp$seed)
+  expect_identical(vr$nullCorGlobal, o$nullCorrelationsY[[1]])
+  expect_identical(vr$deltaStar, o$deltaStarY[[1]])
+})
+
+test_that("portable: viladomatCorrelation() with an NA or a constant Y keeps the permutations; a constant X gives NA and a warning", {
+  inp <- fx$cases$kidney_AB_jitter$input
+  local_default_rng()
+  ref <- viladomatCorrelation(cbind(inp$X, inp$Y, inp$pos), c(0.2, 0.6), 0.25, 3)
+  for (Yb in list(replace(inp$Y, 4, NA), rep(2, length(inp$Y)))) {
+    w <- fx_collect_warnings(viladomatCorrelation(cbind(inp$X, Yb, inp$pos), c(0.2, 0.6), 0.25, 3))
+    expect_length(w$warnings, 1L)
+    expect_match(w$warnings, "^viladomatCorrelation: nullCorGlobal or pValueGlobal is NA")
+    expect_identical(w$value$deltaStar, ref$deltaStar)
+    expect_identical(w$value$permutations, ref$permutations)
+    expect_identical(w$value$nullCorGlobal, matrix(NA_real_, 3, 1))
+    expect_identical(w$value$pValueGlobal, NA_real_)
   }
-  expect_identical(c(o2$pValuePermuteX, o2$pValuePermuteY), c(o1$pValuePermuteX, o1$pValuePermuteY))
+  w <- fx_collect_warnings(viladomatCorrelation(cbind(1, inp$Y, inp$pos), c(0.2, 0.6), 0.25, 3))
+  expect_length(w$warnings, 1L)
+  expect_match(w$warnings, "constant")
+  expect_true(all(is.na(unlist(w$value))))
 })
 
 test_that("portable: spatialCorrelationGeneExp() forwards seed, deltas and maxDistPrctile (seed = 17, B = 3)", {
   rk <- fx_speKidney_raster()
   sh <- intersect(rownames(SpatialExperiment::spatialCoords(rk$A)), rownames(SpatialExperiment::spatialCoords(rk$B)))
   local_default_rng()
-  og <- quiet_locfit(spatialCorrelationGeneExp(list(rk$A, rk$B), nPermutations = 3, verbose = FALSE, seed = 17))
-  os <- quiet_locfit(spatialCorrelation(as.numeric(SummarizedExperiment::assay(rk$A)[1, sh]),
-                                        as.numeric(SummarizedExperiment::assay(rk$B)[1, sh]),
-                                        SpatialExperiment::spatialCoords(rk$A)[sh, ], nPermutations = 3, seed = 17))
+  og <- spatialCorrelationGeneExp(list(rk$A, rk$B), nPermutations = 3, verbose = FALSE, seed = 17,
+                                  deltaX = list(c(0.1, 0.4)), deltaY = list(0.3), maxDistPrctile = 0.3)
+  os <- spatialCorrelation(as.numeric(SummarizedExperiment::assay(rk$A)[1, sh]),
+                           as.numeric(SummarizedExperiment::assay(rk$B)[1, sh]),
+                           SpatialExperiment::spatialCoords(rk$A)[sh, ], nPermutations = 3, seed = 17,
+                           deltaX = c(0.1, 0.4), deltaY = 0.3, maxDistPrctile = 0.3)
   expect_identical(nrow(og), 1L)
-  expect_equal(unname(og$correlationCoef), unname(os$correlationCoef), tolerance = tol)
-  for (k in c("nullCorrelationsX", "nullCorrelationsY", "deltaStarX", "deltaStarY")) {
-    expect_identical(as.numeric(og[[k]][[1]]), as.numeric(os[[k]][[1]]), info = k)
-  }
+  expect_identical(rownames(og), "Gene")
   # a single gene: a multiple-testing adjustment across genes leaves its p-values unchanged
-  expect_identical(c(og$pValuePermuteX, og$pValuePermuteY), c(os$pValuePermuteX, os$pValuePermuteY))
+  rownames(og) <- "cor"
+  expect_identical(og, os)
 })
 
 test_that("portable: spatialCorrelationGeneExp() adjusts p-values across genes with adjustMethod", {
@@ -284,8 +271,8 @@ test_that("portable: spatialCorrelationGeneExp() adjusts p-values across genes w
   x <- mk(list(a, a, a))
   y <- mk(list(cc, max(cc) - cc, rev(cc)))
   local_default_rng()
-  run <- function(method) quiet_locfit(spatialCorrelationGeneExp(list(x, y), nPermutations = 3, verbose = FALSE,
-                                                                 adjustMethod = method))
+  run <- function(method) spatialCorrelationGeneExp(list(x, y), nPermutations = 3, verbose = FALSE,
+                                                    adjustMethod = method)
   raw <- run("none")
   expect_identical(rownames(raw), c("pos", "neg", "rev"))
   for (dir in c("X", "Y")) {
@@ -307,53 +294,58 @@ test_that("exact: spatialCorrelationGeneExp() with default arguments reproduces 
   rk <- fx_speKidney_raster()
   cs <- fx$cases$kidney_AB
   local_default_rng()
-  o <- quiet_locfit(spatialCorrelationGeneExp(list(rk$A, rk$B), nPermutations = cs$input$nPermutations, verbose = FALSE))
-  expect_equal(unname(o$correlationCoef), cs$expected$spatialCorrelation$correlationCoef, tolerance = tol)
-  expect_equal(as.numeric(o$nullCorrelationsX[[1]]), cs$expected$forward$nullCor, tolerance = tol)
-  expect_equal(as.numeric(o$nullCorrelationsY[[1]]), cs$expected$reverse$nullCor, tolerance = tol)
-  expect_identical(as.numeric(o$deltaStarX[[1]]), cs$expected$forward$deltaStar)
-  expect_identical(as.numeric(o$deltaStarY[[1]]), cs$expected$reverse$deltaStar)
+  o <- spatialCorrelationGeneExp(list(rk$A, rk$B), nPermutations = cs$input$nPermutations, verbose = FALSE)
+  expect_equal(o$correlationCoef, cs$expected$spatialCorrelation$correlationCoef, tolerance = tol)
+  expect_close(as.numeric(o$nullCorrelationsX[[1]]), cs$expected$forward$nullCor)
+  expect_close(as.numeric(o$nullCorrelationsY[[1]]), cs$expected$reverse$nullCor)
+  expect_identical(o$deltaStarX[[1]], cs$expected$forward$deltaStar)
+  expect_identical(o$deltaStarY[[1]], cs$expected$reverse$deltaStar)
 })
 
-test_that("portable: legacy error paths return NA p-values instead of failing (B = 2)", {
-  # (never the 1 <= delta * N < 2 inputs, where locfit kills the R session)
+test_that("portable: inputs where the R implementation gave NA p-values give an NA row and one warning (B = 2)", {
   inp <- fx$cases$kidney_AB_jitter$input
-  # runs spatialCorrelation(), silencing the printed error and muffling (and counting) only the warning
-  # expected for that input; any other warning reaches testthat
-  run <- function(X, delta, expected_warning = NULL) {
-    n_expected <- 0L
-    out <- NULL
-    withCallingHandlers(
-      utils::capture.output(out <- quiet_locfit(spatialCorrelation(X, inp$Y, inp$pos, nPermutations = 2,
-                                                                   deltaX = delta, deltaY = delta))),
-      warning = function(w) {
-        if (!is.null(expected_warning) && grepl(expected_warning, conditionMessage(w), fixed = TRUE)) {
-          n_expected <<- n_expected + 1L
-          invokeRestart("muffleWarning")
-        }
-      })
-    list(out = out, n_expected = n_expected)
+  N <- length(inp$X)
+  run <- function(X, delta, pos = inp$pos) {
+    fx_collect_warnings(spatialCorrelation(X, inp$Y, pos, nPermutations = 2, deltaX = delta, deltaY = delta))
+  }
+  expect_na_row <- function(w, pattern) {
+    o <- w$value
+    expect_length(w$warnings, 1L)
+    expect_match(w$warnings, paste0("^spatialCorrelation: no permutation p-values \\(NA row\\): .*", pattern))
+    expect_identical(names(o), c("correlationCoef", "pValueNaive", "pValuePermuteX", "pValuePermuteY",
+                                 "deltaStarMedianX", "deltaStarMedianY", "deltaStarX", "deltaStarY",
+                                 "nullCorrelationsX", "nullCorrelationsY"))
+    expect_identical(c(o$pValuePermuteX, o$pValuePermuteY, o$deltaStarMedianX, o$deltaStarMedianY), rep(NA_real_, 4))
+    for (col in c("deltaStarX", "deltaStarY", "nullCorrelationsX", "nullCorrelationsY")) {
+      expect_identical(o[[col]], I(list(NA)), info = col)
+    }
+    o
   }
   local_default_rng()
-  # constant X: cor.test() warns that the standard deviation is zero; r, naive p and both empirical p are NA
-  r1 <- run(rep(1, length(inp$X)), 0.3, "standard deviation is zero")
-  o1 <- r1$out
-  expect_gt(r1$n_expected, 0)
-  expect_true(all(is.na(c(o1$correlationCoef, o1$pValueNaive, o1$pValuePermuteX, o1$pValuePermuteY))))
-  # delta * N < 1: locfit warns "procv: no points with non-zero weight" and fails; the error is caught and
-  # the empirical p-values are NA
-  r2 <- run(inp$X, 0.001, "procv: no points with non-zero weight")
-  o2 <- r2$out
-  expect_gt(r2$n_expected, 0)
-  expect_equal(unname(o2$correlationCoef), stats::cor(inp$X, inp$Y), tolerance = tol)
-  expect_true(all(is.na(c(o2$pValuePermuteX, o2$pValuePermuteY))))
-  # one NA in X: r and the naive p-value use the complete pairs; the empirical p-values are NA
-  Xn <- inp$X
-  Xn[5] <- NA
-  o3 <- run(Xn, 0.3)$out
-  expect_equal(unname(o3$correlationCoef), stats::cor(inp$X[-5], inp$Y[-5]), tolerance = tol)
+  # constant X: r and naive p are NA too (cor.test()'s own warning is not repeated)
+  o1 <- expect_na_row(run(rep(1, N), 0.3), "permuting X: the permuted values are constant")
+  expect_true(all(is.na(c(o1$correlationCoef, o1$pValueNaive))))
+  # delta * N < 1 (the R implementation failed in locfit)
+  o2 <- expect_na_row(run(inp$X, 0.001), "N \\* delta < 2")
+  expect_equal(o2$correlationCoef, stats::cor(inp$X, inp$Y), tolerance = tol)
+  # one NA in X: r and the naive p-value use the complete pairs
+  Xn <- replace(inp$X, 5, NA)
+  o3 <- expect_na_row(run(Xn, 0.3), "contain NA")
+  expect_equal(o3$correlationCoef, stats::cor(inp$X[-5], inp$Y[-5]), tolerance = tol)
   expect_equal(o3$pValueNaive, stats::cor.test(inp$X[-5], inp$Y[-5])$p.value, tolerance = 1e-10)
-  expect_true(all(is.na(c(o3$pValuePermuteX, o3$pValuePermuteY))))
+  # 1 <= delta * N < 2 (locfit killed the R session), and too few pairs for cor.test() (it failed with
+  # "object 'corDF' not found")
+  expect_na_row(run(inp$X, 1.5 / N), "N \\* delta < 2")
+  o5 <- expect_na_row(run(c(inp$X[1:2], rep(NA, N - 2)), 0.3), "cor.test\\(\\) failed")
+  expect_true(all(is.na(c(o5$correlationCoef, o5$pValueNaive))))
+  # every location twice with k = 2 (locfit overflowed the C stack): out of vertex space
+  local_default_rng()
+  set.seed(9)
+  u <- cbind(stats::runif(150), stats::runif(150))
+  w <- fx_collect_warnings(spatialCorrelation(stats::rnorm(300), stats::rnorm(300), u[rep(seq_len(150), each = 2), ],
+                                              nPermutations = 2, deltaX = c(0.3, 2 / 300), deltaY = 0.3))
+  expect_length(w$warnings, 1L)
+  expect_match(w$warnings, "out of vertex space")
 })
 
 test_that("portable: spatialSimilarity() thresholds, pseudo-counts, fold-change boundaries and minPixels (hand-computed)", {

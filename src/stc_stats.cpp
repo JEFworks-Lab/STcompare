@@ -76,6 +76,45 @@ int cor_t(const double* x, std::size_t incx, const double* y, const CorTarget& t
   return COR_OK;
 }
 
+// cor_t() for one column x and many targets: the mean and the sum of squares of x once, then the
+// cross products, division and CLAMP of each target, every expression as in cor_t().
+template <typename A>
+void cor_multi_t(const double* x, std::size_t incx, int nt, const double* const* ys,
+                 const CorTarget* const* ts, int first_fused, bool sd_fused, double* r,
+                 int* status) {
+  const int n = ts[0]->n;
+  const A xxm = mean_t<A>(x, incx, n);
+  A ss = 0.0;
+  for (int k = 0; k < n; k++) {
+    const A d = x[k * incx] - xxm;
+    ss = acc_prod<A>(ss, d, d, sd_fused);
+  }
+  ss /= (A)(n - 1);
+  const double xsd = (double)std::sqrt(ss);
+  for (int j = 0; j < nt; j++) {
+    const CorTarget& t = *ts[j];
+    if (t.has_na) {
+      status[j] = COR_NA;
+      continue;
+    }
+    const double* y = ys[j];
+    const A yym = t.mean;
+    A sum = 0.0;
+    for (int k = 0; k < n; k++) {
+      sum = acc_prod<A>(sum, (A)(x[k * incx] - xxm), (A)(y[k] - yym), k >= first_fused);
+    }
+    double ans = (double)(sum / (A)(n - 1));
+    if (xsd == 0. || t.sd == 0.) {
+      status[j] = COR_SD_ZERO;
+      continue;
+    }
+    ans /= (xsd * t.sd);
+    ans = (ans >= 1. ? 1. : (ans <= -1. ? -1. : ans));  // CLAMP
+    r[j] = ans;
+    status[j] = COR_OK;
+  }
+}
+
 // Fused accumulation exists only where long double is double.
 inline bool fused_mode(int mode) {
   return sizeof(LD) == sizeof(double) && (mode == COR_FMA || mode == COR_FMA_TAIL8);
@@ -129,6 +168,34 @@ int cor_with_target(const double* x, std::size_t incx, const double* y, const Co
   int first_fused = n;
   if (fused) first_fused = (t.mode == COR_FMA_TAIL8) ? (n & ~7) : 0;
   return cor_t<LD>(x, incx, y, t, first_fused, fused, r);
+}
+
+void cor_with_targets(const double* x, std::size_t incx, int nt, const double* const* ys,
+                      const CorTarget* const* ts, double* r, int* status) {
+  if (nt <= 0) return;
+  for (int j = 0; j < nt; j++) r[j] = nan_value();
+  const int n = ts[0]->n;
+  const int mode = ts[0]->mode;
+  if (n < 2) {  // COV_n_le_1
+    for (int j = 0; j < nt; j++) status[j] = COR_TOO_FEW;
+    return;
+  }
+  bool na = false;  // find_na_2(), the x part (the y part is CorTarget::has_na)
+  for (int k = 0; k < n && !na; k++) {
+    if (std::isnan(x[k * incx])) na = true;
+  }
+  if (na) {
+    for (int j = 0; j < nt; j++) status[j] = COR_NA;
+    return;
+  }
+  if (mode == COR_DOUBLE) {
+    cor_multi_t<double>(x, incx, nt, ys, ts, n, false, r, status);
+    return;
+  }
+  const bool fused = fused_mode(mode);
+  int first_fused = n;
+  if (fused) first_fused = (mode == COR_FMA_TAIL8) ? (n & ~7) : 0;
+  cor_multi_t<LD>(x, incx, nt, ys, ts, first_fused, fused, r, status);
 }
 
 int ols_fit(const double* x, std::size_t incx, const double* y, std::size_t incy, int K,

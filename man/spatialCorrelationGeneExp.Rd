@@ -77,30 +77,28 @@ numeric specifying the assay in the SpatialExperiment to use. Default is
 \code{NULL}. If no value is supplied for \code{assayName}, then the first
 assay is used as a default}
 
-\item{nThreads}{\code{integer}: Number of threads for parallelization.
-Default = 1. Inputting this argument when the \code{BPPARAM} argument is
-\code{NULL} would set parallel execution back-end to be
-\code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
-setting this argument to be the number of cores available
-(\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
-is not \code{NULL}, the \code{BPPARAM} argument would override
-\code{nThreads} argument.}
+\item{nThreads}{\code{integer}: Number of threads of the compiled code.
+Default = 1. The permutations of all genes are distributed over the
+threads, and the results do not depend on the number of threads. We
+recommend the number of cores available
+(\code{parallel::detectCores(logical = FALSE)}).}
 
-\item{BPPARAM}{\code{BiocParallelParam}: Optional additional argument for
-parallelization. This argument is provided for advanced users of
-\code{BiocParallel} for further flexibility for setting up
-parallel-execution back-end. Default is NULL. If provided, this is assumed
-to be an instance of \code{BiocParallelParam}.}
+\item{BPPARAM}{\code{BiocParallelParam}: Optional. If not \code{NULL}, its
+number of workers (\code{BiocParallel::bpnworkers(BPPARAM)}) is used as the
+number of threads instead of \code{nThreads}. No BiocParallel back-end is
+started (nothing is forked). Default is \code{NULL}.}
 
-\item{verbose}{\code{logical}: indicate whether to print row number and name
-to show progress as the function iterates through the rows of the
-SpatialExperiments to calculate a correlation coefficient and empirical
-p-value for each row}
+\item{verbose}{\code{logical}: if \code{TRUE} (default), print a message
+when the computation starts (genes, permutations and threads) and when it
+ends (elapsed time).}
 
-\item{seed}{\code{integer}: Seed for the random number generator used to
-generate noise in the variogram matching step. Ensures reproducibility of
-empirical p-values regardless of parallelization back-end. Default is
-\code{0}.}
+\item{seed}{\code{integer}: Seed for the random number generator. Default
+\code{0}. The permutations are drawn after \code{set.seed(seed)} with the
+session's random number generator kinds (\code{RNGkind()}), and the noise
+of permutation \eqn{b} after \code{set.seed(seed + b)} with
+\code{"L'Ecuyer-CMRG"}; every gene uses the same seed. The results depend
+on the seed only, and the global random number generator state
+(\code{.Random.seed}) is left unchanged.}
 
 \item{adjustMethod}{\code{character}: multiple-testing correction method
 passed to \code{stats::p.adjust()}. It is applied across all genes,
@@ -112,7 +110,7 @@ separately to the \code{pValuePermuteX} column and to the
 The output is returned as a \code{data.frame}. The rownames are the
   rownames of the SpatialExperiments. The names of the columns and their
   contents are as follows:
-\itemize{
+\describe{
   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
   observations}
@@ -129,8 +127,10 @@ The output is returned as a \code{data.frame}. The rownames are the
   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-  \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all permuations of X}
-  \item{\code{nullCorrelationsY}}{correlation coefficients for X and all permuations of Y}
+  \item{\code{nullCorrelationsX}}{list of B x 1 matrices: the correlation
+  coefficients for Y and all permutations of X}
+  \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
+  coefficients for X and all permutations of Y}
   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
   Each column is the resulting values of a permutation of X}
   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the length of Y and B is `nPermutations`.
@@ -145,6 +145,22 @@ Function to calculate Pearson's correlation between assays from
   generated from permuting the datasets and then smoothing to maintain the
   original degree of autocorrelation
 }
+\details{
+For every gene (row), the correlation of its values in the two
+  datasets over their shared pixels is tested as in
+  \code{\link{spatialCorrelation}}: with nulls from permutations of X and
+  from permutations of Y. All genes are computed in one call of the compiled
+  code, which shares the smoothing operators and the shuffles of the
+  locations between genes and distributes the permutations of all genes
+  over \code{nThreads} threads. The results are the same as for one gene at
+  a time and do not depend on the number of threads.
+
+  Genes for which a null cannot be computed (see
+  \code{\link{spatialCorrelation}}: for example a gene that is constant or
+  has missing values on the shared pixels, or \eqn{N \times delta < 2}{N *
+  delta < 2}) get \code{NA} in every column computed from permutations, and
+  one warning per such gene gives the reason.
+}
 \examples{
 
 data(speKidney)
@@ -152,14 +168,14 @@ data(speKidney)
 ##### Rasterize to get pixels at matched spatial locations #####
 rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
                assay_name = 'counts', resolution = 0.2, fun = "mean",
-               BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+               square = FALSE)
 
 ##### Use STcompare to calculate Pearson's correlation coefficient #####
 rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
 rastGexpListAC <- list(A = rastKidney$A, C = rastKidney$C)
 
-negCorrelation <- spatialCorrelationGeneExp(rastGexpListAB, nThreads = 5)
-posCorrelation <- spatialCorrelationGeneExp(rastGexpListAC, nThreads = 5)
+negCorrelation <- spatialCorrelationGeneExp(rastGexpListAB, nThreads = 2)
+posCorrelation <- spatialCorrelationGeneExp(rastGexpListAC, nThreads = 2)
 
 negCorrelation
 posCorrelation

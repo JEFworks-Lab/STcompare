@@ -27,6 +27,21 @@ to generate to build the empirical null distribution. This number will
 determine the precision of the p-value. Default is \code{100}, such that
 the smallest possible p-value is \eqn{1 / 101}, about 0.0099}
 
+\item{delta}{\code{list}: List of single numerics or list of numeric vectors
+to use for delta, the parameter controlling the degree of smoothing in
+permutations of each row (gene). The length of the list should the same as
+the number of rows in the SpatialExperiment. Delta is a proportion
+calculated by dividing k neighbors by N total observations (columns), where
+k is the number of neighbors in the permutation that should be within the
+radius smoothed by the Gaussian kernel to achieve the amount of
+autocorrelation present in the original data. If a single delta is not
+known, a sequence of deltas can be inputted and the best delta will be
+found such that it minimizes the sum of squares of the residuals between
+the variogram of the permutation generated from the delta and the
+variogram of the target. Default is \code{NULL}. If no value is supplied
+for \code{delta}, \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from
+0.1 to 0.9, will be used to find the best delta for each row (gene).}
+
 \item{maxDistPrctile}{\code{numeric}: percentile of distances between pixels
 to use as max distance in when calculating variograms. Default = 0.25. At
 greater distances the variogram is less precise because there are fewer
@@ -45,75 +60,60 @@ numeric specifying the assay in the SpatialExperiment to use. Default is
 \code{NULL}. If no value is supplied for \code{assayName}, then the first
 assay is used as a default}
 
-\item{nThreads}{\code{integer}: Number of threads for parallelization.
-Default = 1. Inputting this argument when the \code{BPPARAM} argument is
-\code{NULL} would set parallel execution back-end to be
-\code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
-setting this argument to be the number of cores available
-(\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
-is not \code{NULL}, the \code{BPPARAM} argument would override
-\code{nThreads} argument.}
+\item{nThreads}{\code{integer}: Number of threads of the compiled code.
+Default = 1. The permutations of all genes are distributed over the
+threads, and the results do not depend on the number of threads. We
+recommend the number of cores available
+(\code{parallel::detectCores(logical = FALSE)}).}
 
-\item{BPPARAM}{\code{BiocParallelParam}: Optional additional argument for
-parallelization. This argument is provided for advanced users of
-\code{BiocParallel} for further flexibility for setting up
-parallel-execution back-end. Default is NULL. If provided, this is assumed
-to be an instance of \code{BiocParallelParam}.}
+\item{BPPARAM}{\code{BiocParallelParam}: Optional. If not \code{NULL}, its
+number of workers (\code{BiocParallel::bpnworkers(BPPARAM)}) is used as the
+number of threads instead of \code{nThreads}. No BiocParallel back-end is
+started (nothing is forked). Default is \code{NULL}.}
 
-\item{verbose}{\code{logical}: indicate whether to print row number and name
-to show progress as the function iterates through the rows of the
-SpatialExperiments to calculate a correlation coefficient and empirical
-p-value for each row}
+\item{verbose}{\code{logical}: if \code{TRUE} (default), print a message
+when the computation starts (genes, pairs, permutations and threads) and
+when it ends (elapsed time).}
 
-\item{seed}{\code{integer}: Seed for the random number generator used to
-generate noise in the variogram matching step. Ensures reproducibility of
-empirical p-values regardless of parallelization back-end. Default is
-\code{0}.}
-
-\item{deltaX}{\code{list}: List of single numerics or list of numeric vectors
-to use for delta, the parameter controlling the degree of smoothing in
-permutations of X. The length of the list should the same as the number of
-rows in the SpatialExperiment.  Delta is a proportion calculated by
-dividing k neighbors by N total observations (columns) in X, where k is the
-number of neighbors in the permutation of X that should be within the
-radius smoothed by the Gaussian kernel to achieve the amount of
-autocorrelation present in the original X. If a single delta is not known,
-a sequence of deltas can be inputted and the best delta will be found such
-that it minimizes the sum of squares of the residuals between the variogram
-of the permutation generated from the delta and the variogram of the
-target. Default is \code{NULL}. If no value is supplied for \code{deltaX},
-\code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from 0.1 to 0.9, will be
-used to find the best delta for each row (gene) in X.}
-
-\item{deltaY}{\code{list}: List of single numerics or list of numeric vectors
-to use for delta, the parameter controlling the degree of smoothing in
-permutations of Y. \code{deltaY} is like \code{deltaX} but for permuting
-data in Y instead of X. Default is \code{NULL}. If no value is supplied for
-\code{deltaY}, \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from 0.1
-to 0.9, will be used to find the best delta for permutations for each row
-(gene) in Y.}
+\item{seed}{\code{integer}: Seed for the random number generator. Default
+\code{0}. The permutations are drawn after \code{set.seed(seed)} with the
+session's random number generator kinds (\code{RNGkind()}), and the noise
+of permutation \eqn{b} after \code{set.seed(seed + b)} with
+\code{"L'Ecuyer-CMRG"}; every gene uses the same seed. The results depend
+on the seed only, and the global random number generator state
+(\code{.Random.seed}) is left unchanged.}
 }
 \value{
-The output is returned as a \code{data.frame}. The rownames are
-  arbitrary. The names of the columns and their contents are as follows:
-\itemize{
+The output is returned as a \code{data.frame} with one row per pair
+  of rows (genes), in the order of \code{combn(rownames(input), 2)}. The
+  rownames are arbitrary (\code{"cor"}, \code{"cor1"}, ...). The names of the
+  columns and their contents are as follows:
+\describe{
   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
   observations}
-  \item{\code{pValuePermuteX}}{the p-value when creating an empirical null from permutations
-  of observations in X}
+  \item{\code{pValuePermuteX}}{the p-value when creating an empirical null
+  from permutations of the first gene of the pair, computed as
+  \eqn{(b + 1) / (B + 1)} (see \code{\link{spatialCorrelation}})}
   \item{\code{pValuePermuteY}}{the p-value when creating an empirical null from
-  permutations of observations in Y}
+  permutations of the second gene of the pair}
   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
   minimizes the difference between the variogram of the permutation and the
-  variogram of observations) across permutations of X}
-  \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
-  \item{\code{deltaStarX}}{list of delta star for all permutations of X}
-  \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-  \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all permuations of X}
-  \item{\code{nullCorrelationsY}}{correlation coefficients for X and all permuations of Y}
-  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
-  Each column is the resulting values of a permutation of X}
+  variogram of observations) across permutations of the first gene}
+  \item{\code{deltaStarMedianY}}{the median delta star across permutations
+  of the second gene}
+  \item{\code{deltaStarX}}{list of delta star for all permutations of the
+  first gene}
+  \item{\code{deltaStarY}}{list of delta star for all permutations of the
+  second gene}
+  \item{\code{nullCorrelationsX}}{list of B x 1 matrices: the correlation
+  coefficients for the second gene and all permutations of the first}
+  \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
+  coefficients for the first gene and all permutations of the second}
+  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
+  number of pixels and B is `nPermutations`. Each column is the resulting
+  values of a permutation of the first gene}
+  \item{\code{permutationsY}}{(optional) the same for the second gene}
   \item{\code{first}}{the name of the first row in the pair}
   \item{\code{second}}{the name of the second row in the pair}
   }
@@ -126,6 +126,18 @@ Function to calculate Pearson's correlation between rows from
   generated from permuting the data and then smoothing to maintain the
   original degree of autocorrelation
 }
+\details{
+Every pair of rows (genes) is tested as in
+  \code{\link{spatialCorrelation}}, with the first gene of the pair as X and
+  the second as Y. A gene's permutations do not depend on its partner, so
+  the compiled code computes the permutations of every gene once and
+  correlates them with every other gene, on \code{nThreads} threads. The
+  results are the same as for one pair at a time and do not depend on the
+  number of threads. Pairs with a gene for which a null cannot be computed
+  (for example a constant gene) get \code{NA} in every column computed from
+  permutations, and one warning per such pair gives the reason. The
+  empirical p-values are not adjusted for multiple testing.
+}
 \examples{
 
 data(speKidney)
@@ -133,12 +145,21 @@ data(speKidney)
 ##### Rasterize to get pixels at matched spatial locations #####
 rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
                assay_name = 'counts', resolution = 0.2, fun = "mean",
-               BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+               square = FALSE)
 
-sc_within_sample <- spatialCorrelationGeneExpWithinSample(
-                      input = rastKidney,
-                      assayName = "A"
-                      )
-sc_within_sample
+# one SpatialExperiment whose three rows are the gene in samples A, C and
+# B, on the pixels the three samples share
+shared <- Reduce(intersect, lapply(rastKidney, colnames))
+expr <- t(sapply(rastKidney, function(s) {
+  SummarizedExperiment::assay(s)[1, shared]
+}))
+speACB <- SpatialExperiment::SpatialExperiment(
+  assays = list(pixelval = expr),
+  spatialCoords = SpatialExperiment::spatialCoords(rastKidney$A)[shared, ])
+
+sc_within_sample <- spatialCorrelationGeneExpWithinSample(speACB,
+                                                          nThreads = 2)
+sc_within_sample[, c("first", "second", "correlationCoef",
+                     "pValuePermuteX", "pValuePermuteY")]
 
 }

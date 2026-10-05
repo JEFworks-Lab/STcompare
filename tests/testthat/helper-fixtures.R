@@ -1,19 +1,21 @@
 # Helpers for the reference tests. testthat (and devtools::load_all()) sources this file before the tests;
-# it only defines functions. The fixtures in tests/testthat/fixtures/ are built from the legacy R
-# implementation by data-raw/build_test_fixtures.R (see data-raw/README.md for what each tier pins down).
+# it only defines functions. The fixtures in tests/testthat/fixtures/ were built from the original R
+# implementation (locfit, geoR and BiocParallel; removed since) by data-raw/build_test_fixtures.R, and the
+# realistic tier holds the first 100 published nulls of inst/extdata (see data-raw/README.md). The exported
+# functions are now computed by the compiled engine, and these values are its reference.
 #
 # Test labels used in the test files:
-#   "exact: ..."    compare with the stored legacy values at the documented tolerances (1e-12; integers, bin
-#                   counts and deltaStar identical; RNG draws 1e-14). They run only for coordinate sets that
-#                   geoR bins exactly as on the build machine (see helper-platform.R) and are skipped
-#                   elsewhere, naming the differing probes. STCOMPARE_EXACT_TESTS=true forces them on every
-#                   machine, STCOMPARE_EXACT_TESTS=false skips them.
-#   "portable: ..." hold on every platform: STcompare against the reference kernels run on the same machine,
-#                   invariants (prefix property, X/Y symmetry, worker independence, the p-value definition,
-#                   error paths), hand-computed spatialSimilarity() values, and loose agreement with the
-#                   fixtures.
-#   "canary: ..."   dependency canaries and C++ kernel slots: R's RNG, SEraster, geoR, locfit and lm (through
-#                   the ref_*() helpers) against the fixture. They call no STcompare code.
+#   "exact: ..."    compare with the stored values: deltaStar and exceedance counts identical, nulls and
+#                   permuted fields within 1e-9 relative (expect_close()), r 1e-12, RNG draws 1e-14. They run
+#                   only for coordinate sets that are binned exactly as on the build machine (see
+#                   helper-platform.R) and are skipped elsewhere, naming the differing probes.
+#                   STCOMPARE_EXACT_TESTS=true forces them on every machine, STCOMPARE_EXACT_TESTS=false skips
+#                   them.
+#   "portable: ..." hold on every platform: invariants (prefix property, X/Y symmetry, thread independence,
+#                   the p-value definition, NA rows and warnings), C++ components against geoR, locfit and R,
+#                   hand-computed spatialSimilarity() values, and loose agreement with the fixtures.
+#   "canary: ..."   dependency canaries: R's RNG streams and SEraster against the fixture. They call no
+#                   STcompare code.
 #   "fixture integrity: ..." checks of the fixture files themselves; they are not regression coverage.
 
 fx_cache <- new.env(parent = emptyenv())
@@ -34,22 +36,14 @@ fx_memo <- function(key, expr) {
   get(key, envir = fx_cache, inherits = FALSE)
 }
 
-# Slow tests (statistical calibration, all realistic genes) run only when STCOMPARE_SLOW_TESTS=true.
+# Slow tests (statistical calibration, all brain genes at B = 100) run only when STCOMPARE_SLOW_TESTS=true.
 skip_if_not_slow <- function() {
   testthat::skip_if_not(identical(tolower(Sys.getenv("STCOMPARE_SLOW_TESTS")), "true"),
                         "slow test; set STCOMPARE_SLOW_TESTS=true to run it")
 }
 
-# Worker processes for the slow tests (STCOMPARE_TEST_WORKERS, default BiocParallel::multicoreWorkers()).
-fx_workers <- function() {
-  w <- Sys.getenv("STCOMPARE_TEST_WORKERS", "")
-  if (nzchar(w)) max(1L, as.integer(w)) else max(1L, BiocParallel::multicoreWorkers())
-}
-
-fx_bpparam <- function() {
-  w <- fx_workers()
-  if (w > 1 && .Platform$OS.type != "windows") BiocParallel::MulticoreParam(workers = w) else BiocParallel::SerialParam()
-}
+# Threads of the compiled engine in the tests: at most 2 (CRAN's limit for checks).
+fx_threads <- 2L
 
 # --- RNG ---------------------------------------------------------------------------------------------------
 # The caller's RNG kind and seed are put back when `env` (a test or a function frame) exits.
@@ -76,8 +70,8 @@ local_default_rng <- function(env = parent.frame()) {
   invisible(NULL)
 }
 
-# Evaluate `code` under L'Ecuyer-CMRG (Inversion, Rejection) seeded with `seed`: the generator a BiocParallel
-# task uses when matchingVariograms() calls set.seed(seed + i). The caller's RNG kind and seed are restored.
+# Evaluate `code` under L'Ecuyer-CMRG (Inversion, Rejection) seeded with `seed`: the stream of the noise of
+# permutation b when seed = seed + b. The caller's RNG kind and seed are restored.
 with_lecuyer <- function(seed, code) {
   fx_defer_rng_restore(environment())
   RNGkind("L'Ecuyer-CMRG", "Inversion", "Rejection")
@@ -86,12 +80,22 @@ with_lecuyer <- function(seed, code) {
 }
 
 # --- Warnings ----------------------------------------------------------------------------------------------
-# Muffle only locfit's expected "Estimated rdf < 1.0; not estimating variance" (small deltas); any other
-# warning reaches testthat and is reported.
+# Muffle only locfit's expected "Estimated rdf < 1.0; not estimating variance" (small deltas; the component
+# tests call locfit as a reference); any other warning reaches testthat and is reported.
 quiet_locfit <- function(expr) {
   withCallingHandlers(expr, warning = function(w) {
     if (grepl("Estimated rdf < 1.0", conditionMessage(w), fixed = TRUE)) invokeRestart("muffleWarning")
   })
+}
+
+# Evaluate `expr`, muffling and collecting its warnings: list(value, warnings).
+fx_collect_warnings <- function(expr) {
+  w <- character(0)
+  value <- withCallingHandlers(expr, warning = function(cnd) {
+    w <<- c(w, conditionMessage(cnd))
+    invokeRestart("muffleWarning")
+  })
+  list(value = value, warnings = w)
 }
 
 # --- Exactness gate ----------------------------------------------------------------------------------------
@@ -120,7 +124,7 @@ skip_if_not_exact <- function(name, set) {
   if (mode == "false") testthat::skip("exact reference checks disabled (STCOMPARE_EXACT_TESTS=false)")
   st <- fx_exact_status(name, set)
   if (!st$exact) {
-    testthat::skip(sprintf(paste0("%s [%s] was built on %s; geoR bins this coordinate set differently here ",
+    testthat::skip(sprintf(paste0("%s [%s] was built on %s; this coordinate set is binned differently here ",
                                   "(differs: %s; global probes differing: %s). Portable checks still run; ",
                                   "STCOMPARE_EXACT_TESTS=true forces the exact checks"),
                            name, set, st$built_on, paste(st$diff, collapse = ", "),
@@ -129,10 +133,23 @@ skip_if_not_exact <- function(name, set) {
   invisible(TRUE)
 }
 
-# Loose agreement with stored null correlations, for machines where geoR bins differently: at least 60%
-# (rounded down, at least one) of the nulls within 0.01 of the stored ones. A different bin count moves every
-# null by about 1e-4, and the few permutations whose deltaStar changes by up to about 0.2; a wrong seed,
-# permutation order, delta grid or smoother moves nearly all of them by more.
+# |a - b| within tol of max |b| (default 1e-9: the engine's agreement with the stored legacy nulls and
+# permuted fields, dev/engine-spec.md 1.1), for vectors and matrices of the same shape.
+expect_close <- function(a, b, tol = 1e-9, info = NULL) {
+  a <- unclass(a)
+  b <- unclass(b)
+  same_shape <- length(a) == length(b) && identical(dim(as.matrix(a)), dim(as.matrix(b)))
+  d <- if (same_shape) max(abs(a - b)) else NA
+  testthat::expect(same_shape && isTRUE(d <= tol * max(abs(b))),
+                   sprintf("max |difference| %.3g exceeds %g x max |reference| = %.3g%s", d, tol, tol * max(abs(b)),
+                           if (is.null(info)) "" else paste0(" [", info, "]")))
+  invisible(a)
+}
+
+# Loose agreement with stored null correlations, for machines where the pairs are binned differently: at
+# least 60% (rounded down, at least one) of the nulls within 0.01 of the stored ones. A different bin count
+# moves every null by about 1e-4, and the few permutations whose deltaStar changes by up to about 0.2; a wrong
+# seed, permutation order, delta grid or smoother moves nearly all of them by more.
 expect_nulls_close <- function(null, ref, info = NULL, tol = 0.01, frac = 0.6) {
   k <- sum(abs(null - ref) <= tol)
   need <- max(1L, floor(frac * length(ref)))
@@ -175,11 +192,36 @@ fx_sc_case <- function(cs, B = cs$input$nPermutations, ...) {
   if (!identical(inp$maxDistPrctile, 0.25)) args$maxDistPrctile <- inp$maxDistPrctile
   if (!identical(inp$seed, 0)) args$seed <- inp$seed
   local_default_rng()
-  quiet_locfit(do.call(spatialCorrelation, args))
+  do.call(spatialCorrelation, args)
 }
 
 # The returnPermutations = TRUE run of a kernel case, computed once per session.
 fx_case_run <- function(cs) fx_memo(paste0("sc:", cs$name), fx_sc_case(cs, returnPermutations = TRUE))
+
+# A pair of SpatialExperiment objects holding genes of the realistic fixture (X and Y on the shared pixels).
+fx_spe_pair <- function(P, genes = P$genes, flip = FALSE) {
+  mk <- function(m) {
+    dimnames(m) <- list(genes, P$pixel)
+    SpatialExperiment::SpatialExperiment(assays = list(counts = m),
+                                         spatialCoords = matrix(P$pos, ncol = 2, dimnames = list(P$pixel, c("x", "y"))))
+  }
+  Y <- P$Y[genes, , drop = FALSE]
+  if (flip) Y <- apply(Y, 1, max) - Y  # max(Y[g, ]) - Y[g, ] for every gene g
+  list(mk(P$X[genes, , drop = FALSE]), mk(Y))
+}
+
+# spatialCorrelationGeneExp() (unadjusted p-values) on genes of the realistic fixture at B permutations,
+# computed once per session. flip: Y -> max(Y) - Y per gene (the engineered negatives).
+fx_genes_run <- function(pair, genes, B, flip = FALSE) {
+  fx_memo(sprintf("genes:%s:%s:%d:%s", pair, paste(genes, collapse = ","), B, flip), {
+    P <- fx_read("realistic_fixture.rds")$pairs[[pair]]
+    delta <- rep(list(P$params$delta), length(genes))
+    local_default_rng()
+    spatialCorrelationGeneExp(fx_spe_pair(P, genes, flip), nPermutations = B, deltaX = delta, deltaY = delta,
+                              maxDistPrctile = P$params$maxDistPrctile, seed = P$params$seed,
+                              nThreads = fx_threads, verbose = FALSE, adjustMethod = "none")
+  })
+}
 
 # data(speKidney) rasterized exactly as the tier-0 fixture (computed once per session).
 fx_speKidney_raster <- function() {
@@ -188,10 +230,10 @@ fx_speKidney_raster <- function() {
 }
 
 # --- Reference kernels -------------------------------------------------------------------------------------
-# One function per step of viladomatCorrelation() / matchingVariograms(), written exactly as the package
-# calls them (lat = pos[, 1], long = pos[, 2]; variogram coordinates are cbind(long, lat)). A compiled backend
-# is validated step by step by swapping its kernel in here; the tests compare every step with the fixture
-# (on the build machine) and with STcompare itself (on every machine).
+# One function per step of the original R implementation, written exactly as it called locfit, geoR and
+# lm() (lat = pos[, 1], long = pos[, 2]; variogram coordinates are cbind(long, lat)). The component tests
+# (test-cpp-components.R) compare the C++ building blocks with them; they need the suggested packages geoR
+# and locfit.
 
 # max.dist: quantile of the pairwise distances of the (subsampled) points; note dist(cbind(lat, long)).
 ref_prctile <- function(lat, long, p) unname(stats::quantile(stats::dist(cbind(lat, long)), probs = p))
@@ -200,9 +242,8 @@ ref_variog <- function(z, long, lat, max_dist) {
   geoR::variog(data = z, coords = cbind(long, lat), max.dist = max_dist, option = "bin", messages = FALSE)
 }
 
-# locfit local-constant Gaussian-kernel smoother with nearest-neighbour bandwidth nn = delta. The package
-# uses locfit's default adaptive kd-tree with interpolation; exact = TRUE evaluates at every point
-# (ev = dat()), the reference for a smoother that is not bit-compatible with the tree.
+# locfit local-constant Gaussian-kernel smoother with nearest-neighbour bandwidth nn = delta: locfit's default
+# adaptive kd-tree with interpolation; exact = TRUE evaluates at every point (ev = dat()).
 ref_smooth <- function(x, long, lat, delta, exact = FALSE) {
   fit <- if (exact) {
     quiet_locfit(locfit::locfit(x ~ locfit::lp(long, lat, nn = delta, deg = 0), kern = "gauss", maxk = 300,
@@ -232,14 +273,14 @@ fx_replay <- function(cs, dir) fx_memo(paste0("replay:", cs$name, ":", dir), {
   lat <- cs$input$pos[, 1]
   long <- cs$input$pos[, 2]
   ids <- cap$ids
-  prctile <- ref_prctile(lat[ids], long[ids], cs$input$maxDistPrctile)          # C++: distance quantile
-  tv <- ref_variog(z[ids], long[ids], lat[ids], prctile)                         # C++: variogram
+  prctile <- ref_prctile(lat[ids], long[ids], cs$input$maxDistPrctile)
+  tv <- ref_variog(z[ids], long[ids], lat[ids], prctile)
   xr <- z[cap$perm_index[, d$i]]
-  noise <- ref_noise(length(z), d$noise_seed, length(delta))                    # C++: RNG (or injected)
+  noise <- ref_noise(length(z), d$noise_seed, length(delta))
   per <- lapply(seq_along(delta), function(k) {
-    xd <- ref_smooth(xr, long, lat, delta[k])                                    # C++: smoother
+    xd <- ref_smooth(xr, long, lat, delta[k])
     v1 <- ref_variog(xd[ids], long[ids], lat[ids], prctile)
-    bet <- ref_lm(tv$v, v1$v)                                                    # C++: least squares
+    bet <- ref_lm(tv$v, v1$v)
     hat <- ref_rescale(xd, noise[, k], bet)
     v2 <- ref_variog(hat[ids], long[ids], lat[ids], prctile)
     list(xd = xd, n1 = v1$n, v1 = v1$v, bet = bet, hat = hat, n2 = v2$n, v2 = v2$v, rss = sum((v2$v - tv$v)^2))
@@ -247,14 +288,4 @@ fx_replay <- function(cs, dir) fx_memo(paste0("replay:", cs$name, ":", dir), {
   rss <- vapply(per, function(p) p$rss, 0)
   list(prctile = prctile, target = tv, xr = xr, noise = noise, delta = delta, per = per, rss = rss,
        argmin = which.min(rss), hat_star = per[[which.min(rss)]]$hat)
-})
-
-# STcompare's matchingVariograms() on the same permutation, target variogram and noise seed as fx_replay(),
-# under L'Ecuyer-CMRG as inside viladomatCorrelation() (computed once per session).
-fx_mv <- function(cs, dir) fx_memo(paste0("mv:", cs$name, ":", dir), {
-  rp <- fx_replay(cs, dir)
-  cap <- cs$intermediate[[dir]]
-  with_lecuyer(cap$detail$noise_seed, quiet_locfit(matchingVariograms(
-    rp$xr, cs$input$pos[, 2], cs$input$pos[, 1], rp$delta, rp$target, rp$prctile, cap$ids, cap$detail$i,
-    seed = cap$detail$noise_seed)))
 })

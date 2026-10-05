@@ -19,6 +19,12 @@
 // (R_Q_P01_boundaries) before any computation, exactly as R's own norm_rand() does, so the stream
 // still matches R. In both cases it uses no global state, allocates nothing, and none of its warning
 // paths (ML_WARNING, only for p outside [0, 1] or invalid mu and sigma) can be reached.
+//
+// Why not a C++ copy of qnorm5's AS 241 polynomials: it matches R's qnorm() only when compiled with the
+// floating-point contraction R itself was built with. On 2e7 arguments drawn like norm_rand()'s, a copy
+// compiled without contraction differed from qnorm() in about half of them (by up to 1.1e-15 relative)
+// both on CRAN's R for macOS arm64 (clang; -ffp-contract=on or fast matched) and on R for Linux arm64
+// (GCC 13; only -ffp-contract=fast matched).
 #ifndef STC_RNG_H
 #define STC_RNG_H
 

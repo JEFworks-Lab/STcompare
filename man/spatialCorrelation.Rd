@@ -66,26 +66,28 @@ whether the outputted dataframe will have a column with the values of the
 permutations used to calculate the null correlations and the empirical
 p-value.}
 
-\item{nThreads}{\code{integer}: Number of threads for parallelization.
-Default = 1. Inputting this argument when the \code{BPPARAM} argument is
-\code{NULL} would set parallel execution back-end to be
-\code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
-setting this argument to be the number of cores available
-(\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
-is not \code{NULL}, the \code{BPPARAM} argument would override
-\code{nThreads} argument.}
+\item{nThreads}{\code{integer}: Number of threads of the compiled code.
+Default = 1. The permutations are distributed over the threads, and the
+results do not depend on the number of threads. We recommend the number of
+cores available (\code{parallel::detectCores(logical = FALSE)}).}
 
-\item{BPPARAM}{\code{BiocParallelParam}: Optional additional argument for
-parallelization. This argument is provided for advanced users of
-\code{BiocParallel} for further flexibility for setting up
-parallel-execution back-end. Default is NULL. If provided, this is assumed
-to be an instance of \code{BiocParallelParam}.}
+\item{BPPARAM}{\code{BiocParallelParam}: Optional. If not \code{NULL}, its
+number of workers (\code{BiocParallel::bpnworkers(BPPARAM)}) is used as the
+number of threads instead of \code{nThreads}. No BiocParallel back-end is
+started (nothing is forked). Default is \code{NULL}.}
 
-\item{seed}{\code{integer}: Seed for the random number generator. Default \code{0}.}
+\item{seed}{\code{integer}: Seed for the random number generator. Default
+\code{0}. The permutations are drawn after \code{set.seed(seed)} with the
+session's random number generator kinds (\code{RNGkind()}), and the noise
+of permutation \eqn{b} after \code{set.seed(seed + b)} with
+\code{"L'Ecuyer-CMRG"}. The results depend on the seed only, and the
+global random number generator state (\code{.Random.seed}) is left
+unchanged.}
 }
 \value{
-The output is returned as a \code{data.frame} containing the columns:
-\itemize{
+The output is returned as a \code{data.frame} with one row (named
+  \code{"cor"}) containing the columns:
+\describe{
   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
   observations}
@@ -101,10 +103,10 @@ The output is returned as a \code{data.frame} containing the columns:
   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-  \item{\code{nullCorrelationsX}}{correlation coefficients for pairing Y and
-  all permutations of X}
-  \item{\code{nullCorrelationsY}}{correlation coefficients for pairing X and
-  all permutations of Y}
+  \item{\code{nullCorrelationsX}}{list of a B x 1 matrix: the correlation
+  coefficients for pairing Y and all permutations of X}
+  \item{\code{nullCorrelationsY}}{list of a B x 1 matrix: the correlation
+  coefficients for pairing X and all permutations of Y}
   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
   length of X and B is `nPermutations`. Each column is the resulting values
   of a permutation of X}
@@ -121,6 +123,35 @@ Function to calculate Pearson's correlation between two spatial
   datasets and then smoothing to maintain the original degree of
   autocorrelation
 }
+\details{
+The null distribution of the correlation is built twice: by
+  permuting X while keeping Y fixed, and by permuting Y while keeping X fixed
+  (see \code{\link{viladomatCorrelation}} for how a permutation keeps the
+  autocorrelation). Both directions use the same seed, so they use the same
+  shuffles of the locations. The empirical p-value of a direction is
+  \eqn{(b + 1) / (B + 1)}, where \eqn{b} is the number of null correlations
+  whose absolute value is at least the absolute value of the observed
+  correlation and \eqn{B} is \code{nPermutations}; it is never 0.
+
+  The computation is done by compiled code (C++) that reimplements the
+  \code{locfit} smoother and the \code{geoR} variogram of the original R
+  implementation and gives the same results: the same delta star for every
+  permutation, and the same null correlations up to floating-point rounding
+  (about 1e-14 on the published analyses). Results do not depend on the
+  number of threads, and the global random number generator state is left
+  unchanged.
+
+  If the null cannot be computed in a direction, the columns computed from
+  permutations are \code{NA} (an NA row) and a warning gives the reason.
+  This happens when X or Y is constant or has missing values, when
+  \eqn{N \times delta < 2}{N * delta < 2} for a delta (fewer than 2
+  locations in the smoothing neighbourhood), when \code{maxDistPrctile} is
+  so small that the variogram has fewer than 2 bins, or with exactly
+  duplicated coordinates and a delta so small that the neighbourhood holds
+  no more than the copies of a location. \code{correlationCoef} and
+  \code{pValueNaive} are still computed by \code{cor.test()} where possible
+  (on the complete pairs if there are missing values).
+}
 \examples{
 
 data(quakes)
@@ -130,7 +161,8 @@ quakes_data <- quakes[!duplicated(cbind(quakes$lat, quakes$long)),]
 
 cor <- spatialCorrelation(X = quakes_data$depth,
                           Y = quakes_data$mag,
-                          pos = cbind(quakes_data$lat, quakes_data$long))
+                          pos = cbind(quakes_data$lat, quakes_data$long),
+                          nThreads = 2)
 cor
 
 # plot the delta star (the delta which minimizes the difference between the
@@ -148,7 +180,8 @@ cor2 <- spatialCorrelation(X = quakes_data$depth,
                           Y = quakes_data$mag,
                           pos = cbind(quakes_data$lat, quakes_data$long),
                           deltaX = seq(0.05, 0.9, 0.05),
-                          deltaY = seq(0.02, 0.5, 0.02))
+                          deltaY = seq(0.02, 0.5, 0.02),
+                          nThreads = 2)
 
 cor2
 
@@ -167,7 +200,7 @@ ggplot2::geom_point(size = 2) +
                 x = "Longitude", y = "Latitude",
                 color = "Depth (km)") +
   ggplot2::theme_minimal() +
-  ggplot2::coord_map()
+  ggplot2::coord_quickmap()
 
 p2 <- ggplot2::ggplot(quakes_data,
                       ggplot2::aes(x = long, y = lat, color = mag)) +
@@ -177,7 +210,7 @@ ggplot2::geom_point(size = 2) +
                 x = "Longitude", y = "Latitude",
                 color = "Richter Magnitude") +
   ggplot2::theme_minimal() +
-  ggplot2::coord_map()
+  ggplot2::coord_quickmap()
 
 p1
 p2

@@ -1,8 +1,7 @@
 # Tier 1: statistical calibration and power (fixtures/calibration_fixture.rds, built by
 # data-raw/build_test_fixtures.R tier1; see data-raw/README.md). Labels are explained in helper-fixtures.R.
-# Skipped unless STCOMPARE_SLOW_TESTS=true. 60 calls of spatialCorrelation() with B = 100 (~7 s each on one
-# core); they run in parallel over pairs on STCOMPARE_TEST_WORKERS processes (default
-# BiocParallel::multicoreWorkers()), and the results do not depend on the number of workers.
+# Skipped unless STCOMPARE_SLOW_TESTS=true. 60 calls of spatialCorrelation() with B = 100 on fx_threads
+# threads; the results do not depend on the number of threads.
 #
 # Null pairs: 40 disjoint pairs of the 100 independent simulated fields of data(simRanPatternRasts), so the
 # 40 p-values are independent. Power pairs: the first 20 of them with Y = stc_mix(f_i, f_j, rho = 0.6), a field
@@ -22,11 +21,11 @@ calibration_results <- function() {
       sh <- which(!is.na(cf$fields[i, ]) & !is.na(cf$fields[j, ]))
       X <- unname(cf$fields[i, sh])
       Y <- if (rho == 0) unname(cf$fields[j, sh]) else stc_mix(X, unname(cf$fields[j, sh]), rho, cf$mix_mu)
-      # BiocParallel workers run L'Ecuyer-CMRG; the permutation stream is defined for R's default generators
+      # the permutation stream of the stored reference was drawn with R's default generators
       local_default_rng()
-      o <- quiet_locfit(spatialCorrelation(X, Y, unname(cf$coords[sh, , drop = FALSE]), nPermutations = B,
-                                           BPPARAM = BiocParallel::SerialParam(), seed = 0))
-      list(row = data.frame(i = i, j = j, rho = rho, N = length(sh), r = unname(o$correlationCoef), pNaive = o$pValueNaive,
+      o <- spatialCorrelation(X, Y, unname(cf$coords[sh, , drop = FALSE]), nPermutations = B,
+                              nThreads = fx_threads, seed = 0)
+      list(row = data.frame(i = i, j = j, rho = rho, N = length(sh), r = o$correlationCoef, pNaive = o$pValueNaive,
                             pX = o$pValuePermuteX, pY = o$pValuePermuteY,
                             nExtremeX = sum(abs(o$nullCorrelationsX[[1]]) > abs(o$correlationCoef)),
                             nExtremeY = sum(abs(o$nullCorrelationsY[[1]]) > abs(o$correlationCoef)), B = B,
@@ -34,10 +33,10 @@ calibration_results <- function() {
            deltaStarX = as.numeric(o$deltaStarX[[1]]), deltaStarY = as.numeric(o$deltaStarY[[1]]))
     }
     t0 <- Sys.time()
-    out <- BiocParallel::bplapply(seq_len(nrow(jobs)), run1, BPPARAM = fx_bpparam())
+    out <- lapply(seq_len(nrow(jobs)), run1)
     res <- do.call(rbind, lapply(out, `[[`, "row"))
-    message(sprintf("calibration: %d spatialCorrelation() calls (B = %d) on %d worker(s) in %.1f s",
-                    nrow(res), B, fx_workers(), as.numeric(difftime(Sys.time(), t0, units = "secs"))))
+    message(sprintf("calibration: %d spatialCorrelation() calls (B = %d) on %d thread(s) in %.1f s",
+                    nrow(res), B, fx_threads, as.numeric(difftime(Sys.time(), t0, units = "secs"))))
     for (rho in unique(res$rho)) {
       d <- res[res$rho == rho, ]
       message(sprintf("  rho = %.1f (n = %d): mean r = %.3f; naive p < 0.05: %.3f; pX < 0.05: %.3f; pY < 0.05: %.3f; max(pX, pY) < 0.05: %.3f",
@@ -75,10 +74,10 @@ test_that("portable: power: mix(rho = 0.6) pairs are mostly significant in both 
 })
 
 test_that("portable: p-values agree in distribution with the stored reference and the bandwidth selection is not degenerate", {
-  # Backend-agnostic acceptance check for a statistically (not bit-) equivalent backend. Paired over the
+  # Platform-independent check (the exact one below needs the build machine's binning). Paired over the
   # 60 jobs: no systematic shift of the p-values (paired Wilcoxon test, alpha = 0.001; independent Monte
   # Carlo noise alone gives mean |dp| of about 0.05 at B = 100), and the selected deltas use the grid like
-  # the legacy code (share of permutations at the smallest and at the largest delta within 0.25 of the
+  # the original code (share of permutations at the smallest and at the largest delta within 0.25 of the
   # reference's, at least 3 distinct values).
   skip_if_not_slow()
   cr <- calibration_results()
@@ -103,16 +102,16 @@ test_that("portable: p-values agree in distribution with the stored reference an
   }
 })
 
-test_that("exact (legacy backend): calibration results equal the stored reference", {
-  # Only jobs whose pixel coordinates geoR bins as on the build machine are compared (all of them with
-  # STCOMPARE_EXACT_TESTS=true); a statistically equivalent backend is judged by the test above instead.
+test_that("exact: calibration results equal the stored reference (identical exceedance counts and deltaStar)", {
+  # Only jobs whose pixel coordinates are binned as on the build machine are compared (all of them with
+  # STCOMPARE_EXACT_TESTS=true); elsewhere the distributional test above applies.
   skip_if_not_slow()
   cr <- calibration_results()
   ref <- fx_read(CF)$reference_test_jobs
   k <- seq_len(nrow(ref$results))
   if (fx_exact_mode() == "false") skip("exact reference checks disabled (STCOMPARE_EXACT_TESTS=false)")
   if (fx_exact_mode() == "auto") k <- k[vapply(k, function(j) fx_exact_status(CF, sprintf("job%02d", j))$exact, NA)]
-  if (!length(k)) skip("geoR bins every calibration coordinate set differently on this machine than on the build machine")
+  if (!length(k)) skip("every calibration coordinate set is binned differently on this machine than on the build machine")
   message(sprintf("exact calibration comparison on %d of %d jobs", length(k), nrow(ref$results)))
   res <- cr$results
   expect_identical(res[k, c("i", "j", "rho", "N")], ref$results[k, c("i", "j", "rho", "N")])

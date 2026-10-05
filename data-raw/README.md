@@ -1,10 +1,18 @@
 # STcompare test data
 
 This directory rebuilds the tiered test data in `tests/testthat/fixtures/` and the larger inputs they are cut
-from. The fixtures pin down the **current (legacy, pure R) behaviour** of `spatialCorrelation()`,
+from. The fixtures pin down the behaviour of the **legacy (pure R) implementation** of `spatialCorrelation()`,
 `viladomatCorrelation()`, `matchingVariograms()`, `spatialCorrelationGeneExp()` and `spatialSimilarity()`. They
-are the acceptance harness for a future compiled backend. Every step of the null-generating algorithm is
-stored, so a replacement can be checked one kernel at a time.
+are the acceptance harness of the compiled (C++) engine that has since replaced that implementation. Every
+step of the null-generating algorithm is stored, so the engine's building blocks can be checked one at a time.
+
+> **The fixtures were built with the legacy R implementation**, that is, the package before the C++ engine
+> (upstream commit `2983c99` plus the uncommitted changes of that time; each fixture records them in
+> `meta$git` and `meta$content_md5`). The package now computes the Viladomat null only with the engine, and
+> `matchingVariograms()` is gone. `build_test_fixtures.R` checks every tier-0 intermediate bit for bit against
+> the package's own `matchingVariograms()` and `viladomatCorrelation()` (see "Self-checks" below), so it must
+> run with that legacy version installed or loaded, for example from a checkout of that commit. Never rebuild
+> the fixtures from the engine: they are the reference it is tested against.
 
 `data-raw/` is listed in `.Rbuildignore`. Downloads, caches and rasterized inputs are **never** written to the
 repository. They go to a cache directory (see below), and the scripts refuse any cache path inside the
@@ -15,9 +23,9 @@ attribution of the data in the fixtures ship with the tests, in `tests/testthat/
 
 | Tier | Fixture (xz RDS) | Contents | What it validates | Test file (default runtime) |
 |---|---|---|---|---|
-| 0 kernel | `kernel_fixture.rds` (305 KB) | Seven small cases (below). Each has its inputs, the variogram subsample `ids`, `max.dist`, the target variogram (`u`, `v`, `n`, `bins.lim`), the N x B permutation-index matrix, the RSS of every delta for every permutation and the arg-min per permutation. For permutation 1 it also stores the per-delta smoother variogram, `lm` coefficients, rescaled-field variogram and RSS. **Complete per-delta vectors** (locfit fit, exact `ev = dat()` fit, noise, rescaled field) are stored for permutation 1, forward direction, of `kidney_AB`, `kidney_AB_jitter` and `quakes_irregular`. In both directions: expected nulls, `deltaStar`, raw p-values, tail counts, a column fingerprint (mean, sd, min, max) of the permuted fields, and the first permuted field when N <= 1000. Also `spatialSimilarity()` outputs for speKidney A-B, A-C and A-C with `foldChange = 2`, and a table of edge-case behaviour | RNG streams; the `max.dist` quantile; geoR binning; the locfit smoother; least squares; rescaling and noise; RSS and arg-min over the delta grid; nulls; the p-value definition; both directions; argument plumbing (seed, `maxDistPrctile`, `deltaX` != `deltaY`, defaults); the N = 1000 subsample boundary; worker-count independence; the `spatialCorrelationGeneExp()` wrapper; `spatialSimilarity()` | `test-reference-kernel.R` (21 s) |
-| 1 calibration | `calibration_fixture.rds` (331 KB) | `data(simRanPatternRasts)` as plain matrices: 100 independent simulated fields x 305 hex pixels (NA where absent), coordinates and cells per pixel. All 4950 unordered pairs with shared-pixel count, naive r and p. The shipped reference `inst/extdata/simRanPatternResults.RData`. The mixing recipe (`mix_mu`, `mix_recipe`, and a check vector for the helper `stc_mix()`). 60 test jobs: 40 disjoint null pairs, then the first 20 mixed to rho = 0.6. For these jobs, the current code's results at B = 100: r, naive p, raw pX/pY, tail counts, deltaStar medians, and the 100 x 60 deltaStar matrices of each direction | Type-I error at alpha = 0.05 (one-sided 99.9% binomial bound); power at rho = 0.6; distributional agreement with the stored reference (backend-agnostic); exact reproduction (legacy backend) | `test-calibration.R` (skipped unless `STCOMPARE_SLOW_TESTS=true`; 28 s on 18 workers, about 6.5 CPU-min) |
-| 2 realistic | `realistic_fixture.rds` (536 KB) | AKI kidney Visium: 35 genes x 311 pixels, 11 deltas (10 positive, 10 negative, 10 null, 5 borderline). MERFISH-vs-Visium brain: 30 genes x 2170 pixels, 9 deltas (10 positive, 10 null, 5 sparse on the Visium side, 5 borderline), plus 5 engineered negatives defined by a recipe. Golden values copied from `inst/extdata`: r, naive p, the published (BH-adjusted) p for reference, the **first 100 nulls and deltaStar** of each direction, and the selection table rows | Real data end to end: zero inflation, the N > 1000 variogram subsample, small deltas (0.01, 0.05), the prefix property, and the metamorphic relation Y -> max(Y) - Y (r -> -r, nullX -> -nullX) | `test-reference-realistic.R` (28 s; `skip_on_cran()` except AKI Upk2; all 65 genes at B = 100 when `STCOMPARE_SLOW_TESTS=true`, about 160 s on 18 workers) |
+| 0 kernel | `kernel_fixture.rds` (305 KB) | Seven small cases (below). Each has its inputs, the variogram subsample `ids`, `max.dist`, the target variogram (`u`, `v`, `n`, `bins.lim`), the N x B permutation-index matrix, the RSS of every delta for every permutation and the arg-min per permutation. For permutation 1 it also stores the per-delta smoother variogram, `lm` coefficients, rescaled-field variogram and RSS. **Complete per-delta vectors** (locfit fit, exact `ev = dat()` fit, noise, rescaled field) are stored for permutation 1, forward direction, of `kidney_AB`, `kidney_AB_jitter` and `quakes_irregular`. In both directions: expected nulls, `deltaStar`, raw p-values, tail counts, a column fingerprint (mean, sd, min, max) of the permuted fields, and the first permuted field when N <= 1000. Also `spatialSimilarity()` outputs for speKidney A-B, A-C and A-C with `foldChange = 2`, and a table of edge-case behaviour | RNG streams; the `max.dist` quantile; geoR binning; the locfit smoother; least squares; rescaling and noise; RSS and arg-min over the delta grid; nulls; the p-value definition; both directions; argument plumbing (seed, `maxDistPrctile`, `deltaX` != `deltaY`, defaults); the N = 1000 subsample boundary; worker-count independence; the `spatialCorrelationGeneExp()` wrapper; `spatialSimilarity()` | `test-reference-kernel.R` (about 10 s) |
+| 1 calibration | `calibration_fixture.rds` (331 KB) | `data(simRanPatternRasts)` as plain matrices: 100 independent simulated fields x 305 hex pixels (NA where absent), coordinates and cells per pixel. All 4950 unordered pairs with shared-pixel count, naive r and p. The shipped reference `inst/extdata/simRanPatternResults.RData`. The mixing recipe (`mix_mu`, `mix_recipe`, and a check vector for the helper `stc_mix()`). 60 test jobs: 40 disjoint null pairs, then the first 20 mixed to rho = 0.6. For these jobs, the current code's results at B = 100: r, naive p, raw pX/pY, tail counts, deltaStar medians, and the 100 x 60 deltaStar matrices of each direction | Type-I error at alpha = 0.05 (one-sided 99.9% binomial bound); power at rho = 0.6; distributional agreement with the stored reference (backend-agnostic); exact reproduction (legacy backend) | `test-calibration.R` (skipped unless `STCOMPARE_SLOW_TESTS=true`; about 9 s on 2 threads) |
+| 2 realistic | `realistic_fixture.rds` (536 KB) | AKI kidney Visium: 35 genes x 311 pixels, 11 deltas (10 positive, 10 negative, 10 null, 5 borderline). MERFISH-vs-Visium brain: 30 genes x 2170 pixels, 9 deltas (10 positive, 10 null, 5 sparse on the Visium side, 5 borderline), plus 5 engineered negatives defined by a recipe. Golden values copied from `inst/extdata`: r, naive p, the published (BH-adjusted) p for reference, the **first 100 nulls and deltaStar** of each direction, and the selection table rows | Real data end to end: zero inflation, the N > 1000 variogram subsample, small deltas (0.01, 0.05), the prefix property, and the metamorphic relation Y -> max(Y) - Y (r -> -r, nullX -> -nullX) | `test-reference-realistic.R` (about 12 s: all 35 AKI genes at B = 100 and 4 brain genes at B = 25; all 30 brain genes at B = 100 and the published iterative protocol on the AKI genes when `STCOMPARE_SLOW_TESTS=true`, about 1 minute more on 2 threads) |
 | 3 benchmark | not committed | Full rasterized inputs in the cache: AKI (1046 published genes, all 32 285 rasterized), brain (325 genes), brain cell types (16), MERFISH replicates (483 genes; STalign 1371 and affine 1299 shared pixels) | Full-scale regression against every published result, and benchmarking | none (manual or nightly) |
 
 Tier-0 cases (B = 10, deltas 0.1..0.9, `maxDistPrctile = 0.25` and seed 0 unless noted):
@@ -152,8 +160,8 @@ optionally followed by `compare` or `force`. It writes `tests/testthat/fixtures/
   URL, licence and creators of every download);
 - the per-case runtimes, and the platform signature.
 
-Build fixtures only from the legacy R implementation. Once a compiled backend replaces the inner loop, the
-fixtures are the reference it is compared with; they are not regenerated from it.
+Build fixtures only from the legacy R implementation (see the note at the top). The compiled engine has
+replaced it; the fixtures are the reference the engine is compared with, and they are not regenerated from it.
 
 **Cache layout.** The root is `$STCOMPARE_DATA_CACHE` if set, otherwise `tools::R_user_dir("STcompare", "cache")`:
 
@@ -171,27 +179,35 @@ file, the URL and both checksums; a mismatching download is kept as `<file>.md5-
 
 ## Running the tests
 
+The exported functions are computed by the compiled engine, and the tests compare its results with the stored
+legacy values (tiers 0 and 1) and with the published values (tier 2). Nothing in the suite runs the legacy R
+implementation, which is no longer part of the package. `devtools::test()` compiles the package without
+optimisation (`-O0`, pkgbuild's debug build), which makes the engine about 10 times slower than an installed
+package; `R CMD check` and `testthat::test_local()` with an installed package use the optimised build. The tests
+use at most 2 threads.
+
 ```r
-devtools::test()                                     # tiers 0 and 2 plus portable checks, about 50 s
-Sys.setenv(STCOMPARE_SLOW_TESTS = "true"); devtools::test()   # also tier 1 and all 65 realistic genes at B = 100 (~4 min on 18 workers)
+devtools::test()                                                # default suite, about 1 minute
+Sys.setenv(STCOMPARE_SLOW_TESTS = "true"); devtools::test()     # also tier 1, all 30 brain genes at B = 100 and more, about 2-3 minutes
 ```
+
+| File | What it covers | Default suite |
+|---|---|---|
+| `test-cpp-components.R` | The C++ building blocks against `geoR::variog()`, `fitted(locfit())`, R's L'Ecuyer-CMRG `rnorm()`, `cor()` and `lm()`; the tests that need geoR or locfit are skipped when they are not installed | about 20 s |
+| `test-engine.R` | NA rows and warnings; inputs that crashed the R implementation; `identical()` results across threads, sub-chunks and batches; adaptive stopping (h = Inf equals fixed B; equal to an offline Besag-Clifford computation); exceedance ties; the global RNG state; session continuation and `spatialCorrelationGeneExpIterPermutations()`; the within-sample mode; sparse assays; `verbose`; threads, interrupts and invalid inputs | about 20-30 s |
+| `test-reference-kernel.R` | Tier 0 through `spatialCorrelation()`, `viladomatCorrelation()` and `spatialCorrelationGeneExp()` (nulls within 1e-9 relative, identical deltaStar, p-values from the stored nulls, permuted fields); NA rows; `spatialSimilarity()` | about 10 s |
+| `test-reference-realistic.R` | Tier 2: all 35 AKI genes at B = 100 in one `spatialCorrelationGeneExp()` call, 4 brain genes at B = 25 and an engineered negative; slow: all 30 brain genes at B = 100, the 5 engineered negatives at B = 20, and the published iterative protocol (100 then 1000 permutations) on the 35 AKI genes, which must make the published screening decisions | about 12 s (slow: about 1 minute more) |
+| `test-calibration.R` | Tier 1, slow only: type-I error, power, distributional agreement with the stored reference, and exact agreement (identical exceedance counts and deltaStar) | slow: about 9 s |
 
 **CRAN mode.** `devtools::test()`, `devtools::check()` and `testthat::test_local()` set `NOT_CRAN=true`. A plain
 `R CMD check`, `rcmdcheck::rcmdcheck()` with its default `env` and the Bioconductor build system do not, so
-`skip_on_cran()` applies there:
-
-- skipped: tier 2, apart from the AKI Upk2 tests (zero inflation, deltas 0.01 and 0.05), and the
-  `nThreads = 2` test;
-- still run: all other kernel tests.
-
-A CI job that should cover tier 2 must set `NOT_CRAN=true`.
+`skip_on_cran()` applies there; it skips only the interrupt test, which forks a child process.
 
 **Environment variables:**
 
 | Variable | Effect |
 |---|---|
-| `STCOMPARE_SLOW_TESTS=true` | Runs the calibration tier and the all-genes realistic comparison |
-| `STCOMPARE_TEST_WORKERS` | Processes for the slow tests (default `BiocParallel::multicoreWorkers()`). Results do not depend on it: each job resets R's default RNG kinds and uses `BPPARAM = SerialParam()` |
+| `STCOMPARE_SLOW_TESTS=true` | Runs the calibration tier, all 30 brain genes at B = 100, the published iterative protocol on the AKI genes, determinism on 4 and 8 threads, and the N = 5000 duplicated-coordinates tree |
 | `STCOMPARE_EXACT_TESTS` | `auto` (default), `true` or `false`; see "Platform dependence" |
 
 **Test labels.** These are defined in `tests/testthat/helper-fixtures.R`. The per-case tests are generated in
@@ -199,23 +215,20 @@ loops, so `testthat::test_file(desc = )` cannot select them; run the whole file 
 
 | Label | Calls STcompare? | Purpose | Expectations (default suite, macOS) |
 |---|---|---|---|
-| `exact:` | yes | Stored legacy values at the documented tolerances, on matching platforms | 174 (16 tests) |
-| `portable:` | yes | Every platform: STcompare against the reference kernels run on the same machine; prefix property; X/Y symmetry; worker independence; the p-value definition and the `returnPermutations = FALSE` branch; tie semantics (mocked); error paths returning NA; hand-computed `spatialSimilarity()` values; loose agreement with the fixtures | 305 (22 tests) |
-| `canary:` | no | Dependency canaries and C++ kernel slots: R's RNG, SEraster, geoR, locfit and `lm()` through the `ref_*()` helpers, compared with the fixture | 816 (9 tests) |
-| `fixture integrity:` | no | Consistency of the fixture files | 317 (3 tests) |
+| `exact:` | yes | Stored legacy or published values at the documented tolerances, on matching platforms | 494 (20 tests) |
+| `portable:` | yes | Every platform: C++ components against geoR, locfit and R; NA rows and warnings; determinism; adaptive stopping; continuation; the within-sample mode; prefix property; X/Y symmetry; the p-value definition; hand-computed `spatialSimilarity()` values; loose agreement with the fixtures | 1857 (61 tests) |
+| `canary:` | no | Dependency canaries: R's RNG streams and SEraster against the fixture | 96 (2 tests) |
+| `fixture integrity:` | no | Consistency of the fixture files | 319 (3 tests) |
 
-Only the `exact` and `portable` expectations are regression coverage of STcompare. With every exported
-STcompare function replaced by `stop()`, all of them fail, and the 12 `canary` and integrity tests (1133
-expectations) still pass. Of the 36 code mutants of `R/` in the test-strength review's set, the default suite
-detects 35. The survivor swaps the lat/long columns, which preserves distances.
+Only the `exact` and `portable` expectations are regression coverage of STcompare.
 
 **RNG side effects.** Tests set R's default generators only for their own duration (`local_default_rng()`),
 and `with_lecuyer()` sets all three kinds. Both restore the caller's kind and seed, so no test depends on the
 file order, and running the tests leaves the session's RNG unchanged.
 
-**Warnings.** Only locfit's expected "Estimated rdf < 1.0" warning is muffled (`quiet_locfit()`). Other
-warnings, for example from a new backend, are reported by testthat. The error-path test counts and muffles
-only the warnings that its inputs are expected to raise.
+**Warnings.** The exported functions raise one warning per NA row; the tests that expect them collect and check
+them (`fx_collect_warnings()`). locfit's expected "Estimated rdf < 1.0" warning is muffled where the component
+tests call locfit (`quiet_locfit()`). Any other warning is reported by testthat.
 
 **Housekeeping:**
 
@@ -297,12 +310,12 @@ change and is used as a statistical reference only.
   first. Then permutation i is `X[sample.int(N, N)]` for i = 1..B in order (`sample(X, length(X))`). Both
   directions use the same seed, and so the same index permutations. Swapping X and Y swaps the two directions
   exactly.
-- **Noise.** Permutation i runs inside a BiocParallel task, where `RNGkind()` is L'Ecuyer-CMRG (Inversion).
-  `matchingVariograms()` calls `set.seed(seed + i)` and draws `rnorm(N)` once per delta, in delta order.
-  Consequence: calling the exported `matchingVariograms()` directly in a Mersenne-Twister session gives
-  different noise than inside the package (the tests wrap it in `with_lecuyer()`).
-- **Independence of parallelism.** Results do not depend on `nThreads` or on the BiocParallel backend
-  (`MulticoreParam(1)`, `MulticoreParam(2)` and `SerialParam()` are bit-identical).
+- **Noise.** In the legacy code, permutation i ran inside a BiocParallel task, where `RNGkind()` is
+  L'Ecuyer-CMRG (Inversion) whatever the session's kinds; `matchingVariograms()` called `set.seed(seed + i)`
+  and drew `rnorm(N)` once per delta, in delta order. The compiled engine draws the same normals in C++
+  (`src/stc_rng.h`), for every session RNG setting.
+- **Independence of parallelism.** Results do not depend on `nThreads` or `BPPARAM` (legacy: on the BiocParallel
+  backend; `MulticoreParam(1)`, `MulticoreParam(2)` and `SerialParam()` were bit-identical).
 - **Prefix property.** Permutation i depends only on (seed, i). The first k nulls of a B-permutation run equal a
   k-permutation run. This is why tier 2 can test B = 10 against the first 10 of 1000 published nulls.
 
@@ -341,9 +354,14 @@ Further properties of the current code that matter for exactness:
 
 ## Acceptance criteria for a compiled backend
 
-- **Kernels, on every machine.** Swap each compiled kernel into the corresponding `ref_*()` helper
-  (`helper-fixtures.R`). The portable tests compare STcompare with those helpers on the same machine, so a
-  bit-compatible kernel must reproduce R's own result there, whatever the platform.
+These criteria were written before the compiled engine existed. The engine is a bit-compatible backend in the
+sense below, and the test suite applies them: `test-cpp-components.R` compares each C++ building block with the
+`ref_*()` helpers on the running machine, and the `exact` tests compare the exported functions with the
+fixtures on the build platform.
+
+- **Kernels, on every machine.** Compare each compiled kernel with the corresponding `ref_*()` helper
+  (`helper-fixtures.R`) on the same machine: a bit-compatible kernel must reproduce R's own result there,
+  whatever the platform.
 - **Bit-compatible mode** (locfit's tree ported or wrapped, R's RNG reproduced or injected).
   - All `exact` expectations must pass on the build platform (macOS arm64), together with the portable ones.
   - The fixtures embed the build machine's arithmetic. The binning must match R's `dist()` there (FMA-contracted
@@ -373,10 +391,12 @@ Further properties of the current code that matter for exactness:
 | `build_test_fixtures.R tier0` | 30 s |
 | `build_test_fixtures.R tier1` (60 jobs at B = 100, 18 workers) | 31 s wall (about 7 CPU-min) |
 | `build_test_fixtures.R tier2` | 2 s |
-| `build_test_fixtures.R verify` (B = 100, 18 workers) | 170 s wall (about 44 CPU-min) |
-| `devtools::test()` (kernel 21 s, realistic 28 s, slow tests skipped) | about 55 s |
-| slow tests with `STCOMPARE_SLOW_TESTS=true` (18 workers): calibration / all realistic genes | 28 s / 160 s wall |
-| the default suite on Linux x86-64 under emulation / Linux arm64 (Docker, 16 CPUs) | 130 s / 85 s |
+| `build_test_fixtures.R verify` (B = 100, 18 workers; legacy R implementation) | 170 s wall (about 44 CPU-min) |
+| `devtools::test()` (debug build, at most 2 threads, slow tests skipped) | about 1 minute |
+| `devtools::test()` with `STCOMPARE_SLOW_TESTS=true` | about 2-3 minutes |
+| the default suite installed (optimised build) in Docker, Linux arm64 | about 90 s |
 
-For reference, the current R cost per gene at B = 100 (both directions, one thread) is about 7 s for a simulated
-pair (N = 273), 19-20 s for AKI (N = 311, 11 deltas) and 65-69 s for brain (N = 2170, 9 deltas).
+The legacy R implementation took per gene at B = 100 (both directions, one thread) about 7 s for a simulated
+pair (N = 273), 19-20 s for AKI (N = 311, 11 deltas) and 65-69 s for brain (N = 2170, 9 deltas). The compiled
+engine (installed, optimised build) takes 0.029 s and 0.13 s for the AKI and brain genes on one thread, and
+0.0035 s and 0.016 s on 16 threads.

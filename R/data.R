@@ -94,7 +94,7 @@
 #' @examples
 #' data(simRanPatternRasts)
 #' simRanPatternRasts[[1]]
-#' assays(simRanPatternRasts[[1]])$pixelval[1, 1:5]
+#' SummarizedExperiment::assays(simRanPatternRasts[[1]])$pixelval[1, 1:5]
 #'
 #' @seealso \linkS4class{SpatialExperiment}, \code{\link[MASS]{mvrnorm}},
 #'   \code{\link[stats]{rnorm}}

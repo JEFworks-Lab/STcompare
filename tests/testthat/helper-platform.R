@@ -1,9 +1,12 @@
 # Platform arithmetic signature. Sourced by testthat before the tests and by data-raw/build_test_fixtures.R,
 # which stores the signature of the build machine in every fixture (meta$platform_signature). It uses only
-# base R, stats, geoR and locfit, so both sides compute it with the same code.
+# base R, stats, geoR and locfit, so both sides compute it with the same code. geoR and locfit are suggested
+# packages: without geoR the bin counts come from STcompare's replica of geoR's binning (.stc_variog_plan(),
+# identical bin counts, tests/testthat/test-cpp-components.R), and without locfit its global probe is NA.
 #
-# Why it exists: the legacy results reproduce at the 1e-12 level only where geoR bins the pixel pairs exactly
-# as on the build machine. geoR::variog() takes umax = max(u[u < max.dist]) from R's dist() and counts a pair
+# Why it exists: the stored legacy results reproduce (identical deltaStar, nulls within 1e-9 relative) only
+# where the pixel pairs are binned exactly as on the build machine. The compiled engine bins them as geoR does.
+# geoR::variog() takes umax = max(u[u < max.dist]) from R's dist() and counts a pair
 # only if libm hypot(dx, dy) < umax, so in EVERY data set the pair that defines umax sits exactly on the last
 # bin edge, and lattice coordinates put many tied pairs there. Whether those pairs are counted depends on the
 # last bit of dist() (compiled with or without fused multiply-add) and of the libm hypot(). One different bin
@@ -13,8 +16,9 @@
 # arm64; the AKI and brain sets of the realistic tier differ on both.
 #
 # Other last-bit differences (R's qnorm() behind rnorm(), long double accumulation in sum()/mean()/cor(),
-# locfit and lm() arithmetic) move results by about 1e-16 relative, which the tests absorb (tolerance 1e-12;
-# RNG draws 1e-14). They are recorded as global probes and reported, but they do not gate anything.
+# locfit and lm() arithmetic) move results by about 1e-16 relative, which the tests absorb (nulls 1e-9
+# relative, r 1e-12; RNG draws 1e-14). They are recorded as global probes and reported, but they do not gate
+# anything.
 #
 # The signature has:
 #   info:   build platform and R version (reported only);
@@ -59,10 +63,14 @@ stc_coord_probe <- function(pos, ids, maxDistPrctile) {
   prctile <- unname(stats::quantile(stats::dist(cbind(lat, long)), probs = maxDistPrctile))
   u <- as.vector(stats::dist(cbind(long, lat)))
   umax <- max(u[u < prctile])
-  v <- geoR::variog(data = seq_along(lat), coords = cbind(long, lat), max.dist = prctile, option = "bin",
-                    messages = FALSE)
+  bin_n <- if (requireNamespace("geoR", quietly = TRUE)) {
+    geoR::variog(data = seq_along(lat), coords = cbind(long, lat), max.dist = prctile, option = "bin",
+                 messages = FALSE)$n
+  } else {
+    utils::getFromNamespace(".stc_variog_plan", "STcompare")(long, lat, prctile)$n
+  }
   list(max_dist = stc_hex(prctile), umax = stc_hex(umax), n_pairs_at_umax = sum(u == umax),
-       bin_n = as.integer(v$n))
+       bin_n = as.integer(bin_n))
 }
 
 # Probes that depend on no fixture (reported, not gating). The caller's RNG kind and seed are restored.
@@ -75,12 +83,17 @@ stc_global_probe <- function() {
   px <- g$a + sin(17 * g$b) / 50
   py <- g$b + cos(13 * g$a) / 50
   z <- sin(3 * px) + cos(5 * py)
-  fit <- suppressWarnings(locfit::locfit(z ~ locfit::lp(px, py, nn = 0.3, deg = 0), kern = "gauss", maxk = 300))
+  lf <- if (requireNamespace("locfit", quietly = TRUE)) {
+    fit <- suppressWarnings(locfit::locfit(z ~ locfit::lp(px, py, nn = 0.3, deg = 0), kern = "gauss", maxk = 300))
+    stc_hex(stats::fitted(fit))
+  } else {
+    NA_character_
+  }
   list(qnorm = stc_hex(stats::qnorm(p)), rnorm_lecuyer_seed1 = stc_hex(rn),
        long_double_sum = stc_hex(sum(c(1, 2^-60, -1))),
        dist = stc_hex(stats::dist(cbind(px[1:40], py[1:40]))),
        hypot = stc_hex(Mod(complex(real = px[1:40] - px[41:80], imaginary = py[1:40] - py[41:80]))),
-       lm = stc_hex(stats::lm(y ~ 1 + x)$coefficients), locfit = stc_hex(stats::fitted(fit)))
+       lm = stc_hex(stats::lm(y ~ 1 + x)$coefficients), locfit = lf)
 }
 
 # sets: named list of list(pos, ids, maxDistPrctile).

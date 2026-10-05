@@ -72,7 +72,7 @@ Each element of \code{simRanPatternRasts} is a \code{SpatialExperiment} object w
 \examples{
 data(simRanPatternRasts)
 simRanPatternRasts[[1]]
-assays(simRanPatternRasts[[1]])$pixelval[1, 1:5]
+SummarizedExperiment::assays(simRanPatternRasts[[1]])$pixelval[1, 1:5]
 
 }
 \seealso{
