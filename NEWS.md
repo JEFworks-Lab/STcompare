@@ -52,7 +52,7 @@
   * The method is unchanged: the code reimplements locfit's local-constant Gaussian kernel smoother (its
     adaptive k-d tree with vertex interpolation) and `geoR::variog()`'s binned variogram, and it draws the same
     permutations and noise as before.
-  * It reproduces the published analyses in `inst/extdata`: on the test genes (35 AKI kidney genes on 311
+  * It reproduces the published analyses (formerly in `inst/extdata`): on the test genes (35 AKI kidney genes on 311
     pixels, 30 brain genes on 2170 pixels, 100 permutations), delta\* is identical for every permutation, and
     the null correlations agree within 3e-14 relative. The empirical p-values are therefore the same.
   * Speed, per gene with 100 permutations in both directions (macOS arm64, M1 Ultra), against the R
@@ -128,3 +128,73 @@
 
 * The examples of `spatialCorrelationGeneExpWithinSample()` and `spatialCorrelationGeneExpIterPermutations()`
   run (they passed a list where one object was needed, and printed an undefined object).
+
+* `spatialSimilarity()` computes all genes at once, with the helper that also computes the similarity columns
+  of `compareSpatial()`, and densifies each assay once instead of once per gene: on the published inputs it
+  takes 0.2 s instead of 3.9 s for the 325 brain genes, and 3.5 s instead of 25 minutes for the 32,285 genes of
+  the sparse AKI raster. Its results are identical, except that:
+  * a gene with fewer than `minPixels` kept pixels now reports the number and the IDs of its kept pixels in
+    `numPixelInThresh` and `pixelIDInThresh` (it reported 1 and `NA`);
+  * the list columns are always of class `"AsIs"` (they were not when the first gene had no score);
+  * `parameters` also records the assay used (`assayName`), `minQuantile`, `t1` and `t2`.
+* `spatialSimilarity()` stops with an error that names the genes when values are missing, infinite or negative
+  (a fold change needs values that are not negative; missing values gave an unclear error from `quantile()`,
+  or, with `t1` and `t2` given, were counted as below the threshold, and negative values counted a pixel as
+  similar and dissimilar at once), and when the two objects share no pixel name (the similarity was `NaN`
+  without a warning). `t1` and `t2` must be single numbers, `minQuantile` and `minPixels` between 0 and 1, and
+  `foldChange` not negative. `verbose = TRUE` prints one message instead of one per gene.
+* `linearRegression()`, `pixelClass()` and `savePlots()` use the assay that `spatialSimilarity()` classified
+  when `assayName` is not given (they used the first assay, so the scatter plot could show other values than
+  the ones classified).
+* `savePlots()`:
+  * without pixel geometries, panel 2 shows the second sample (it showed the first one again);
+  * uses `assayName` for every panel (the expression panels of rasterized objects always showed the first assay);
+  * no longer attaches ggplot2, gridExtra and patchwork to the search path; patchwork is now a suggested
+    package, and gridExtra is not used;
+  * the expression panels have the sample names as titles, and their colour bars the same size, in both
+    branches.
+* `plotCorrelationGeneExp()`:
+  * draws pixels with negative values (the axes started at 0, so they were dropped);
+  * shows the greater of the two p-values, or `NA` if either is `NA` (it showed `pValuePermuteX` when
+    `pValuePermuteY` was `NA`), rounded to 3 significant digits;
+  * also takes a `compareSpatial()` result, and shows its `padj`;
+  * stops with a clear error for a gene that is not in the results, and no longer prints "Ignoring unknown
+    labels".
+* `pixelClass()` no longer prints "Coordinate system already present". It needs the sf package (now
+  suggested) for rasterized objects.
+* `spatialCorrelationGeneExpWithinSample()` stops with a clear error when the object has no row names.
+* Documentation:
+  * `spatialSimilarity()`: the proportions are called proportions, `numPixelInThresh` counts the pixels above
+    the threshold in either object (not both), the `verbose` argument is documented, and the details explain
+    the thresholds and the fold-change band (both ends included);
+  * `plotCorrelationGeneExp()` and `linearRegression()` describe what they draw (the former had the
+    description of `spatialCorrelationGeneExpWithinSample()`);
+  * `spatialCorrelation()`: `X` and `Y` are vectors (a matrix with one row or one column is accepted);
+  * `simRanPatternRasts`: each dataset keeps 1201 to 1381 of 5000 simulated cells, on 272 to 288 pixels, and
+    its `colData` columns are listed; `speKidney` is ordered A, C, B;
+  * return values are described with `\describe{}` lists (their item names were lost in the help pages), and
+    typos are fixed;
+  * the examples run in under 5 seconds each with 2 threads, without starting BiocParallel workers, and the
+    `savePlots()` example plots the samples it compared;
+  * `?STcompare` describes the package, and `citation("STcompare")` gives the Bioinformatics paper.
+
+## Package size, namespace and dependencies
+
+* The authors' precomputed results (`inst/extdata/*.RData`, 32 MB) are no longer part of the package. They are
+  kept in the source repository, in `bench/published/`, as the reference of the validation script and the test
+  fixtures; the byte-identical `brainCorrelation_1.RData` was removed. The source tarball is now 2.4 MB with
+  the built vignettes (2.1 MB without; it was 50 MB) and the installed package 2.6 MB (34 MB).
+  `system.file("extdata", ...)` no longer finds these files.
+* The authors' analysis scripts (`inst/scripts/`) are no longer installed with the package: they needed
+  GitHub-only packages and the authors' file paths. They are kept in the source repository with the results
+  they wrote, in `bench/published/scripts/`.
+* The NAMESPACE is generated by roxygen2. Only the documented user-facing functions are exported:
+  `getGenePixelDF()` and `assignFill()` are internal now, and `threshold()` is removed (`spatialSimilarity()` no
+  longer uses it). The `print()`, `summary()` and `as.data.frame()` methods of `compareSpatial()` results are
+  registered as S3 methods instead of being exported as functions.
+* DESCRIPTION: R 4.5 is required, as SEraster is in Bioconductor from release 3.21, which requires R 4.5; the
+  title is spelled correctly; `biocViews` lets `BiocManager::install()` and
+  `remotes::install_github()` find the Bioconductor dependencies; `URL` and `BugReports` point to GitHub;
+  `SystemRequirements: C++17`; ggplot2 (>= 3.5.0) is required; patchwork and sf are suggested, class and
+  reshape2 (no longer used) are not, and `Config/Needs/website` lists the packages that only the case-study
+  articles of the website need.

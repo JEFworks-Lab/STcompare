@@ -2,7 +2,7 @@
 % Please edit documentation in R/spatialCorrelation.R
 \name{spatialCorrelationGeneExpWithinSample}
 \alias{spatialCorrelationGeneExpWithinSample}
-\title{spatialCorrelationGeneExpWithinSample}
+\title{Spatial correlation test between pairs of genes of one sample}
 \usage{
 spatialCorrelationGeneExpWithinSample(
   input,
@@ -29,7 +29,7 @@ the smallest possible p-value is \eqn{1 / 101}, about 0.0099}
 
 \item{delta}{\code{list}: List of single numerics or list of numeric vectors
 to use for delta, the parameter controlling the degree of smoothing in
-permutations of each row (gene). The length of the list should the same as
+permutations of each row (gene). The length of the list should be the same as
 the number of rows in the SpatialExperiment. Delta is a proportion
 calculated by dividing k neighbors by N total observations (columns), where
 k is the number of neighbors in the permutation that should be within the
@@ -43,7 +43,7 @@ for \code{delta}, \code{seq(0.1,0.9,0.1)}, the sequence of every 0.1 from
 0.1 to 0.9, will be used to find the best delta for each row (gene).}
 
 \item{maxDistPrctile}{\code{numeric}: percentile of distances between pixels
-to use as max distance in when calculating variograms. Default = 0.25. At
+to use as max distance when calculating variograms. Default = 0.25. At
 greater distances the variogram is less precise because there are fewer
 pairs of points with that distance between them. Therefore, since the goal
 is to minimize the difference between the variogram of X and those of its
@@ -110,8 +110,8 @@ The output is returned as a \code{data.frame} with one row per pair
   coefficients for the second gene and all permutations of the first}
   \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
   coefficients for the first gene and all permutations of the second}
-  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
-  number of pixels and B is `nPermutations`. Each column is the resulting
+  \item{\code{permutationsX}}{(optional) an N x B matrix, where N is the
+  number of pixels and B is \code{nPermutations}. Each column is the resulting
   values of a permutation of the first gene}
   \item{\code{permutationsY}}{(optional) the same for the second gene}
   \item{\code{first}}{the name of the first row in the pair}

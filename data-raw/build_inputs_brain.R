@@ -1,13 +1,14 @@
 #!/usr/bin/env Rscript
 # data-raw/build_inputs_brain.R
 #
-# Rebuild the rasterized MERFISH-vs-Visium mouse brain inputs exactly as inst/scripts/brain-MERFISH-10x-visium.R
-# and vignettes/brain-MERFISH-10x-visium.Rmd do, from the md5-verified cached downloads:
+# Rebuild the rasterized MERFISH-vs-Visium mouse brain inputs exactly as
+# bench/published/scripts/brain-MERFISH-10x-visium.R and vignettes/articles/brain-MERFISH-10x-visium.Rmd do,
+# from the md5-verified cached downloads:
 #   * gene expression: MERFISH slice 2 replicate 3 aligned to Visium with STalign (cells with Pmatch > 0.95)
 #     vs 10x Visium FFPE adult mouse brain; libnorm = counts / library size * 1e6 on the shared genes;
 #     SEraster resolution 20 (hires pixels), fun = "mean", hexagons; lognorm = log10(x + 1); genes detected
 #     in > 1% of pixels in both datasets (325 genes, 2170 shared pixels);
-#   * cell types (input of inst/extdata/brain-MERFISH-10x-visium/ctCorrelation.RData): Visium deconvolved
+#   * cell types (input of bench/published/brain-MERFISH-10x-visium/ctCorrelation.RData): Visium deconvolved
 #     proportions vs MERFISH one-hot cell-type labels, same rasterization (16 cell types, 2174 shared pixels).
 # MERINGUE::normalizeCounts(log = FALSE) is re-implemented below (verbatim from MERINGUE/R/process.R, GPL-3,
 # JEFworks-Lab) so that MERINGUE is not needed.
@@ -90,7 +91,7 @@ shared <- intersect(rownames(spatialCoords(rast$MERFISH)), rownames(spatialCoord
 cat(sprintf("raster: %d genes; MERFISH %d px, Visium %d px, shared %d\n",
             length(good.genes), ncol(rast$MERFISH), ncol(rast$Visium), length(shared)))
 
-e <- new.env(); load(file.path("inst", "extdata", "brain-MERFISH-10x-visium", "brainCorrelation.RData"), envir = e)
+e <- new.env(); load(stc_published_file("brain-MERFISH-10x-visium", "brainCorrelation.RData"), envir = e)
 ref <- e$brainCorrelation
 stopifnot(identical(rownames(ref), good.genes))
 X <- as.matrix(assay(rast$MERFISH, "lognorm")[rownames(ref), shared])
@@ -119,7 +120,7 @@ Mse <- SpatialExperiment(assays = list(celltypes = t(oh)), spatialCoords = MERFI
 rc <- SEraster::rasterizeGeneExpression(list(Visium = Vse, MERFISH = Mse), assay_name = "celltypes", resolution = 20,
                                         fun = "mean", square = FALSE, BPPARAM = BiocParallel::SerialParam())
 sh_ct <- intersect(colnames(rc$Visium), colnames(rc$MERFISH))
-e <- new.env(); load(file.path("inst", "extdata", "brain-MERFISH-10x-visium", "ctCorrelation.RData"), envir = e)
+e <- new.env(); load(stc_published_file("brain-MERFISH-10x-visium", "ctCorrelation.RData"), envir = e)
 ref_ct <- e$ctCorrelation
 r_ct <- vapply(rownames(ref_ct), function(g) cor(as.numeric(assay(rc$Visium)[g, sh_ct]), as.numeric(assay(rc$MERFISH)[g, sh_ct])), 0)
 dr_ct <- max(abs(r_ct - ref_ct$correlationCoef))

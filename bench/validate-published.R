@@ -2,8 +2,9 @@
 # bench/validate-published.R
 #
 # Main acceptance test of the compiled engine (dev/engine-spec.md, section 5): re-run every published
-# STcompare analysis whose results ship in inst/extdata, from inputs rebuilt from the public downloads
-# (data-raw/build_inputs_*.R), with the authors' parameters (inst/scripts/), and compare gene by gene.
+# STcompare analysis whose results are kept in bench/published (they shipped in inst/extdata until version
+# 0.1.0), from inputs rebuilt from the public downloads (data-raw/build_inputs_*.R), with the authors'
+# parameters (bench/published/scripts/), and compare gene by gene.
 #
 # Usage, from the repository root. By default the script installs the package it sits in (a copy of R/,
 # src/, inst/, ...) into a temporary library with R CMD INSTALL, so that the engine is compiled with R's
@@ -26,7 +27,9 @@
 #   --analyses=a,b,...        [STCOMPARE_VALIDATE_ANALYSES, validate_analyses] default: all six, from
 #                             aki_iter, aki_fixed, merfish_affine, merfish_stalign, brain, celltypes
 #   --pkg=DIR|installed       package to test (default: the directory above bench/); "installed" uses
-#                             library(STcompare) and system.file("extdata", package = "STcompare")
+#                             library(STcompare)
+#   --published=DIR           [STCOMPARE_PUBLISHED_DIR, validate_published] the published results (default:
+#                             published/ beside this script, else <pkg>/bench/published)
 #   --build=install|load_all  [STCOMPARE_VALIDATE_BUILD] how a source directory is loaded: "install" (default)
 #                             R CMD INSTALL into a temporary library; "load_all" devtools::load_all() with
 #                             debug = FALSE and recompile = TRUE (writes object files into src/)
@@ -80,7 +83,7 @@ opt <- function(name, env, var, default) {
 flag <- function(name) any(.args == paste0("--", name))
 unknown <- setdiff(sub("=.*$", "", .args),
                    c("--mode", "--threads", "--analyses", "--pkg", "--build", "--out", "--results", "--label",
-                     "--allow-legacy", "--reuse"))
+                     "--published", "--allow-legacy", "--reuse"))
 if (length(unknown)) stop("unknown option(s): ", paste(unknown, collapse = ", "), " (see the header of this script)")
 
 script_path <- local({
@@ -121,7 +124,6 @@ results_given <- any(grepl("^--results=", .args)) || exists("validate_results", 
 suppressPackageStartupMessages({
   if (identical(pkg, "installed")) {
     library(STcompare)
-    extdata <- system.file("extdata", package = "STcompare")
     pkg_desc <- sprintf("installed STcompare %s (%s)", utils::packageVersion("STcompare"),
                         dirname(system.file(package = "STcompare")))
     pkg_root <- NA_character_
@@ -162,7 +164,6 @@ suppressPackageStartupMessages({
       pkg_desc <- sprintf("STcompare %s loaded with devtools::load_all(\"%s\", debug = FALSE, recompile = TRUE)",
                           version, pkg_root)
     }
-    extdata <- file.path(pkg_root, "inst", "extdata")
   }
 })
 # The cached inputs are SpatialExperiment objects: load the namespaces with their S4 methods before the first
@@ -172,6 +173,11 @@ for (p in c("SummarizedExperiment", "SpatialExperiment")) {
 }
 results_md <- opt("results", NULL, "validate_results",
                   if (!is.na(pkg_root)) file.path(pkg_root, "bench", "validation-results.md") else NA_character_)
+# The published results (.RData) are not part of the package: they are kept in bench/published.
+published_dir <- opt("published", "STCOMPARE_PUBLISHED_DIR", "validate_published",
+                     if (!is.na(script_path)) file.path(dirname(script_path), "published")
+                     else file.path(if (is.na(pkg_root)) "." else pkg_root, "bench", "published"))
+if (!dir.exists(published_dir)) stop("--published: directory of the published results not found: ", published_dir, call. = FALSE)
 ns <- asNamespace("STcompare")
 engine_correlate <- get(".stc_engine_correlate", envir = ns)
 
@@ -206,7 +212,7 @@ if (!is.na(pkg_root) && startsWith(paste0(normalizePath(out_dir), "/"), paste0(p
 }
 
 # ---- the published analyses ----------------------------------------------------------------------
-# Parameters from inst/scripts/ (dev/investigation/04-datasets-and-test-tiers.md, section 1.3). X is the
+# Parameters from bench/published/scripts/ (dev/investigation/04-datasets-and-test-tiers.md, section 1.3). X is the
 # first element of the authors' input list, Y the second. pair() takes the cached input (data-raw/).
 
 grid11 <- c(0.01, 0.05, seq(0.1, 0.9, .1))  # the authors' expression (kidney and MERFISH scripts)
@@ -215,13 +221,13 @@ specs <- list(
     title = "AKI kidney Visium, iterative", ref = "kidneyCorrelation.RData", input = "aki_rast.rds",
     pair = function(inp) list(AKI_ctrl = inp$rast$AKI_ctrl, AKI_aki = inp$rast$AKI_aki),
     xy = "X = control (NL3), Y = AKI (IL3)", assay = "CPM", delta = grid11, nPermutations = c(100, 1000),
-    iterative = TRUE, stored = "BH", script = "inst/scripts/visiumKidneySpatialCorrelation.R",
+    iterative = TRUE, stored = "BH", script = "bench/published/scripts/visiumKidneySpatialCorrelation.R",
     authors_time = NA_character_, authors_hours = NA_real_, authors_threads = "22"),
   aki_fixed = list(
     title = "AKI kidney Visium, fixed B = 100", ref = "kidneyCorrelationNoIter.RData", input = "aki_rast.rds",
     pair = function(inp) list(AKI_ctrl = inp$rast$AKI_ctrl, AKI_aki = inp$rast$AKI_aki),
     xy = "X = control (NL3), Y = AKI (IL3)", assay = "CPM", delta = grid11, nPermutations = 100,
-    iterative = FALSE, stored = "raw", script = "inst/scripts/KidneyNoIter.R",
+    iterative = FALSE, stored = "raw", script = "bench/published/scripts/KidneyNoIter.R",
     authors_time = NA_character_, authors_hours = NA_real_, authors_threads = "22"),
   merfish_affine = list(
     title = "MERFISH replicates, affine", ref = "merfishCorrelation_affine.RData",
@@ -229,7 +235,7 @@ specs <- list(
     pair = function(inp) list(target = inp$rast_affine$target, source = inp$rast_affine$source),
     xy = "X = S2R2 (target), Y = S2R3 (source, affine)", assay = NULL, delta = grid11,
     nPermutations = c(100, 1000), iterative = TRUE, stored = "BH",
-    script = "inst/scripts/biological-replicates-example.R",
+    script = "bench/published/scripts/biological-replicates-example.R",
     authors_time = "7.65 h", authors_hours = 7.653494, authors_threads = "20 (MulticoreParam())"),
   merfish_stalign = list(
     title = "MERFISH replicates, STalign", ref = "merfishCorrelation.RData",
@@ -237,21 +243,21 @@ specs <- list(
     pair = function(inp) list(target = inp$rast$target, source = inp$rast$source),
     xy = "X = S2R2 (target), Y = S2R3 (source, STalign)", assay = NULL, delta = grid11,
     nPermutations = c(100, 1000), iterative = TRUE, stored = "BH", composite = TRUE,
-    script = "inst/scripts/biological-replicates-example.R",
+    script = "bench/published/scripts/biological-replicates-example.R",
     authors_time = "16.8 h", authors_hours = 16.80652, authors_threads = "20 (MulticoreParam())"),
   brain = list(
     title = "Brain MERFISH vs Visium", ref = file.path("brain-MERFISH-10x-visium", "brainCorrelation.RData"),
     input = "brain_merfish_visium_rast.rds",
     pair = function(inp) list(MERFISH = inp$rast$MERFISH, Visium = inp$rast$Visium),
     xy = "X = MERFISH, Y = Visium", assay = "lognorm", delta = NULL, nPermutations = c(100, 1000),
-    iterative = TRUE, stored = "BH", script = "inst/scripts/brain-MERFISH-10x-visium.R",
+    iterative = TRUE, stored = "BH", script = "bench/published/scripts/brain-MERFISH-10x-visium.R",
     authors_time = "1.78 h", authors_hours = 1.78, authors_threads = "22"),
   celltypes = list(
     title = "Brain cell types", ref = file.path("brain-MERFISH-10x-visium", "ctCorrelation.RData"),
     input = "brain_celltype_rast.rds",
     pair = function(inp) list(Visium = inp$rast$Visium, MERFISH = inp$rast$MERFISH),
     xy = "X = Visium, Y = MERFISH", assay = NULL, delta = NULL, nPermutations = c(100, 1000),
-    iterative = TRUE, stored = "BH", script = "inst/scripts/brain-MERFISH-10x-visium.R",
+    iterative = TRUE, stored = "BH", script = "bench/published/scripts/brain-MERFISH-10x-visium.R",
     authors_time = "6.95 min", authors_hours = 6.95 / 60, authors_threads = "22")
 )
 SEED <- 0
@@ -263,7 +269,7 @@ TOL_NULL <- 1e-9
 TOL_PADJ <- 1e-12
 
 load_ref <- function(f) {
-  path <- file.path(extdata, f)
+  path <- file.path(published_dir, f)
   if (!file.exists(path)) stop("published result not found: ", path)
   e <- new.env()
   n <- load(path, envir = e)
@@ -618,7 +624,7 @@ for (id in analyses) {
       "(the number in dev/investigation/04) and %d more through pValuePermuteY only (their raw pX is 0). They are",
       "%d of the %d rows whose stored p-values can show this at all: the other %d rows have no exceedance in either",
       "direction, so their stored p is 0 under any adjustment%s. The stored values therefore cannot tell which rows",
-      "were copied from the earlier run (`inst/scripts/biological-replicates-example.R`, lines 210-217); they show",
+      "were copied from the earlier run (`bench/published/scripts/biological-replicates-example.R`, lines 210-217); they show",
       "that the stored BH adjustment was computed over other raw p-values than the published nulls give. These rows",
       "are compared like the others but not counted in the table: %d match on every check (r, naive p, permutations,",
       "deltaStar, nulls, both counts, BH p), %d differ%s; max relative null difference %.2g."),
@@ -711,9 +717,9 @@ section <- c(
 header <- c(
   "# Validation against the published analyses",
   "",
-  "Written by `bench/validate-published.R` (see `bench/README.md`). Each analysis whose results ship in",
-  "`inst/extdata` is re-run from inputs rebuilt from the public downloads (`data-raw/`) with the authors'",
-  "parameters (`inst/scripts/`), and compared gene by gene with the stored table:",
+  "Written by `bench/validate-published.R` (see `bench/README.md`). Each analysis whose results are in",
+  "`bench/published` is re-run from inputs rebuilt from the public downloads (`data-raw/`) with the authors'",
+  "parameters (`bench/published/scripts/`), and compared gene by gene with the stored table:",
   "",
   "- `r`: |Δ correlationCoef| ≤ 1e-12; `naive p`: relative difference of pValueNaive ≤ 1e-10;",
   "- `B`: the same number of permutations per gene (the same screening decisions);",

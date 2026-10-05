@@ -24,8 +24,8 @@ attribution of the data in the fixtures ship with the tests, in `tests/testthat/
 | Tier | Fixture (xz RDS) | Contents | What it validates | Test file (default runtime) |
 |---|---|---|---|---|
 | 0 kernel | `kernel_fixture.rds` (305 KB) | Seven small cases (below). Each has its inputs, the variogram subsample `ids`, `max.dist`, the target variogram (`u`, `v`, `n`, `bins.lim`), the N x B permutation-index matrix, the RSS of every delta for every permutation and the arg-min per permutation. For permutation 1 it also stores the per-delta smoother variogram, `lm` coefficients, rescaled-field variogram and RSS. **Complete per-delta vectors** (locfit fit, exact `ev = dat()` fit, noise, rescaled field) are stored for permutation 1, forward direction, of `kidney_AB`, `kidney_AB_jitter` and `quakes_irregular`. In both directions: expected nulls, `deltaStar`, raw p-values, tail counts, a column fingerprint (mean, sd, min, max) of the permuted fields, and the first permuted field when N <= 1000. Also `spatialSimilarity()` outputs for speKidney A-B, A-C and A-C with `foldChange = 2`, and a table of edge-case behaviour | RNG streams; the `max.dist` quantile; geoR binning; the locfit smoother; least squares; rescaling and noise; RSS and arg-min over the delta grid; nulls; the p-value definition; both directions; argument plumbing (seed, `maxDistPrctile`, `deltaX` != `deltaY`, defaults); the N = 1000 subsample boundary; worker-count independence; the `spatialCorrelationGeneExp()` wrapper; `spatialSimilarity()` | `test-reference-kernel.R` (about 10 s) |
-| 1 calibration | `calibration_fixture.rds` (331 KB) | `data(simRanPatternRasts)` as plain matrices: 100 independent simulated fields x 305 hex pixels (NA where absent), coordinates and cells per pixel. All 4950 unordered pairs with shared-pixel count, naive r and p. The shipped reference `inst/extdata/simRanPatternResults.RData`. The mixing recipe (`mix_mu`, `mix_recipe`, and a check vector for the helper `stc_mix()`). 60 test jobs: 40 disjoint null pairs, then the first 20 mixed to rho = 0.6. For these jobs, the current code's results at B = 100: r, naive p, raw pX/pY, tail counts, deltaStar medians, and the 100 x 60 deltaStar matrices of each direction | Type-I error at alpha = 0.05 (one-sided 99.9% binomial bound); power at rho = 0.6; distributional agreement with the stored reference (backend-agnostic); exact reproduction (legacy backend) | `test-calibration.R` (skipped unless `STCOMPARE_SLOW_TESTS=true`; about 9 s on 2 threads) |
-| 2 realistic | `realistic_fixture.rds` (536 KB) | AKI kidney Visium: 35 genes x 311 pixels, 11 deltas (10 positive, 10 negative, 10 null, 5 borderline). MERFISH-vs-Visium brain: 30 genes x 2170 pixels, 9 deltas (10 positive, 10 null, 5 sparse on the Visium side, 5 borderline), plus 5 engineered negatives defined by a recipe. Golden values copied from `inst/extdata`: r, naive p, the published (BH-adjusted) p for reference, the **first 100 nulls and deltaStar** of each direction, and the selection table rows | Real data end to end: zero inflation, the N > 1000 variogram subsample, small deltas (0.01, 0.05), the prefix property, and the metamorphic relation Y -> max(Y) - Y (r -> -r, nullX -> -nullX) | `test-reference-realistic.R` (about 12 s: all 35 AKI genes at B = 100 and 4 brain genes at B = 25; all 30 brain genes at B = 100 and the published iterative protocol on the AKI genes when `STCOMPARE_SLOW_TESTS=true`, about 1 minute more on 2 threads) |
+| 1 calibration | `calibration_fixture.rds` (331 KB) | `data(simRanPatternRasts)` as plain matrices: 100 independent simulated fields x 305 hex pixels (NA where absent), coordinates and cells per pixel. All 4950 unordered pairs with shared-pixel count, naive r and p. The published reference `bench/published/simRanPatternResults.RData`. The mixing recipe (`mix_mu`, `mix_recipe`, and a check vector for the helper `stc_mix()`). 60 test jobs: 40 disjoint null pairs, then the first 20 mixed to rho = 0.6. For these jobs, the current code's results at B = 100: r, naive p, raw pX/pY, tail counts, deltaStar medians, and the 100 x 60 deltaStar matrices of each direction | Type-I error at alpha = 0.05 (one-sided 99.9% binomial bound); power at rho = 0.6; distributional agreement with the stored reference (backend-agnostic); exact reproduction (legacy backend) | `test-calibration.R` (skipped unless `STCOMPARE_SLOW_TESTS=true`; about 9 s on 2 threads) |
+| 2 realistic | `realistic_fixture.rds` (536 KB) | AKI kidney Visium: 35 genes x 311 pixels, 11 deltas (10 positive, 10 negative, 10 null, 5 borderline). MERFISH-vs-Visium brain: 30 genes x 2170 pixels, 9 deltas (10 positive, 10 null, 5 sparse on the Visium side, 5 borderline), plus 5 engineered negatives defined by a recipe. Golden values copied from `bench/published`: r, naive p, the published (BH-adjusted) p for reference, the **first 100 nulls and deltaStar** of each direction, and the selection table rows | Real data end to end: zero inflation, the N > 1000 variogram subsample, small deltas (0.01, 0.05), the prefix property, and the metamorphic relation Y -> max(Y) - Y (r -> -r, nullX -> -nullX) | `test-reference-realistic.R` (about 12 s: all 35 AKI genes at B = 100 and 4 brain genes at B = 25; all 30 brain genes at B = 100 and the published iterative protocol on the AKI genes when `STCOMPARE_SLOW_TESTS=true`, about 1 minute more on 2 threads) |
 | 3 benchmark | not committed | Full rasterized inputs in the cache: AKI (1046 published genes, all 32 285 rasterized), brain (325 genes), brain cell types (16), MERFISH replicates (483 genes; STalign 1371 and affine 1299 shared pixels) | Full-scale regression against every published result, and benchmarking | none (manual or nightly) |
 
 Tier-0 cases (B = 10, deltas 0.1..0.9, `maxDistPrctile = 0.25` and seed 0 unless noted):
@@ -86,8 +86,8 @@ expectations.
 Two claims made here earlier were wrong:
 
 - that `kidney_AB_jitter` and `quakes_irregular` "have no ties": `quakes_irregular` bins differently on x86-64;
-- that the `inst/extdata` goldens "were produced on Linux": nothing records where they were produced
-  (`inst/scripts` used 20-22 workers). They reproduce bit for bit on macOS arm64 and on neither Linux platform,
+- that the published goldens "were produced on Linux": nothing records where they were produced
+  (the authors' scripts, now in `bench/published/scripts`, used 20-22 workers). They reproduce bit for bit on macOS arm64 and on neither Linux platform,
   so they were most likely computed on macOS arm64 too.
 
 **Exact references for another platform.** Build them with the legacy R code on that platform, into a separate
@@ -115,11 +115,18 @@ Rscript data-raw/build_inputs_brain.R              # ~40 s  -> brain_merfish_vis
 Rscript data-raw/build_inputs_merfish_replicates.R # ~75 s  -> merfish_replicates_rast.rds (7.5 MB); tier 3 only
 Rscript data-raw/build_test_fixtures.R tier0 tier1 tier2 verify
 Rscript data-raw/build_test_fixtures.R compare     # rebuild in memory and diff against the committed fixtures
+Rscript data-raw/vignette_gene_lists.R             # ~4 min -> inst/extdata/vignette-{aki,brain}-svg-genes.txt (needs MERINGUE)
 ```
 
 **Input builders.** Each `build_inputs_*.R` downloads whatever is missing (through `download_data.R`). It
-stops unless the rebuilt input reproduces the published `correlationCoef` of `inst/extdata` to 1e-12.
+stops unless the rebuilt input reproduces the published `correlationCoef` of `bench/published` to 1e-12.
 Observed: AKI 5e-16, brain 1.05e-15, cell types 1.1e-16, MERFISH 2.0e-14 (STalign) and 2.6e-14 (affine).
+
+**Gene lists of the case studies.** `vignette_gene_lists.R` writes the two lists of spatially variable genes
+that the case-study articles read from `inst/extdata/`: the 1046 published AKI genes in the symbols of the 10x
+feature files, and the 230 brain genes spatially variable in both technologies, recomputed with MERINGUE's
+Moran's I as in the published analysis. Both are identical to the shipped files. For AKI it also reports how
+MERINGUE on the rebuilt input differs from the published list (3 genes only published, 1 only MERINGUE).
 
 **Fixture builder.** `build_test_fixtures.R` takes any of `tier0 tier1 tier2 verify` (default: all four),
 optionally followed by `compare` or `force`. It writes `tests/testthat/fixtures/{kernel,calibration,realistic}_fixture.rds`.
@@ -155,7 +162,7 @@ optionally followed by `compare` or `force`. It writes `tests/testthat/fixtures/
   - `dirty` and `status`: every changed or untracked file under `R`, `NAMESPACE`, `DESCRIPTION`, `data`,
     `data-raw` and `tests`, so untracked files count. Both are NA when git or the repository is unavailable;
 - md5 content hashes of `R/*.R`, `NAMESPACE`, `DESCRIPTION`, `data/*.rda`, `data-raw/*.R`, the test helpers and
-  the `inst/extdata` result files used. These identify the code even when it is not committed;
+  the published result files used (`bench/published`, formerly `inst/extdata`). These identify the code even when it is not committed;
 - for tiers 0 and 2: the build time, script and download md5s of the cached inputs, and `sources` (record, DOI,
   URL, licence and creators of every download);
 - the per-case runtimes, and the platform signature.
@@ -270,7 +277,7 @@ the tests: creators, sources, licence and the changes made.
   browser before a release.
 - **md5 values.** For the Zenodo files they equal the checksums published by the Zenodo API.
 
-Download URLs (the ones used by `inst/scripts/` and the vignettes; also in `stc_manifest` in `download_data.R`):
+Download URLs (the ones used by `bench/published/scripts/` and the articles; also in `stc_manifest` in `download_data.R`):
 
 ```
 https://zenodo.org/records/19074288/files/IL3_filtered_feature_bc_matrix.h5?download=1
@@ -293,11 +300,11 @@ https://cf.10xgenomics.com/samples/spatial-exp/1.3.0/Visium_FFPE_Mouse_Brain/Vis
 - AKI: CPM of 35 genes on 311 pixels, from the Zenodo AKI records.
 - Brain: log10(CPM + 1) of 30 genes, plus Oprk1 in tier 0, on 2170 pixels, from the STalign MERFISH record and
   the 10x Visium dataset.
-- Everything else comes from the package itself (`data(speKidney)`, `data(simRanPatternRasts)`,
-  `inst/extdata/*.RData`) or from base R (`datasets::quakes`).
+- Everything else comes from the package itself (`data(speKidney)`, `data(simRanPatternRasts)`), from the
+  published results (`bench/published/*.RData`) or from base R (`datasets::quakes`).
 
-**Golden references.** Tier 2 uses `inst/extdata/kidneyCorrelation.RData` and
-`inst/extdata/brain-MERFISH-10x-visium/brainCorrelation.RData`. Both were produced by the current code (seed 0).
+**Golden references.** Tier 2 uses `bench/published/kidneyCorrelation.RData` and
+`bench/published/brain-MERFISH-10x-visium/brainCorrelation.RData`. Both were produced by the current code (seed 0).
 On macOS arm64, from the rebuilt inputs, the current code reproduces their nulls to 5.4e-15 and their
 deltaStar exactly (65 genes x 100 permutations x 2 directions). The machine they were computed on is not
 recorded; see "Platform dependence". `simRanPatternResults.RData` predates the 2026-04-28 screening-threshold

@@ -8,7 +8,7 @@
 }
 
 
-#' spatialCorrelationGeneExpIterPermutations
+#' Spatial correlation test with more permutations for promising genes
 #'
 #' @description Function to calculate Pearson's correlation between assays from
 #'   two SpatialExperiment datasets using an iterative permutation strategy. It
@@ -31,12 +31,12 @@
 #'
 #' @param input \code{list} List of two SpatialExperiment objects with matched
 #'   spatial locations. The first element corresponds to the first
-#'   SpatialExperiment (`X`), and the second to the second SpatialExperiment
-#'   (`Y`). The SpatialCoords of the two SpatialExperiment objects should be on
+#'   SpatialExperiment (\code{X}), and the second to the second SpatialExperiment
+#'   (\code{Y}). The SpatialCoords of the two SpatialExperiment objects should be on
 #'   the same coordinate framework and observations at the same coordinate
 #'   location in both datasets should have the same row names. If the
 #'   SpatialExperiment objects do not have shared locations, use
-#'   `SEraster::rasterizeGeneExpression()` to generate SpatialExperiment objects
+#'   \code{SEraster::rasterizeGeneExpression()} to generate SpatialExperiment objects
 #'   with shared pixel locations. See \code{assayName} parameter if the
 #'   SpatialExperiment objects have more than one assay.
 #'
@@ -85,7 +85,7 @@
 #'   (gene) in Y.
 #'
 #' @param maxDistPrctile \code{numeric}: percentile of distances between pixels
-#'   to use as max distance in when calculating variograms. Default = 0.25. At
+#'   to use as max distance when calculating variograms. Default = 0.25. At
 #'   greater distances the variogram is less precise because there are fewer
 #'   pairs of points with that distance between them. Therefore, since the goal
 #'   is to minimize the difference between the variogram of X and those of its
@@ -154,10 +154,10 @@
 #'   coefficients for Y and all permutations of X}
 #'   \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
 #'   coefficients for X and all permutations of Y}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
+#'   \item{\code{permutationsX}}{(optional) an N x B matrix, where N is the
 #'   length of X and B is the final \code{nPermutations} used for that gene.
 #'   Each column is the resulting values of a permutation of X}
-#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the
+#'   \item{\code{permutationsY}}{(optional) an N x B matrix, where N is the
 #'   length of Y and B is the final \code{nPermutations} used for that gene.
 #'   Each column is the resulting values of a permutation of Y}
 #'   }
@@ -251,7 +251,7 @@ spatialCorrelationGeneExpIterPermutations <- function(
   n_na <- .stc_warn_na_rows("spatialCorrelationGeneExpIterPermutations", paste0("gene ", d$genes), final, naive)
   final_results <- .stc_result_table(naive, final, isTRUE(returnPermutations), make.unique(d$genes, sep = ""))
 
-  # mht correct for pValuePermuteX and pValuePermuteY seperately
+  # mht correct for pValuePermuteX and pValuePermuteY separately
   final_results$pValuePermuteX <- stats::p.adjust(final_results$pValuePermuteX, method = adjustMethod)
   final_results$pValuePermuteY <- stats::p.adjust(final_results$pValuePermuteY, method = adjustMethod)
   if (verbose) {

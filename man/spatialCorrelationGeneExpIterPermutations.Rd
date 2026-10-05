@@ -2,7 +2,7 @@
 % Please edit documentation in R/iterativePermutations.R
 \name{spatialCorrelationGeneExpIterPermutations}
 \alias{spatialCorrelationGeneExpIterPermutations}
-\title{spatialCorrelationGeneExpIterPermutations}
+\title{Spatial correlation test with more permutations for promising genes}
 \usage{
 spatialCorrelationGeneExpIterPermutations(
   input,
@@ -23,12 +23,12 @@ spatialCorrelationGeneExpIterPermutations(
 \arguments{
 \item{input}{\code{list} List of two SpatialExperiment objects with matched
 spatial locations. The first element corresponds to the first
-SpatialExperiment (`X`), and the second to the second SpatialExperiment
-(`Y`). The SpatialCoords of the two SpatialExperiment objects should be on
+SpatialExperiment (\code{X}), and the second to the second SpatialExperiment
+(\code{Y}). The SpatialCoords of the two SpatialExperiment objects should be on
 the same coordinate framework and observations at the same coordinate
 location in both datasets should have the same row names. If the
 SpatialExperiment objects do not have shared locations, use
-`SEraster::rasterizeGeneExpression()` to generate SpatialExperiment objects
+\code{SEraster::rasterizeGeneExpression()} to generate SpatialExperiment objects
 with shared pixel locations. See \code{assayName} parameter if the
 SpatialExperiment objects have more than one assay.}
 
@@ -77,7 +77,7 @@ to 0.9, will be used to find the best delta for permutations for each row
 (gene) in Y.}
 
 \item{maxDistPrctile}{\code{numeric}: percentile of distances between pixels
-to use as max distance in when calculating variograms. Default = 0.25. At
+to use as max distance when calculating variograms. Default = 0.25. At
 greater distances the variogram is less precise because there are fewer
 pairs of points with that distance between them. Therefore, since the goal
 is to minimize the difference between the variogram of X and those of its
@@ -147,10 +147,10 @@ The output is returned as a \code{data.frame}. The rownames are the
   coefficients for Y and all permutations of X}
   \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
   coefficients for X and all permutations of Y}
-  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
+  \item{\code{permutationsX}}{(optional) an N x B matrix, where N is the
   length of X and B is the final \code{nPermutations} used for that gene.
   Each column is the resulting values of a permutation of X}
-  \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the
+  \item{\code{permutationsY}}{(optional) an N x B matrix, where N is the
   length of Y and B is the final \code{nPermutations} used for that gene.
   Each column is the resulting values of a permutation of Y}
   }

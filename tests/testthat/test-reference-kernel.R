@@ -382,11 +382,13 @@ test_that("portable: spatialSimilarity() thresholds, pseudo-counts, fold-change 
   expect_identical(l2$gene, c("g1", "g3"))
   expect_equal(l2$log[[1]], log2(c(1 / 1e-4, 3 / 1e-4, 2 / 1, 1 / 2, 2 / 4, 8 / 4, 4 / 2, 4 / 8, 6 / 3, 3 / 6,
                                    1e-4 / 1, 1 / 1, 5 / 5, 10 / 5, 1 / 2, 4 / 2, 7 / 7, 14 / 7, 9 / 9)), tolerance = tol)
-  # g2: one pixel passes, fewer than minPixels * 20 = 2: no similarity values (numPixelInThresh is not
-  # checked: in this branch the legacy code reports the row count of its one-row summary)
+  # g2: one pixel passes, fewer than minPixels * 20 = 2: no similarity values; the kept pixel is still
+  # reported (audit B19)
   g2 <- st[st$gene == "g2", ]
   expect_true(all(is.na(c(g2$percentSimilarity, g2$percentDissimilarityX, g2$percentDissimilarityY))))
-  expect_identical(as.numeric(g2$numPixelOutThresh), 19)
+  expect_identical(as.numeric(c(g2$numPixelInThresh, g2$numPixelOutThresh)), c(1, 19))
+  expect_identical(g2$pixelIDInThresh[[1]], "px20")
+  expect_true(is.na(g2$similarPixelID[[1]]))
   # g3: exactly minPixels * 20 = 2 pixels pass (not fewer), so it is scored: ratios 2 and 1, both similar
   g3 <- st[st$gene == "g3", ]
   expect_identical(c(g3$percentSimilarity, g3$percentDissimilarityX, g3$percentDissimilarityY), c(1, 0, 0))

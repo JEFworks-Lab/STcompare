@@ -2,7 +2,7 @@
 % Please edit documentation in R/spatialCorrelation.R
 \name{viladomatCorrelation}
 \alias{viladomatCorrelation}
-\title{viladomatCorrelation}
+\title{Spatially autocorrelated surrogates and permutation p-value for one direction}
 \usage{
 viladomatCorrelation(
   data,
@@ -15,7 +15,7 @@ viladomatCorrelation(
 )
 }
 \arguments{
-\item{data}{\code{matrix} A N x 4 matrix of with the first column as the
+\item{data}{\code{matrix} An N x 4 matrix with the first column as the
 values of X, the second column as the values of Y, the third column as the
 x-coordinates, and the fourth column as the y-coordinates.}
 
@@ -26,7 +26,7 @@ every permutation. Each delta must satisfy \eqn{N \times delta \ge 2}{N *
 delta >= 2}.}
 
 \item{maxDistPrctile}{\code{numeric}: Percentile of distances between pixels
-to use as max distance in when calculating variograms. At greater distances
+to use as max distance when calculating variograms. At greater distances
 the variogram is less precise because there are fewer pairs of points with
 that distance between them. Therefore, since the goal is to minimize the
 difference between the variogram of X and those of its permutations, the
@@ -61,16 +61,16 @@ The output is returned as a list.
  \describe{
   \item{\code{deltaStarMedian}}{numeric, the median of the deltas that minimize
   the residual sum of squares across each permutation}
-  \item{\code{deltaStar}}{numeric vector of length of `nPermutations`,
+  \item{\code{deltaStar}}{numeric vector of length \code{nPermutations}:
   the delta that minimizes the residual sum of squares for each permutation}
   \item{\code{pValueGlobal}}{numeric, empirical p-value for the Pearson's
   correlation of X and Y, computed as \eqn{(b + 1) / (B + 1)} where \eqn{b}
   is the number of null correlations whose absolute value is at least the
   absolute value of the observed correlation}
-  \item{\code{nullCorGlobal}}{a B x 1 matrix, where B is `nPermutations`.
+  \item{\code{nullCorGlobal}}{a B x 1 matrix, where B is \code{nPermutations}.
   This matrix is the correlation coefficients between the permutations and
   Y that compose that null distribution used to calculate the empirical p-value}
-  \item{\code{permutations}}{a N x B matrix, where B is `nPermutations`.
+  \item{\code{permutations}}{an N x B matrix, where B is \code{nPermutations}.
   Each column is the resulting values of a permutation of X}
   }
 }

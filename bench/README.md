@@ -5,18 +5,20 @@ Scripts that are too slow or need too much data for the test suite. The director
 
 | File | What it is |
 |---|---|
-| `validate-published.R` | The main acceptance test of the compiled engine (`dev/engine-spec.md`, section 5): re-runs every published analysis whose results ship in `inst/extdata` and compares them gene by gene |
+| `published/` | The authors' published results (`.RData`, 30 MB): the reference of `validate-published.R` and of the test fixtures (`data-raw/`). They shipped in `inst/extdata` until version 0.1.0. `published/scripts/` holds the authors' analysis scripts that wrote them (formerly `inst/scripts/`); they need a source checkout, the downloads of `data-raw/` and the GitHub packages MERINGUE and scatterbar, and some paths are the authors' own |
+| `validate-published.R` | The main acceptance test of the compiled engine (`dev/engine-spec.md`, section 5): re-runs every published analysis whose results are in `published/` and compares them gene by gene |
 | `validation-results.md` | The latest summary written by `validate-published.R`, one section per mode |
+| `time-compareSpatial.R` | Run time of `compareSpatial()` with its defaults on the realistic test genes and on the full AKI and brain inputs, with the permutations each gene used |
 
 ## validate-published.R
 
 ### What it runs
 
 Six analyses, each from inputs rebuilt from the public downloads (`data-raw/`) and with the authors' parameters
-(`inst/scripts/`, summarised in `dev/investigation/04-datasets-and-test-tiers.md`, section 1.3). The gene lists
+(`published/scripts/`, summarised in `dev/investigation/04-datasets-and-test-tiers.md`, section 1.3). The gene lists
 are the row names of the stored results. X is the first element of the authors' input list.
 
-| `--analyses` id | Reference (`inst/extdata/`) | Genes | Shared pixels | Call |
+| `--analyses` id | Reference (`bench/published/`) | Genes | Shared pixels | Call |
 |---|---|---:|---:|---|
 | `aki_iter` | `kidneyCorrelation.RData` | 1046 | 311 | `spatialCorrelationGeneExpIterPermutations()`, X = control (NL3), Y = AKI (IL3), `assayName = "CPM"`, deltas `c(0.01, 0.05, 0.1..0.9)`, `nPermutations = c(100, 1000)`, seed 0 |
 | `aki_fixed` | `kidneyCorrelationNoIter.RData` | 1046 | 311 | `spatialCorrelationGeneExp()`, same input and deltas, `nPermutations = 100` |
@@ -55,7 +57,7 @@ The stored p-values are not compared directly: they use the legacy definition `b
 `kidneyCorrelationNoIter.RData` stores them unadjusted (the legacy `spatialCorrelationGeneExp()` called
 `p.adjust()` on one gene at a time). They are only checked for consistency with the published nulls. In
 `merfishCorrelation.RData`, which the authors patched with rows of an earlier run
-(`inst/scripts/biological-replicates-example.R`, lines 210-217), the stored p-values of 122 rows do not follow
+(`published/scripts/biological-replicates-example.R`, lines 210-217), the stored p-values of 122 rows do not follow
 from the stored nulls; those rows are compared like the others but reported separately. (They are all but one
 of the rows whose stored p-values can reveal this: the other 360 rows have p = 0 under any adjustment, so the
 stored values cannot tell which rows came from which run.) Every call is also checked to leave `.Random.seed`
@@ -89,8 +91,9 @@ Rscript bench/validate-published.R --threads=8 --analyses=celltypes,brain
 
 Options: `--threads=N` (default 16; `STCOMPARE_VALIDATE_THREADS`), `--analyses=id,id`
 (`STCOMPARE_VALIDATE_ANALYSES`), `--pkg=DIR` or `--pkg=installed` (default: the package that contains
-`bench/`), `--build=install|load_all`, `--out=DIR`, `--results=FILE`, `--label=TEXT`, and `--reuse` (compare and
-report the results an earlier run of the same mode saved in `--out`, without recomputing them). The cache root
+`bench/`), `--published=DIR` (default: `bench/published`), `--build=install|load_all`, `--out=DIR`,
+`--results=FILE`, `--label=TEXT`, and `--reuse` (compare and report the results an earlier run of the same mode
+saved in `--out`, without recomputing them). The cache root
 is `$STCOMPARE_DATA_CACHE` or `tools::R_user_dir("STcompare", "cache")`.
 
 By default (`--build=install`) the script copies the package sources to a temporary directory and installs them
@@ -120,3 +123,24 @@ the lattice pairs that sit within a few ulp of the last variogram bin edge diffe
 and 16 (brain) pairs fall out of the last bin. That changes the target variogram, and with it most deltaStar
 choices and every null. `geoR::variog()` bins these pairs the same way on Linux, so the legacy R code does not
 reproduce these two published analyses there either (see `data-raw/README.md`, "Platform dependence").
+
+## time-compareSpatial.R
+
+Times `compareSpatial()` with its defaults (adaptive p-values with `exceedances = 10` and `nPermutations = 10000`,
+the extended delta grid) and summarises the permutations per gene (the `nPermutations` column), how many genes
+stopped early or reached the limit, and how many have `padj < 0.05`. Datasets: the realistic test genes
+(`aki_fixture`: 35 genes on 311 pixels; `brain_fixture`: 30 genes on 2170 pixels) and, when the cache of
+`data-raw/` exists, the full inputs of the published AKI (1046 genes, control vs AKI, assay CPM) and brain
+(325 genes, MERFISH vs Visium, assay lognorm) analyses.
+
+```sh
+R CMD INSTALL .                                   # the engine compiled with R's optimising flags
+Rscript bench/time-compareSpatial.R               # 16 threads, every dataset available
+Rscript bench/time-compareSpatial.R --threads=8 --datasets=aki_fixture,brain_fixture --out=/tmp/cs
+Rscript bench/time-compareSpatial.R --datasets=aki,brain --nPermutations=1000
+```
+
+With the defaults, the run time is dominated by the significant genes, which run to 10000 permutations: on 16
+threads of an M1 Ultra the 1046 AKI genes took 106 s (454 genes reached the limit; median 3578 permutations per
+gene) and the 325 brain genes 125 s (70 at the limit; median 215). A smaller `nPermutations` is proportionally
+faster: with `nPermutations = 1000` they took 15 s and 22 s.

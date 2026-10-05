@@ -2,7 +2,7 @@
 library(dplyr)
 
 # kidneyCorrelation
-load("inst/extdata/kidneyCorrelation.RData")
+load("bench/published/kidneyCorrelation.RData")
 
 head(kidneyCorrelation)
 dim(kidneyCorrelation)

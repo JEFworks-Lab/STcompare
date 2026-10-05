@@ -4,7 +4,7 @@
 # Inputs are real gene subsets: AKI kidney Visium (35 genes on 311 shared pixels, 11 deltas including 0.01 and
 # 0.05) and MERFISH vs Visium brain (30 genes on 2170 pixels > 1000, so the variogram uses a 1000-pixel
 # subsample; 9 deltas). The golden nulls and deltaStar are the first 100 of the published results in
-# inst/extdata (computed by the authors with the original R implementation and 1000 permutations); by the
+# bench/published (computed by the authors with the original R implementation and 1000 permutations); by the
 # prefix property a B-permutation run reproduces their first B values. They reproduce exactly where the AKI and
 # brain pixel pairs are binned as on the build machine (macOS arm64), not on Linux, so the exact tests are
 # gated (helper-platform.R).

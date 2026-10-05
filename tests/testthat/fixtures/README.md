@@ -9,7 +9,8 @@ Each fixture records its own provenance in `meta`:
 
 - `meta$sources` lists the public files it was derived from, with record, DOI, URL, licence and creators.
 - `meta$inputs` gives the md5 checksums of those downloads.
-- `meta$content_md5` holds hashes of the package code, the builder scripts and the `inst/extdata` results.
+- `meta$content_md5` holds hashes of the package code, the builder scripts and the published results (then in
+  `inst/extdata`, now in `bench/published`, with the same md5).
 - `meta$platform_signature` describes the arithmetic of the machine that built it.
 
 ## What each fixture contains
@@ -17,8 +18,8 @@ Each fixture records its own provenance in `meta`:
 | Fixture | Contents | Derived from |
 |---|---|---|
 | `kernel_fixture.rds` | Rasterized `data(speKidney)` A/B/C values, part of `datasets::quakes`, and one brain gene (Oprk1) on 2170 pixels, plus the legacy results computed from them | STcompare package data (GPL-3); base R `datasets` (GPL-2 or GPL-3); sources 3 and 4 below |
-| `calibration_fixture.rds` | `data(simRanPatternRasts)` as matrices, `inst/extdata/simRanPatternResults.RData`, and legacy results | STcompare package data (GPL-3) |
-| `realistic_fixture.rds` | AKI kidney: 35 genes on 311 pixels. Brain: 30 genes on 2170 pixels. The first 100 published null correlations and deltaStar values for each gene | Sources 1 to 4 below; results from STcompare's `inst/extdata` (GPL-3) |
+| `calibration_fixture.rds` | `data(simRanPatternRasts)` as matrices, `bench/published/simRanPatternResults.RData`, and legacy results | STcompare package data (GPL-3) |
+| `realistic_fixture.rds` | AKI kidney: 35 genes on 311 pixels. Brain: 30 genes on 2170 pixels. The first 100 published null correlations and deltaStar values for each gene | Sources 1 to 4 below; results published with STcompare, now in `bench/published` (GPL-3) |
 
 ## Sources (all CC BY 4.0)
 
@@ -60,4 +61,4 @@ from:
   - The fixtures keep 30 genes, plus Oprk1 in `kernel_fixture.rds`, on the 2170 shared pixels (the first 1000
     of them for the N = 1000 case).
 - **All fixtures.** Null correlations, deltaStar values and p-values were computed by STcompare from these
-  subsets, or copied from the published STcompare results in `inst/extdata`.
+  subsets, or copied from the published STcompare results in `bench/published` (formerly `inst/extdata`).

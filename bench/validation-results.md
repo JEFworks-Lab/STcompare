@@ -1,8 +1,8 @@
 # Validation against the published analyses
 
-Written by `bench/validate-published.R` (see `bench/README.md`). Each analysis whose results ship in
-`inst/extdata` is re-run from inputs rebuilt from the public downloads (`data-raw/`) with the authors'
-parameters (`inst/scripts/`), and compared gene by gene with the stored table:
+Written by `bench/validate-published.R` (see `bench/README.md`). Each analysis whose results are in
+`bench/published` is re-run from inputs rebuilt from the public downloads (`data-raw/`) with the authors'
+parameters (`bench/published/scripts/`), and compared gene by gene with the stored table:
 
 - `r`: |Δ correlationCoef| ≤ 1e-12; `naive p`: relative difference of pValueNaive ≤ 1e-10;
 - `B`: the same number of permutations per gene (the same screening decisions);
@@ -66,18 +66,18 @@ Screening rounds (ours):
 
 Stored p-values that do not follow from the stored nulls:
 
-- `merfish_stalign`: the stored p-values of 122 rows are not BH(b / B) of the published nulls: 116 through pValuePermuteX (the number in dev/investigation/04) and 6 more through pValuePermuteY only (their raw pX is 0). They are 122 of the 123 rows whose stored p-values can show this at all: the other 360 rows have no exceedance in either direction, so their stored p is 0 under any adjustment, and Cxcr2 has the largest raw p-values, which BH leaves unchanged. The stored values therefore cannot tell which rows were copied from the earlier run (`inst/scripts/biological-replicates-example.R`, lines 210-217); they show that the stored BH adjustment was computed over other raw p-values than the published nulls give. These rows are compared like the others but not counted in the table: 122 match on every check (r, naive p, permutations, deltaStar, nulls, both counts, BH p), 0 differ; max relative null difference 1.1e-13.
+- `merfish_stalign`: the stored p-values of 122 rows are not BH(b / B) of the published nulls: 116 through pValuePermuteX (the number in dev/investigation/04) and 6 more through pValuePermuteY only (their raw pX is 0). They are 122 of the 123 rows whose stored p-values can show this at all: the other 360 rows have no exceedance in either direction, so their stored p is 0 under any adjustment, and Cxcr2 has the largest raw p-values, which BH leaves unchanged. The stored values therefore cannot tell which rows were copied from the earlier run (`bench/published/scripts/biological-replicates-example.R`, lines 210-217); they show that the stored BH adjustment was computed over other raw p-values than the published nulls give. These rows are compared like the others but not counted in the table: 122 match on every check (r, naive p, permutations, deltaStar, nulls, both counts, BH p), 0 differ; max relative null difference 1.1e-13.
 
 No mismatches.
 
 <!-- END validate-published:internal -->
 
 <!-- BEGIN validate-published:exported -->
-## Mode `exported` — after the final fixes: the exported functions (C++ engine only)
+## Mode `exported` — after the acceptance fixes (compareSpatial minDetected and skipped genes, interrupt check, authors' scripts in bench/published/scripts)
 
-Run 2026-10-04 15:27 EDT on DIMKC6JP7VQP1 (Darwin 24.6.0, aarch64-apple-darwin20), R version 4.5.2 (2025-10-31); 16 threads.
-Package: STcompare 0.1.0.9000 from /private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/final-fix/mirror/STcompare, installed with R CMD INSTALL (engine compiled with -g -O2); engine/R source fingerprint `5902394f6b15`.
-Call: `Rscript bench/validate-published.R --mode=exported --threads=16 --label="after the final fixes: the exported functions (C++ engine only)"`. Per-gene tables: `/private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/final-fix/out/validate` (outside the repository).
+Run 2026-10-05 01:49 EDT on DIMKC6JP7VQP1 (Darwin 24.6.0, aarch64-apple-darwin20), R version 4.5.2 (2025-10-31); 16 threads.
+Package: STcompare 0.1.0.9000 from /private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/p345-fix/final/mirror/STcompare, installed with R CMD INSTALL (engine compiled with -g -O2); engine/R source fingerprint `cff553d438a1`.
+Call: `Rscript bench/validate-published.R --mode=exported --threads=16 --label="after the acceptance fixes (compareSpatial minDetected and skipped genes, interrupt check, authors' scripts in bench/published/scripts)"`. Per-gene tables: `/private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/p345-fix/final/validate-out` (outside the repository).
 
 Mismatching genes by check (0 everywhere = the published analysis is reproduced). Genes = genes compared;
 "(+k)": rows of `merfishCorrelation.RData` whose stored p-values do not follow from its stored nulls
@@ -94,18 +94,18 @@ Mismatching genes by check (0 everywhere = the published analysis is reproduced)
 
 | Analysis | Genes | Wall time | Threads | s / gene | Authors' time | Authors' workers | Speedup | RNG state unchanged |
 |---|---:|---|---:|---|---|---|---|---|
-| AKI kidney Visium, iterative | 1046 | 13.6 s | 16 | 0.013 | not recorded | 22 |  | yes |
+| AKI kidney Visium, iterative | 1046 | 13.5 s | 16 | 0.013 | not recorded | 22 |  | yes |
 | AKI kidney Visium, fixed B = 100 | 1046 | 1.9 s | 16 | 0.002 | not recorded | 22 |  | yes |
-| MERFISH replicates, affine | 483 | 39.1 s | 16 | 0.081 | 7.65 h | 20 (MulticoreParam()) | 704× | yes |
-| MERFISH replicates, STalign | 483 | 38.8 s | 16 | 0.080 | 16.8 h | 20 (MulticoreParam()) | 1558× | yes |
-| Brain MERFISH vs Visium | 325 | 12.6 s | 16 | 0.039 | 1.78 h | 22 | 507× | yes |
-| Brain cell types | 16 | 0.9 s | 16 | 0.058 | 6.95 min | 22 | 450× | yes |
+| MERFISH replicates, affine | 483 | 38.7 s | 16 | 0.080 | 7.65 h | 20 (MulticoreParam()) | 712× | yes |
+| MERFISH replicates, STalign | 483 | 38.5 s | 16 | 0.080 | 16.8 h | 20 (MulticoreParam()) | 1570× | yes |
+| Brain MERFISH vs Visium | 325 | 12.4 s | 16 | 0.038 | 1.78 h | 22 | 518× | yes |
+| Brain cell types | 16 | 0.9 s | 16 | 0.057 | 6.95 min | 22 | 458× | yes |
 
 Speedup = the authors' reported wall time / ours (their 20-22 workers on an unrecorded machine, our threads here).
 
 Stored p-values that do not follow from the stored nulls:
 
-- `merfish_stalign`: the stored p-values of 122 rows are not BH(b / B) of the published nulls: 116 through pValuePermuteX (the number in dev/investigation/04) and 6 more through pValuePermuteY only (their raw pX is 0). They are 122 of the 123 rows whose stored p-values can show this at all: the other 360 rows have no exceedance in either direction, so their stored p is 0 under any adjustment, and Cxcr2 has the largest raw p-values, which BH leaves unchanged. The stored values therefore cannot tell which rows were copied from the earlier run (`inst/scripts/biological-replicates-example.R`, lines 210-217); they show that the stored BH adjustment was computed over other raw p-values than the published nulls give. These rows are compared like the others but not counted in the table: 122 match on every check (r, naive p, permutations, deltaStar, nulls, both counts, BH p), 0 differ; max relative null difference 1.1e-13.
+- `merfish_stalign`: the stored p-values of 122 rows are not BH(b / B) of the published nulls: 116 through pValuePermuteX (the number in dev/investigation/04) and 6 more through pValuePermuteY only (their raw pX is 0). They are 122 of the 123 rows whose stored p-values can show this at all: the other 360 rows have no exceedance in either direction, so their stored p is 0 under any adjustment, and Cxcr2 has the largest raw p-values, which BH leaves unchanged. The stored values therefore cannot tell which rows were copied from the earlier run (`bench/published/scripts/biological-replicates-example.R`, lines 210-217); they show that the stored BH adjustment was computed over other raw p-values than the published nulls give. These rows are compared like the others but not counted in the table: 122 match on every check (r, naive p, permutations, deltaStar, nulls, both counts, BH p), 0 differ; max relative null difference 1.1e-13.
 
 No mismatches.
 

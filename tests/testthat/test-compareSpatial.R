@@ -483,10 +483,7 @@ test_that("portable: the similarity columns equal spatialSimilarity()'s on the f
     expect_identical(res$dissimilarityY, as.double(ss$percentDissimilarityY), info = info)
     expect_identical(res$thresholdX, as.double(ss$t1), info = info)
     expect_identical(res$thresholdY, as.double(ss$t2), info = info)
-    # spatialSimilarity() still reports 1 kept pixel for a gene below minPixels (fixed with the package
-    # housekeeping), so the pixel counts are compared for the genes it scored
-    ok <- !is.na(ss$percentSimilarity)
-    expect_identical(res$nPixelsSimilarity[ok], ss$numPixelInThresh[ok], info = info)
+    expect_identical(res$nPixelsSimilarity, ss$numPixelInThresh, info = info)
   }
   P <- rf$pairs$aki
   input <- fx_spe_pair(P)
@@ -519,9 +516,10 @@ test_that("portable: the similarity columns equal spatialSimilarity()'s on the f
   ss2 <- spatialSimilarity(list(spe(X), spe(Y)), t1 = 2, t2 = 3)$similarityTable
   expect_identical(h$similarity, as.double(ss2$percentSimilarity))
   expect_identical(h$dissimilarityY, as.double(ss2$percentDissimilarityY))
-  # negative values: compareSpatial() gives NA similarity with one warning, and the other genes and the
-  # correlation test are not affected (spatialSimilarity() learns to stop on them with the package housekeeping)
+  # negative values: spatialSimilarity() stops; compareSpatial() gives NA similarity with one warning, and the
+  # other genes and the correlation test are not affected
   X[, 5] <- X[, 5] - 2
+  expect_error(spatialSimilarity(list(spe(X), spe(Y))), "negative values in the first object, for example g05")
   w <- fx_collect_warnings(cs_run(spe(X), spe(Y), genes = c("g01", "g05"), nPermutations = 9, exceedances = 3))
   expect_length(w$warnings, 1L)
   expect_match(w$warnings, "the similarity compares fold changes, .* it is NA for 1 gene with negative values: g05$")

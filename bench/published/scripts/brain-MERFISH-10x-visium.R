@@ -224,7 +224,7 @@ brainCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
 end_time <- Sys.time()
 print(end_time - start_time) 
 
-save(brainCorrelation, file = file.path("inst", "extdata", "brain-MERFISH-10x-visium", "brainCorrelation.RData"))
+save(brainCorrelation, file = file.path("bench", "published", "brain-MERFISH-10x-visium", "brainCorrelation.RData"))
 
 
 # saving the significantly positively correlated svg genes 
@@ -375,7 +375,7 @@ ctCorrelation <- STcompare::spatialCorrelationGeneExpIterPermutations(
 end_time <- Sys.time()
 print(end_time - start_time) 
 
-save(ctCorrelation, file = file.path("inst", "extdata", "brain-MERFISH-10x-visium", "ctCorrelation.RData"))
+save(ctCorrelation, file = file.path("bench", "published", "brain-MERFISH-10x-visium", "ctCorrelation.RData"))
 
 
 

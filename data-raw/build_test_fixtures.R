@@ -12,7 +12,7 @@
 #          tests/testthat/test-calibration.R
 #   tier2  tests/testthat/fixtures/realistic_fixture.rds    AKI kidney Visium (35 genes x 311 pixels) and
 #          MERFISH-vs-Visium brain (30 genes x 2170 pixels) subsets with golden nulls/deltaStar copied
-#          from inst/extdata (published results)
+#          from bench/published (the published results; formerly inst/extdata)
 #   verify re-runs the current code on every realistic gene (B = $STCOMPARE_VERIFY_B, default 100,
 #          in parallel) and on the kernel cases, and stops unless everything matches
 #
@@ -106,7 +106,7 @@ save_fixture <- function(x, f) {
               if (length(d)) sprintf("%d difference(s)", length(d)) else "identical"))
   if (length(d)) cat(paste0("    ", utils::head(d, 60), "\n"), if (length(d) > 60) sprintf("    ... and %d more\n", length(d) - 60), sep = "")
   # Changed input data (not added cases) usually means a stale or modified cache: the correlation checks
-  # against inst/extdata cannot see, e.g., a rescaled gene, but the committed fixture can.
+  # against bench/published cannot see, e.g., a rescaled gene, but the committed fixture can.
   changed_inputs <- grep("^changed: (.*\\$input\\$(X|Y|pos)|pairs\\$[^$]+\\$(X|Y|pos)|coords|fields)$", d, value = TRUE)
   if (length(changed_inputs) && !force_write && !compare_only)
     stop("The input data differ from those stored in the committed ", f, ":\n  ", paste(changed_inputs, collapse = "\n  "),
@@ -139,7 +139,7 @@ need_input <- function(name, script) {
          "). Rebuild it:  Rscript ", script, call. = FALSE)
   x
 }
-load_extdata <- function(f) { e <- new.env(); n <- load(file.path("inst", "extdata", f), envir = e); get(n, envir = e) }
+load_published <- function(f) { e <- new.env(); n <- load(stc_published_file(f), envir = e); get(n, envir = e) }
 # Stop unless the cached input reproduces the published correlation coefficients and naive p-values of every
 # published gene: catches stale inputs (older builder, other SEraster/sf versions) and modified files.
 check_input <- function(label, X, Y, ref) {
@@ -290,7 +290,7 @@ if ("tier0" %in% tiers) {
   shAC <- intersect(rownames(spatialCoords(rk$A)), rownames(spatialCoords(rk$C)))
   getv <- function(s, px) as.numeric(assay(s)[1, px])
   b <- need_input("brain_merfish_visium_rast.rds", "data-raw/build_inputs_brain.R")
-  bc <- load_extdata("brain-MERFISH-10x-visium/brainCorrelation.RData")
+  bc <- load_published("brain-MERFISH-10x-visium/brainCorrelation.RData")
   px <- b$shared
   bX <- as.matrix(assay(b$rast$MERFISH, "lognorm")[rownames(bc), px])
   bY <- as.matrix(assay(b$rast$Visium, "lognorm")[rownames(bc), px])
@@ -383,7 +383,7 @@ if ("tier0" %in% tiers) {
   fixture$meta <- stc_meta("data-raw/build_test_fixtures.R tier0",
                            inputs = list(brain_merfish_visium_rast.rds = b$meta[c("created", "script", "inputs")]),
                            sources = stc_sources(b$meta$inputs$file),
-                           goldens = file.path("inst", "extdata", "brain-MERFISH-10x-visium", "brainCorrelation.RData"),
+                           goldens = stc_published_file("brain-MERFISH-10x-visium", "brainCorrelation.RData"),
                            extra = list(rng_kind_at_startup = rng_at_startup, runtime_sec_current_R = runtime,
                                         licence_notice = "tests/testthat/fixtures/README.md"))
   fixture$meta$platform_signature <- stc_platform_signature(stc_signature_sets("kernel_fixture.rds", fixture))
@@ -437,7 +437,7 @@ if ("tier1" %in% tiers) {
     ct <- cor.test(fields[ij[1], sh], fields[ij[2], sh]); c(length(sh), ct$estimate, ct$p.value)
   }))
   pairs <- data.frame(i = pr[, 1], j = pr[, 2], n_shared = as.integer(naive[, 1]), r = naive[, 2], p_naive = naive[, 3])
-  ref <- load_extdata("simRanPatternResults.RData")
+  ref <- load_published("simRanPatternResults.RData")
   cat(sprintf("  fields %d x %d pixels (NA where absent); pairs %d; naive p<0.05: %.1f%%; BH(naive)<0.05: %.1f%%; shipped empirical p<0.05: %.2f%%\n",
               nrow(fields), ncol(fields), nrow(pairs), 100 * mean(pairs$p_naive < 0.05),
               100 * mean(p.adjust(pairs$p_naive, "BH") < 0.05), 100 * mean(ref$corspv_corrected < 0.05)))
@@ -469,7 +469,7 @@ if ("tier1" %in% tiers) {
   mix_check$value <- mix(mix_check$fi, mix_check$fj, mix_check$rho)
   fixture <- list(rng = rng_semantics, coords = coords, fields = fields, num_cell = ncell, pairs = pairs,
                   reference_shipped = list(
-                    source = paste("inst/extdata/simRanPatternResults.RData: all 9900 ordered pairs, pValuePermuteX only,",
+                    source = paste("bench/published/simRanPatternResults.RData: all 9900 ordered pairs, pValuePermuteX only,",
                                    "0 replaced by 0.01; generated 2026-04-24 with spatialCorrelationGeneExp_test, i.e.",
                                    "before the 2026-04-28 screening-threshold fix, so it is a statistical reference only"),
                     cors_df = ref, empirical_rate_p_lt_0.05 = mean(ref$corspv_corrected < 0.05)),
@@ -490,7 +490,7 @@ if ("tier1" %in% tiers) {
                                 "(spacing 0.2). All 4950 unordered pairs are independent nulls. stc_mix(f_i, f_j, rho) gives a field",
                                 "with the same covariance model whose population correlation with f_i is rho (power)."))
   fixture$meta <- stc_meta("data-raw/build_test_fixtures.R tier1",
-                           goldens = file.path("inst", "extdata", "simRanPatternResults.RData"),
+                           goldens = stc_published_file("simRanPatternResults.RData"),
                            extra = list(rng_kind_at_startup = rng_at_startup, runtime_sec_reference_jobs = secs(t0),
                                         licence_notice = "tests/testthat/fixtures/README.md"))
   fixture$meta$platform_signature <- stc_platform_signature(stc_signature_sets("calibration_fixture.rds", fixture))
@@ -500,7 +500,7 @@ if ("tier1" %in% tiers) {
 }
 
 ## =============================================================================================
-## Tier 2: realistic regression subsets with golden values from inst/extdata
+## Tier 2: realistic regression subsets with golden values from bench/published
 ## =============================================================================================
 legacy_p <- function(nc, r) sum(abs(nc) > abs(r)) / length(nc)
 
@@ -541,7 +541,7 @@ if ("tier2" %in% tiers) {
   }
   # --- AKI kidney (X = control NL3, Y = AKI IL3), resolution 5, CPM
   aki <- need_input("aki_rast.rds", "data-raw/build_inputs_aki.R")
-  kc <- load_extdata("kidneyCorrelation.RData")
+  kc <- load_published("kidneyCorrelation.RData")
   shA <- aki$shared
   XA <- as.matrix(assay(aki$rast$AKI_ctrl, "CPM")[rownames(kc), shA]); YA <- as.matrix(assay(aki$rast$AKI_aki, "CPM")[rownames(kc), shA])
   check_input("AKI (all published genes)", XA, YA, kc)
@@ -553,7 +553,7 @@ if ("tier2" %in% tiers) {
   bordA <- with(tabA[!sigA & tabA$nperm == 1000, ], gene[order(pmax(pX_final, pY_final))])[1:5]     # screened, BH p ~ 0.05
   genesA <- c(posA, negA, nulA, bordA)
   clsA <- rep(c("positive", "negative", "null", "borderline"), c(length(posA), length(negA), length(nulA), length(bordA)))
-  akiFix <- pack("AKI_NL3_vs_IL3_res5_CPM", aki$rast, "CPM", kc, "inst/extdata/kidneyCorrelation.RData", genesA, clsA,
+  akiFix <- pack("AKI_NL3_vs_IL3_res5_CPM", aki$rast, "CPM", kc, "bench/published/kidneyCorrelation.RData", genesA, clsA,
                  c(0.01, 0.05, seq(0.1, 0.9, .1)),
                  paste("Visium mouse kidney, sham control (NL3, X) vs ischemic AKI (IL3, Y); AKI spots aligned to the control",
                        "with STalign (affine, region one-hots); both rotated 90 degrees; SEraster resolution 5 (array-index",
@@ -561,7 +561,7 @@ if ("tier2" %in% tiers) {
   akiFix$selection <- tabA[match(genesA, tabA$gene), ]
   # --- brain MERFISH (S2R3 -> Visium) vs Visium FFPE, resolution 20, mean of libnorm then log10(x + 1)
   br <- need_input("brain_merfish_visium_rast.rds", "data-raw/build_inputs_brain.R")
-  bc <- load_extdata("brain-MERFISH-10x-visium/brainCorrelation.RData")
+  bc <- load_published("brain-MERFISH-10x-visium/brainCorrelation.RData")
   XB <- as.matrix(assay(br$rast$MERFISH, "lognorm")[rownames(bc), br$shared]); YB <- as.matrix(assay(br$rast$Visium, "lognorm")[rownames(bc), br$shared])
   check_input("brain (all published genes)", XB, YB, bc)
   tabB <- pick(bc, XB, YB)
@@ -573,7 +573,7 @@ if ("tier2" %in% tiers) {
   genesB <- c(posB, nulB, sparseB, bordB)
   clsB <- rep(c("positive", "null", "sparse_Y", "borderline"), c(length(posB), length(nulB), length(sparseB), length(bordB)))
   brFix <- pack("brain_MERFISH_vs_Visium_res20_lognorm", br$rast, "lognorm", bc,
-                "inst/extdata/brain-MERFISH-10x-visium/brainCorrelation.RData", genesB, clsB, seq(0.1, 0.9, 0.1),
+                "bench/published/brain-MERFISH-10x-visium/brainCorrelation.RData", genesB, clsB, seq(0.1, 0.9, 0.1),
                 paste("MERFISH S2R3 (Pmatch > 0.95, STalign to Visium; X) vs Visium FFPE adult mouse brain (Y); libnorm = CPM",
                       "on shared genes; SEraster resolution 20 (hires pixels), fun = mean, hexagons; lognorm = log10(x + 1);",
                       "N = 2170 > 1000, so the variogram uses a 1000-pixel subsample."))
@@ -598,7 +598,7 @@ if ("tier2" %in% tiers) {
   print(brFix$selection, digits = 3, row.names = FALSE)
   options(op)
   fixture <- list(rng = rng_semantics, pairs = list(aki = akiFix, brain = brFix), selection_rules = sel_rules,
-                  notes = paste("Golden values are copied from the published results in inst/extdata, computed by the",
+                  notes = paste("Golden values are copied from the published results in bench/published, computed by the",
                                 "authors with the current code (20-22 workers; the machine is not recorded). They",
                                 "reproduce bit for bit on macOS arm64 but not on Linux x86-64 or arm64 (glibc 2.39),",
                                 "where geoR bins the AKI and brain pixel pairs differently, so they were most likely",
@@ -610,8 +610,8 @@ if ("tier2" %in% tiers) {
                            inputs = list(aki_rast.rds = aki$meta[c("created", "script", "inputs")],
                                          brain_merfish_visium_rast.rds = br$meta[c("created", "script", "inputs")]),
                            sources = stc_sources(c(aki$meta$inputs$file, br$meta$inputs$file)),
-                           goldens = file.path("inst", "extdata", c("kidneyCorrelation.RData",
-                                                                    "brain-MERFISH-10x-visium/brainCorrelation.RData")),
+                           goldens = stc_published_file(c("kidneyCorrelation.RData",
+                                                          "brain-MERFISH-10x-visium/brainCorrelation.RData")),
                            extra = list(rng_kind_at_startup = rng_at_startup, licence_notice = "tests/testthat/fixtures/README.md"))
   fixture$meta$platform_signature <- stc_platform_signature(stc_signature_sets("realistic_fixture.rds", fixture))
   fixture <- fixture[c("meta", setdiff(names(fixture), "meta"))]

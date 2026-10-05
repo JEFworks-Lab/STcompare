@@ -2,7 +2,7 @@
 % Please edit documentation in R/visualizationFunctions.R
 \name{savePlots}
 \alias{savePlots}
-\title{Generates and saves comprehensive visualization plots for specified genes.}
+\title{Maps, pixel classes and scatter plot of genes, optionally saved as PDF}
 \usage{
 savePlots(
   geneNames,
@@ -15,45 +15,50 @@ savePlots(
 \arguments{
 \item{geneNames}{Character vector. Names of genes to visualize and save.}
 
-\item{spatialSimilarity}{A list. Results from `spatialSimilarity()` containing
-similarity tables and analysis parameters.}
+\item{spatialSimilarity}{A list. Results from \code{spatialSimilarity()}
+containing similarity tables and analysis parameters.}
 
-\item{rastGexp}{A list of two SpatialExperiment objects. Rasterized gene expression
-data from the spatial experiments being compared.}
+\item{rastGexp}{A list of two SpatialExperiment objects: the rasterized gene
+expression data that \code{spatialSimilarity()} compared, in the same
+order. The names of the list are the titles of the expression panels.}
 
 \item{assayName}{A character string or numeric specifying the assay in the
-Spatial Experiment to use. Default is \code{NULL}. If no value is supplied
-for \code{assayName}, then the first assay is used as a default}
+Spatial Experiment to use. Default is \code{NULL}: the assay that
+\code{spatialSimilarity()} used. It is used for all four panels.}
 
-\item{filePath}{Character. Directory path where PDF files will be saved.}
+\item{filePath}{Character. Directory where a PDF file is saved for each
+gene. Default is \code{FALSE}: no files are written.}
 }
 \value{
 A list containing the arranged plot objects for each gene, with gene names
 as list element names. Each plot object is a four-panel arrangement showing:
-\itemize{
+\describe{
   \item{\strong{Panel 1:}}{Spatial expression plot for the first experiment.}
   \item{\strong{Panel 2:}}{Spatial expression plot for the second experiment.}
-  \item{\strong{Panel 3:}}{Pixel classification plot showing similarity categories.}
-  \item{\strong{Panel 4:}}{Linear regression scatter plot comparing expression between experiments.}
+  \item{\strong{Panel 3:}}{Pixel classification plot showing similarity categories (\code{\link{pixelClass}()}).}
+  \item{\strong{Panel 4:}}{Expression scatter plot comparing the experiments (\code{\link{linearRegression}()}).}
 }
 }
 \description{
 This function creates a multi-panel plot for each gene showing spatial expression
-patterns, pixel classifications, and correlation analysis. Each gene generates
-a four-panel figure that is saved as a PDF file.
+patterns, pixel classifications, and the expression scatter plot. Each gene gives
+a four-panel figure, which can also be saved as a PDF file. It needs the
+patchwork package.
 }
 \details{
-The function saves each gene's visualization as a PDF file named
-"{gene_name}.pdf" in the specified directory. Plot dimensions are set to
-17 inches wide by 5 inches tall at 300 DPI resolution.
+If \code{filePath} is a directory, each gene's figure is saved there
+as a PDF file named after the gene (\code{<gene>.pdf}), 17 inches wide by 5
+inches tall.
 }
 \examples{
 data(speKidney)
-#' ##### Rasterize to get pixels at matched spatial locations #####
+##### Rasterize to get pixels at matched spatial locations #####
 rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
                 assay_name = 'counts', resolution = 0.2, fun = "mean",
-                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
-s <- spatialSimilarity(list(rastKidney$A, rastKidney$B))
-plts <- savePlots("Gene", s, rastKidney)
+                square = FALSE)
+rastAB <- list(A = rastKidney$A, B = rastKidney$B)
+s <- spatialSimilarity(rastAB)
+plts <- savePlots("Gene", s, rastAB)
 plts
+
 }

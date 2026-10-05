@@ -1,7 +1,7 @@
 # Helpers for the reference tests. testthat (and devtools::load_all()) sources this file before the tests;
 # it only defines functions. The fixtures in tests/testthat/fixtures/ were built from the original R
 # implementation (locfit, geoR and BiocParallel; removed since) by data-raw/build_test_fixtures.R, and the
-# realistic tier holds the first 100 published nulls of inst/extdata (see data-raw/README.md). The exported
+# realistic tier holds the first 100 published nulls of bench/published (see data-raw/README.md). The exported
 # functions are now computed by the compiled engine, and these values are its reference.
 #
 # Test labels used in the test files:

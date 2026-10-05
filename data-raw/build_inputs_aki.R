@@ -2,17 +2,18 @@
 # data-raw/build_inputs_aki.R
 #
 # Rebuild the rasterized AKI kidney 10x Visium input (IL3 = ischemic AKI, NL3 = sham control) exactly as
-# inst/scripts/visiumKidneySpatialCorrelation.R and vignettes/acute-kidney-injury-10x-visium-rasterized.Rmd
-# do, but from the md5-verified cached downloads (see data-raw/download_data.R).
+# bench/published/scripts/visiumKidneySpatialCorrelation.R and the article
+# vignettes/articles/acute-kidney-injury-10x-visium-rasterized.Rmd do, but from the md5-verified cached
+# downloads (see data-raw/download_data.R).
 #
 # Run from the repository root:
 #   Rscript data-raw/build_inputs_aki.R
 # Output (cache, never the repository):
 #   <cache>/data-raw/inputs/aki_rast.rds
 #     list(rast = list(AKI_ctrl, AKI_aki) rasterized SpatialExperiments with assays counts and CPM,
-#          shared = shared pixel IDs (311), genes = the 1046 genes of inst/extdata/kidneyCorrelation.RData,
+#          shared = shared pixel IDs (311), genes = the 1046 genes of bench/published/kidneyCorrelation.RData,
 #          meta = provenance)
-# Check: Pearson r of every published gene must reproduce inst/extdata/kidneyCorrelation.RData to 1e-12.
+# Check: Pearson r of every published gene must reproduce bench/published/kidneyCorrelation.RData to 1e-12.
 # Needs rhdf5 (Bioconductor). Runtime about 1 min.
 source("data-raw/download_data.R")
 suppressPackageStartupMessages({ library(SpatialExperiment); library(SummarizedExperiment); library(Matrix) })
@@ -71,7 +72,7 @@ for (nm in names(rast)) cat(sprintf("raster %s: %d genes x %d pixels\n", nm, nro
 cat("shared pixels:", length(shared), "\n")
 
 # reproduction check against the published results (computed by the package authors on the original inputs)
-e <- new.env(); load(file.path("inst", "extdata", "kidneyCorrelation.RData"), envir = e)
+e <- new.env(); load(stc_published_file("kidneyCorrelation.RData"), envir = e)
 kc <- e$kidneyCorrelation
 genes <- rownames(kc)
 stopifnot(all(genes %in% rownames(rast$AKI_ctrl)))

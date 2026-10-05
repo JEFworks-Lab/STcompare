@@ -143,6 +143,10 @@ stc_download_dir <- function() stc_cache_dir()
 stc_inputs_dir <- function() stc_cache_dir("inputs")
 stc_input_file <- function(name) file.path(stc_inputs_dir(), name)
 
+# The authors' published results (.RData), kept in the repository under bench/published/ (they shipped in
+# inst/extdata until version 0.1.0; they are not part of the package).
+stc_published_file <- function(...) file.path("bench", "published", ...)
+
 stc_md5 <- function(path) unname(tools::md5sum(path))
 
 # Download (if needed) and verify the requested files; returns their paths, named by file.
@@ -223,8 +227,9 @@ stc_git_info <- function(repo = stc_repo_root()) {
        dirty = if (is.null(status)) NA else length(status) > 0, status = if (is.null(status)) NA_character_ else status)
 }
 
-# Provenance recorded inside every rasterized input and fixture. `goldens`: files of inst/extdata the output
-# was derived from; `sources`: attribution rows from stc_sources().
+# Provenance recorded inside every rasterized input and fixture. `goldens`: published result files
+# (bench/published/, formerly inst/extdata/) the output was derived from; `sources`: attribution rows from
+# stc_sources().
 stc_meta <- function(script, inputs = NULL, sources = NULL, goldens = NULL, extra = list()) {
   repo <- stc_repo_root()
   pv <- function(p) tryCatch(as.character(utils::packageVersion(p)), error = function(e) NA_character_)

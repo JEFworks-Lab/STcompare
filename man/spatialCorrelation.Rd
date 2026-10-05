@@ -2,7 +2,7 @@
 % Please edit documentation in R/spatialCorrelation.R
 \name{spatialCorrelation}
 \alias{spatialCorrelation}
-\title{spatialCorrelation}
+\title{Spatial correlation test of two vectors of values at the same locations}
 \usage{
 spatialCorrelation(
   X,
@@ -19,13 +19,13 @@ spatialCorrelation(
 )
 }
 \arguments{
-\item{X}{\code{numeric} or \code{matrix}: a 1 x N numeric vector or matrix
-with N observations}
+\item{X}{\code{numeric}: a numeric vector with N observations (a matrix
+with one row or one column is also accepted)}
 
-\item{Y}{\code{numeric} or \code{matrix}: a 1 x N numeric vector or matrix
-with N observations}
+\item{Y}{\code{numeric}: a numeric vector with N observations, like
+\code{X}}
 
-\item{pos}{\code{matrix}: a N x 2 matrix array of spatial x,y coordinates of
+\item{pos}{\code{matrix}: an N x 2 matrix of the spatial x,y coordinates of
 observations}
 
 \item{nPermutations}{\code{integer} or \code{double}: number of permutations
@@ -54,7 +54,7 @@ like \code{deltaX} but for observation in Y instead of X. Default is
 used to find the best delta for permutations of Y.}
 
 \item{maxDistPrctile}{\code{numeric}: percentile of distances between pixels
-to use as max distance in when calculating variograms. Default = 0.25. At
+to use as max distance when calculating variograms. Default = 0.25. At
 greater distances the variogram is less precise because there are fewer
 pairs of points with that distance between them. Therefore, since the goal
 is to minimize the difference between the variogram of X and those of its
@@ -107,11 +107,11 @@ The output is returned as a \code{data.frame} with one row (named
   coefficients for pairing Y and all permutations of X}
   \item{\code{nullCorrelationsY}}{list of a B x 1 matrix: the correlation
   coefficients for pairing X and all permutations of Y}
-  \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
-  length of X and B is `nPermutations`. Each column is the resulting values
+  \item{\code{permutationsX}}{(optional) an N x B matrix, where N is the
+  length of X and B is \code{nPermutations}. Each column is the resulting values
   of a permutation of X}
-  \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the
-  length of Y and B is `nPermutations`. Each column is the resulting values
+  \item{\code{permutationsY}}{(optional) an N x B matrix, where N is the
+  length of Y and B is \code{nPermutations}. Each column is the resulting values
   of a permutation of Y}
   }
 }

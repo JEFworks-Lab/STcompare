@@ -1,4 +1,4 @@
-#' viladomatCorrelation
+#' Spatially autocorrelated surrogates and permutation p-value for one direction
 #'
 #' @description Function to calculate Pearson's correlation between two spatial
 #'   datasets, X and Y. To replace the analytical p-value which results in a
@@ -31,7 +31,7 @@
 #'   permutations are returned, and \code{nullCorGlobal} and
 #'   \code{pValueGlobal} are \code{NA} with a warning.
 #'
-#' @param data \code{matrix} A N x 4 matrix of with the first column as the
+#' @param data \code{matrix} An N x 4 matrix with the first column as the
 #'   values of X, the second column as the values of Y, the third column as the
 #'   x-coordinates, and the fourth column as the y-coordinates.
 #'
@@ -42,7 +42,7 @@
 #'   delta >= 2}.
 #'
 #' @param maxDistPrctile \code{numeric}: Percentile of distances between pixels
-#'   to use as max distance in when calculating variograms. At greater distances
+#'   to use as max distance when calculating variograms. At greater distances
 #'   the variogram is less precise because there are fewer pairs of points with
 #'   that distance between them. Therefore, since the goal is to minimize the
 #'   difference between the variogram of X and those of its permutations, the
@@ -76,16 +76,16 @@
 #'  \describe{
 #'   \item{\code{deltaStarMedian}}{numeric, the median of the deltas that minimize
 #'   the residual sum of squares across each permutation}
-#'   \item{\code{deltaStar}}{numeric vector of length of `nPermutations`,
+#'   \item{\code{deltaStar}}{numeric vector of length \code{nPermutations}:
 #'   the delta that minimizes the residual sum of squares for each permutation}
 #'   \item{\code{pValueGlobal}}{numeric, empirical p-value for the Pearson's
 #'   correlation of X and Y, computed as \eqn{(b + 1) / (B + 1)} where \eqn{b}
 #'   is the number of null correlations whose absolute value is at least the
 #'   absolute value of the observed correlation}
-#'   \item{\code{nullCorGlobal}}{a B x 1 matrix, where B is `nPermutations`.
+#'   \item{\code{nullCorGlobal}}{a B x 1 matrix, where B is \code{nPermutations}.
 #'   This matrix is the correlation coefficients between the permutations and
 #'   Y that compose that null distribution used to calculate the empirical p-value}
-#'   \item{\code{permutations}}{a N x B matrix, where B is `nPermutations`.
+#'   \item{\code{permutations}}{an N x B matrix, where B is \code{nPermutations}.
 #'   Each column is the resulting values of a permutation of X}
 #'   }
 #'
@@ -153,7 +153,7 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 }
 
 
-#' spatialCorrelation
+#' Spatial correlation test of two vectors of values at the same locations
 #'
 #' @description Function to calculate Pearson's correlation between two spatial
 #'   datasets. To replace the analytical p-value which results in a high false
@@ -190,13 +190,13 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   \code{pValueNaive} are still computed by \code{cor.test()} where possible
 #'   (on the complete pairs if there are missing values).
 #'
-#' @param X \code{numeric} or \code{matrix}: a 1 x N numeric vector or matrix
-#'   with N observations
+#' @param X \code{numeric}: a numeric vector with N observations (a matrix
+#'   with one row or one column is also accepted)
 #'
-#' @param Y \code{numeric} or \code{matrix}: a 1 x N numeric vector or matrix
-#'   with N observations
+#' @param Y \code{numeric}: a numeric vector with N observations, like
+#'   \code{X}
 #'
-#' @param pos \code{matrix}: a N x 2 matrix array of spatial x,y coordinates of
+#' @param pos \code{matrix}: an N x 2 matrix of the spatial x,y coordinates of
 #'   observations
 #'
 #' @param nPermutations \code{integer} or \code{double}: number of permutations
@@ -225,7 +225,7 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   used to find the best delta for permutations of Y.
 #'
 #' @param maxDistPrctile \code{numeric}: percentile of distances between pixels
-#'   to use as max distance in when calculating variograms. Default = 0.25. At
+#'   to use as max distance when calculating variograms. Default = 0.25. At
 #'   greater distances the variogram is less precise because there are fewer
 #'   pairs of points with that distance between them. Therefore, since the goal
 #'   is to minimize the difference between the variogram of X and those of its
@@ -277,11 +277,11 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   coefficients for pairing Y and all permutations of X}
 #'   \item{\code{nullCorrelationsY}}{list of a B x 1 matrix: the correlation
 #'   coefficients for pairing X and all permutations of Y}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
-#'   length of X and B is `nPermutations`. Each column is the resulting values
+#'   \item{\code{permutationsX}}{(optional) an N x B matrix, where N is the
+#'   length of X and B is \code{nPermutations}. Each column is the resulting values
 #'   of a permutation of X}
-#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the
-#'   length of Y and B is `nPermutations`. Each column is the resulting values
+#'   \item{\code{permutationsY}}{(optional) an N x B matrix, where N is the
+#'   length of Y and B is \code{nPermutations}. Each column is the resulting values
 #'   of a permutation of Y}
 #'   }
 #'
@@ -370,7 +370,7 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
   .stc_result_table(naive, e, isTRUE(returnPermutations), "cor")
 }
 
-#' spatialCorrelationGeneExp
+#' Spatial correlation test for every gene of two samples
 #'
 #' @description Function to calculate Pearson's correlation between assays from
 #'   two SpatialExperiment datasets. To replace the analytical p-value which
@@ -396,12 +396,12 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'
 #' @param input \code{list} List of two SpatialExperiment objects with matched
 #'   spatial locations. The first element corresponds to the first
-#'   SpatialExperiment (`X`), and the second to the second SpatialExperiment
-#'   (`Y`). The SpatialCoords of the two SpatialExperiment objects should be on
+#'   SpatialExperiment (\code{X}), and the second to the second SpatialExperiment
+#'   (\code{Y}). The SpatialCoords of the two SpatialExperiment objects should be on
 #'   the same coordinate framework and observations at the same coordinate
 #'   location in both datasets should have the same row names. If the
 #'   SpatialExperiment objects do not have shared locations, use
-#'   `SEraster::rasterizeGeneExpression()` to generate SpatialExperiment objects
+#'   \code{SEraster::rasterizeGeneExpression()} to generate SpatialExperiment objects
 #'   with shared pixel locations. See \code{assayName} parameter if the
 #'   SpatialExperiment objects have more than one assay.
 #'
@@ -412,7 +412,7 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'
 #' @param deltaX \code{list}: List of single numerics or list of numeric vectors
 #'   to use for delta, the parameter controlling the degree of smoothing in
-#'   permutations of X. The length of the list should the same as the number of
+#'   permutations of X. The length of the list should be the same as the number of
 #'   rows in the SpatialExperiment.  Delta is a proportion calculated by
 #'   dividing k neighbors by N total observations (columns) in X, where k is the
 #'   number of neighbors in the permutation of X that should be within the
@@ -434,7 +434,7 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   (gene) in Y.
 #'
 #' @param maxDistPrctile \code{numeric}: percentile of distances between pixels
-#'   to use as max distance in when calculating variograms. Default = 0.25. At
+#'   to use as max distance when calculating variograms. Default = 0.25. At
 #'   greater distances the variogram is less precise because there are fewer
 #'   pairs of points with that distance between them. Therefore, since the goal
 #'   is to minimize the difference between the variogram of X and those of its
@@ -504,9 +504,9 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   coefficients for Y and all permutations of X}
 #'   \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
 #'   coefficients for X and all permutations of Y}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the length of X and B is `nPermutations`.
+#'   \item{\code{permutationsX}}{(optional) an N x B matrix, where N is the length of X and B is \code{nPermutations}.
 #'   Each column is the resulting values of a permutation of X}
-#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the length of Y and B is `nPermutations`.
+#'   \item{\code{permutationsY}}{(optional) an N x B matrix, where N is the length of Y and B is \code{nPermutations}.
 #'   Each column is the resulting values of a permutation of Y}
 #'   }
 #'
@@ -575,7 +575,7 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
   out
 }
 
-#' spatialCorrelationGeneExpWithinSample
+#' Spatial correlation test between pairs of genes of one sample
 #'
 #' @description Function to calculate Pearson's correlation between rows from
 #'   one SpatialExperiment dataset. To replace the analytical p-value which
@@ -606,7 +606,7 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'
 #' @param delta \code{list}: List of single numerics or list of numeric vectors
 #'   to use for delta, the parameter controlling the degree of smoothing in
-#'   permutations of each row (gene). The length of the list should the same as
+#'   permutations of each row (gene). The length of the list should be the same as
 #'   the number of rows in the SpatialExperiment. Delta is a proportion
 #'   calculated by dividing k neighbors by N total observations (columns), where
 #'   k is the number of neighbors in the permutation that should be within the
@@ -620,7 +620,7 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'   0.1 to 0.9, will be used to find the best delta for each row (gene).
 #'
 #' @param maxDistPrctile \code{numeric}: percentile of distances between pixels
-#'   to use as max distance in when calculating variograms. Default = 0.25. At
+#'   to use as max distance when calculating variograms. Default = 0.25. At
 #'   greater distances the variogram is less precise because there are fewer
 #'   pairs of points with that distance between them. Therefore, since the goal
 #'   is to minimize the difference between the variogram of X and those of its
@@ -686,8 +686,8 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #'   coefficients for the second gene and all permutations of the first}
 #'   \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
 #'   coefficients for the first gene and all permutations of the second}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
-#'   number of pixels and B is `nPermutations`. Each column is the resulting
+#'   \item{\code{permutationsX}}{(optional) an N x B matrix, where N is the
+#'   number of pixels and B is \code{nPermutations}. Each column is the resulting
 #'   values of a permutation of the first gene}
 #'   \item{\code{permutationsY}}{(optional) the same for the second gene}
 #'   \item{\code{first}}{the name of the first row in the pair}
@@ -736,6 +736,7 @@ spatialCorrelationGeneExpWithinSample <- function(input,
     assayName <- 1
   }
   genes <- rownames(input)
+  if (is.null(genes) || anyNA(genes)) stop("input must have row names (genes)")
   G <- length(genes)
   if (G < 2L) stop("input must have at least 2 rows (genes)")
   pos <- SpatialExperiment::spatialCoords(input)
@@ -769,38 +770,46 @@ spatialCorrelationGeneExpWithinSample <- function(input,
   out
 }
 
-#' plotCorrelationGeneExp
+#' Plot a gene's values in two samples at the shared pixels
 #'
-#' @description Function to calculate Pearson's correlation between rows from
-#'   one SpatialExperiment dataset. To replace the analytical p-value which
-#'   results in a high false positive rate for autocorrelated spatial patterns,
-#'   it calculates empirical p-values from empirical null distributions
-#'   generated from permuting the data and then smoothing to maintain the
-#'   original degree of autocorrelation
+#' @description Scatter plot of a gene's values in two SpatialExperiment
+#'   objects on their shared pixels, with the correlation coefficient and the
+#'   permutation p-value of the gene in the title.
+#'
+#' @details The pixels are matched by name, as in
+#'   \code{\link{spatialCorrelationGeneExp}()}. Both axes start at 0, or at the
+#'   smallest value if a value is negative, and end at the largest value, so
+#'   every pixel with values in both objects is drawn.
 #'
 #' @param speList \code{list} List of two SpatialExperiment objects with matched
 #'   spatial locations. The first element corresponds to the first
-#'   SpatialExperiment (`X`), and the second to the second SpatialExperiment
-#'   (`Y`).
+#'   SpatialExperiment (\code{X}), and the second to the second
+#'   SpatialExperiment (\code{Y}). The names of the list label the axes.
 #'
-#' @param spatialCorrelation \code{dataframe}: the output from running
-#'   `spatialCorrelationGeneExp` function on `speList`
+#' @param spatialCorrelation \code{dataframe}: the output of
+#'   \code{\link{spatialCorrelationGeneExp}()} or
+#'   \code{\link{spatialCorrelationGeneExpIterPermutations}()} for
+#'   \code{speList}, or of \code{\link{compareSpatial}()} for the same objects.
 #'
-#' @param geneName \code{character}: A character string specifiying the name of
-#'   gene (row) in both a SpatialExperiments in `speList`
+#' @param geneName \code{character}: The name of the gene (row) in both
+#'   SpatialExperiment objects of \code{speList} and in
+#'   \code{spatialCorrelation}.
 #'
 #' @param assayName \code{character} or \code{integer} A character string or
 #'   numeric specifying the assay in the SpatialExperiment to use. Default is
 #'   \code{NULL}. If no value is supplied for \code{assayName}, then the first
 #'   assay is used as a default
 #'
-#' @return The output is returned as a ggplot grob. A scatterplot with the
-#'   values of the gene in the first SpatialExperiment, i.e
-#'   `SummarizedExperiment::assay(speList[[1]], assayName)[geneName, ]`, on the
-#'   x-axis and values of the gene in the second SpatialExperiment on the
-#'   y-axis. The title includes the gene name, the correlation coefficient, and
-#'   the empirical p-value as the greater of
-#'   `spatialCorrelation$pValuePermuteX`and `spatialCorrelation$pValuePermuteY`.
+#' @return A ggplot object: a scatterplot with the values of the gene in the
+#'   first SpatialExperiment, i.e
+#'   \code{SummarizedExperiment::assay(speList[[1]], assayName)[geneName, ]},
+#'   on the x-axis and values of the gene in the second SpatialExperiment on
+#'   the y-axis. The title includes the gene name, the correlation coefficient
+#'   (rounded to 3 decimals), and the empirical p-value (3 significant digits):
+#'   \code{p_E}, the greater of \code{pValuePermuteX} and
+#'   \code{pValuePermuteY} (\code{NA} if either is \code{NA}) for the output
+#'   of the legacy functions, or \code{padj} for a \code{compareSpatial()}
+#'   result.
 #'
 #'
 #' @export
@@ -812,14 +821,14 @@ spatialCorrelationGeneExpWithinSample <- function(input,
 #' ##### Rasterize to get pixels at matched spatial locations #####
 #' rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
 #'                assay_name = 'counts', resolution = 0.2, fun = "mean",
-#'                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+#'                square = FALSE)
 #'
 #' ##### Use STcompare to calculate Pearson's correlation coefficient #####
 #' rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
 #' rastGexpListAC <- list(A = rastKidney$A, C = rastKidney$C)
 #'
-#' negCorrelation <- spatialCorrelationGeneExp(rastGexpListAB)
-#' posCorrelation <- spatialCorrelationGeneExp(rastGexpListAC)
+#' negCorrelation <- spatialCorrelationGeneExp(rastGexpListAB, nThreads = 2)
+#' posCorrelation <- spatialCorrelationGeneExp(rastGexpListAC, nThreads = 2)
 #'
 #' negCorrelation
 #' posCorrelation
@@ -839,6 +848,12 @@ plotCorrelationGeneExp <- function(speList,
   if (is.null(assayName)) {
     assayName <- 1
   }
+  if (!is.character(geneName) || length(geneName) != 1L || is.na(geneName)) {
+    stop("geneName must be one gene name")
+  }
+  if (!geneName %in% rownames(spatialCorrelation)) {
+    stop(sprintf("gene %s is not a row of spatialCorrelation", geneName))
+  }
 
   #store names for labeling axes and title
   nameList <- names(speList)
@@ -849,37 +864,44 @@ plotCorrelationGeneExp <- function(speList,
     assayNameChar <- SummarizedExperiment::assayNames(speList[[1]])[assayName]
   }
 
-  # pick the greater of the two p-values as the empirical p-value to add to plot
-  correlationEmpirical <- dplyr::mutate(spatialCorrelation,
-                                        pValueEmpirical = dplyr::case_when(
-                                          pValuePermuteY > pValuePermuteX ~ pValuePermuteY,
-                                                     .default = pValuePermuteX))
+  # the correlation and the p-value shown in the title: for the legacy functions, the greater of the two
+  # empirical p-values (NA if either is NA); for compareSpatial(), the adjusted permutation p-value
+  res <- spatialCorrelation[geneName, , drop = FALSE]
+  if (all(c("r", "padj") %in% names(res))) {
+    r <- res$r
+    p <- res$padj
+    pLabel <- "padj"
+  } else {
+    r <- res$correlationCoef
+    p <- max(res$pValuePermuteX, res$pValuePermuteY)
+    pLabel <- "p_E"
+  }
 
   #Determine the positions of shared pixels between two rasterized spatial
   #experiments
   Y <- speList[[2]]
   X <- speList[[1]]
+  for (s in list(X, Y)) {
+    if (!geneName %in% rownames(s)) stop(sprintf("gene %s is not in both SpatialExperiment objects of speList", geneName))
+  }
   sharedPixels <- intersect(rownames(SpatialExperiment::spatialCoords(Y)),
                             rownames(SpatialExperiment::spatialCoords(X)))
 
   rastDf <- data.frame(YGexp = SummarizedExperiment::assay(Y, assayName)[geneName, sharedPixels],
                        XGexp = SummarizedExperiment::assay(X, assayName)[geneName, sharedPixels])
+  # the same range on both axes, from 0 (or the smallest value, if negative) to the largest value
+  lims <- range(0, rastDf$XGexp, rastDf$YGexp, na.rm = TRUE)
 
-  pltGexp <- ggplot2::ggplot(data = rastDf, mapping=ggplot2::aes(x=XGexp,y=YGexp)) +
-    ggplot2::geom_point(alpha = 0.5, size=1) +
-    ggplot2::ylim(0, max(rastDf$YGexp, rastDf$XGexp)) +
-    ggplot2::xlim(0, max(rastDf$YGexp, rastDf$XGexp)) +
+  pltGexp <- ggplot2::ggplot(data = rastDf, mapping = ggplot2::aes(x = .data$XGexp, y = .data$YGexp)) +
+    ggplot2::geom_point(alpha = 0.5, size = 1, na.rm = TRUE) +
+    ggplot2::ylim(lims) +
+    ggplot2::xlim(lims) +
     ggplot2::theme_classic() + ggplot2::theme(legend.position="right") +
-    ggplot2::guides(color = ggplot2::guide_legend(
-      override.aes = list(linetype = c(0, 0, 0, 0),
-                          shape = c(16, 16, 16, 16),
-                          alpha = c(1,1,1,1)) )) +
     ggplot2::labs(x = paste0(assayNameChar, " in ", nameList[1]),
                   y = paste0(assayNameChar, " in ", nameList[2]),
                   title = paste(geneName, " r = ",
-                                round(correlationEmpirical[geneName,"correlationCoef"],3),
-                                " p_E = ",
-                                correlationEmpirical[geneName, "pValueEmpirical"]),
-                  fill = "Data")
+                                round(r, 3),
+                                paste0(" ", pLabel, " = "),
+                                signif(p, 3)))
   pltGexp
 }

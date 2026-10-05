@@ -222,14 +222,14 @@ merfishCorrelation %>%
   dplyr::filter(is.na(pValuePermuteX)) %>% 
   dim()
 
-save(merfishCorrelation, file = "~/github/STcompare/inst/extdata/merfishCorrelation.RData")
+save(merfishCorrelation, file = "~/github/STcompare/bench/published/merfishCorrelation.RData")
 
 # Full script to generate the precomputed vignette results available at:
 # system.file("scripts", "visiumKidneySpatialCorrelation.R", package = "STcompare")
 
 # load data generated from the script 
-load(system.file("extdata", "merfishCorrelation.RData", package = "STcompare"))
-load(file = "~/github/STcompare/inst/extdata/merfishCorrelation.RData")
+load(file.path("bench", "published", "merfishCorrelation.RData"))
+load(file = "~/github/STcompare/bench/published/merfishCorrelation.RData")
 
 ## Results for SVGs ####
 
@@ -564,8 +564,8 @@ print(end_time - start_time) #Time difference of 7.653494 hours
 
 save(merfishCorrelation_affine, file = "~/ST_compare/data/merfish_data/merfish_correlation_affine_delta_0_01_0_9_BH_Iter1000_20260628.RData")
 load(file = "~/ST_compare/data/merfish_data/merfish_correlation_affine_delta_0_01_0_9_BH_Iter1000_20260628.RData")
-save(merfishCorrelation_affine, file = "~/github/STcompare/inst/extdata/merfishCorrelation_affine.RData")
-load(file = "~/github/STcompare/inst/extdata/merfishCorrelation_affine.RData")
+save(merfishCorrelation_affine, file = "~/github/STcompare/bench/published/merfishCorrelation_affine.RData")
+load(file = "~/github/STcompare/bench/published/merfishCorrelation_affine.RData")
 
 
 ## Results for SVGs ####

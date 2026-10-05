@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 # data-raw/build_inputs_merfish_replicates.R
 #
-# Rebuild the rasterized MERFISH biological-replicate inputs exactly as inst/scripts/biological-replicates-example.R
-# does, from the md5-verified cached downloads: target = slice 2 replicate 2 (S2R2), source = S2R3 aligned to S2R2
+# Rebuild the rasterized MERFISH biological-replicate inputs exactly as
+# bench/published/scripts/biological-replicates-example.R does, from the md5-verified cached downloads: target = slice 2 replicate 2 (S2R2), source = S2R3 aligned to S2R2
 # with STalign (coordinates STalign_x/y) and, separately, with the affine-only alignment (affine_x/y);
 # SEraster resolution 200 with its defaults (first assay = counts, fun = "mean", square pixels); "Blank-*"
 # control probes dropped (483 genes; 1371 shared pixels for STalign, 1299 for affine).
@@ -48,7 +48,7 @@ out_aff <- list(target = out_aff$target[genes_only, ], source = out_aff$source[g
 
 check <- function(o, f, label) {
   sh <- intersect(rownames(spatialCoords(o[[1]])), rownames(spatialCoords(o[[2]])))
-  e <- new.env(); n <- load(file.path("inst", "extdata", f), envir = e); ref <- get(n, envir = e)
+  e <- new.env(); n <- load(stc_published_file(f), envir = e); ref <- get(n, envir = e)
   X <- as.matrix(assay(o[[1]])[rownames(ref), sh]); Y <- as.matrix(assay(o[[2]])[rownames(ref), sh])
   r <- vapply(seq_len(nrow(ref)), function(i) cor(X[i, ], Y[i, ]), 0)
   dr <- max(abs(r - ref$correlationCoef))

@@ -68,5 +68,5 @@ cors_df <- data.frame(cors.df,
 cors_df$corspv_corrected[cors_df$corspv_corrected == 0] <- 0.01
 cors_df <- na.omit(cors_df)
 
-save(cors_df, file = file.path("inst", "extdata", "simRanPatternResults.RData"))
+save(cors_df, file = file.path("bench", "published", "simRanPatternResults.RData"))
 

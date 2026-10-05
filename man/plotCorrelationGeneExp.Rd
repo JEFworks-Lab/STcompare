@@ -2,21 +2,24 @@
 % Please edit documentation in R/spatialCorrelation.R
 \name{plotCorrelationGeneExp}
 \alias{plotCorrelationGeneExp}
-\title{plotCorrelationGeneExp}
+\title{Plot a gene's values in two samples at the shared pixels}
 \usage{
 plotCorrelationGeneExp(speList, spatialCorrelation, geneName, assayName = NULL)
 }
 \arguments{
 \item{speList}{\code{list} List of two SpatialExperiment objects with matched
 spatial locations. The first element corresponds to the first
-SpatialExperiment (`X`), and the second to the second SpatialExperiment
-(`Y`).}
+SpatialExperiment (\code{X}), and the second to the second
+SpatialExperiment (\code{Y}). The names of the list label the axes.}
 
-\item{spatialCorrelation}{\code{dataframe}: the output from running
-`spatialCorrelationGeneExp` function on `speList`}
+\item{spatialCorrelation}{\code{dataframe}: the output of
+\code{\link{spatialCorrelationGeneExp}()} or
+\code{\link{spatialCorrelationGeneExpIterPermutations}()} for
+\code{speList}, or of \code{\link{compareSpatial}()} for the same objects.}
 
-\item{geneName}{\code{character}: A character string specifiying the name of
-gene (row) in both a SpatialExperiments in `speList`}
+\item{geneName}{\code{character}: The name of the gene (row) in both
+SpatialExperiment objects of \code{speList} and in
+\code{spatialCorrelation}.}
 
 \item{assayName}{\code{character} or \code{integer} A character string or
 numeric specifying the assay in the SpatialExperiment to use. Default is
@@ -24,21 +27,27 @@ numeric specifying the assay in the SpatialExperiment to use. Default is
 assay is used as a default}
 }
 \value{
-The output is returned as a ggplot grob. A scatterplot with the
-  values of the gene in the first SpatialExperiment, i.e
-  `SummarizedExperiment::assay(speList[[1]], assayName)[geneName, ]`, on the
-  x-axis and values of the gene in the second SpatialExperiment on the
-  y-axis. The title includes the gene name, the correlation coefficient, and
-  the empirical p-value as the greater of
-  `spatialCorrelation$pValuePermuteX`and `spatialCorrelation$pValuePermuteY`.
+A ggplot object: a scatterplot with the values of the gene in the
+  first SpatialExperiment, i.e
+  \code{SummarizedExperiment::assay(speList[[1]], assayName)[geneName, ]},
+  on the x-axis and values of the gene in the second SpatialExperiment on
+  the y-axis. The title includes the gene name, the correlation coefficient
+  (rounded to 3 decimals), and the empirical p-value (3 significant digits):
+  \code{p_E}, the greater of \code{pValuePermuteX} and
+  \code{pValuePermuteY} (\code{NA} if either is \code{NA}) for the output
+  of the legacy functions, or \code{padj} for a \code{compareSpatial()}
+  result.
 }
 \description{
-Function to calculate Pearson's correlation between rows from
-  one SpatialExperiment dataset. To replace the analytical p-value which
-  results in a high false positive rate for autocorrelated spatial patterns,
-  it calculates empirical p-values from empirical null distributions
-  generated from permuting the data and then smoothing to maintain the
-  original degree of autocorrelation
+Scatter plot of a gene's values in two SpatialExperiment
+  objects on their shared pixels, with the correlation coefficient and the
+  permutation p-value of the gene in the title.
+}
+\details{
+The pixels are matched by name, as in
+  \code{\link{spatialCorrelationGeneExp}()}. Both axes start at 0, or at the
+  smallest value if a value is negative, and end at the largest value, so
+  every pixel with values in both objects is drawn.
 }
 \examples{
 
@@ -47,14 +56,14 @@ data(speKidney)
 ##### Rasterize to get pixels at matched spatial locations #####
 rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
                assay_name = 'counts', resolution = 0.2, fun = "mean",
-               BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+               square = FALSE)
 
 ##### Use STcompare to calculate Pearson's correlation coefficient #####
 rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
 rastGexpListAC <- list(A = rastKidney$A, C = rastKidney$C)
 
-negCorrelation <- spatialCorrelationGeneExp(rastGexpListAB)
-posCorrelation <- spatialCorrelationGeneExp(rastGexpListAC)
+negCorrelation <- spatialCorrelationGeneExp(rastGexpListAB, nThreads = 2)
+posCorrelation <- spatialCorrelationGeneExp(rastGexpListAC, nThreads = 2)
 
 negCorrelation
 posCorrelation
