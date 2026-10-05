@@ -3,6 +3,9 @@
 This directory is excluded from `R CMD build` via `.Rbuildignore`. It records an investigation of STcompare (upstream commit `2983c99`) made on 2026-10-03. The aim was to make the package faster with a C++ backend, easier to use, and better documented.
 
 - **`cpp-backend-plan.md`** — Start here. It covers where the time goes, what a C++ backend must reproduce, the proposed architecture, phases, and open decisions.
+- **`engine-spec.md`** — The specification of the compiled engine behind the legacy functions: what it must reproduce bit for bit, its random streams, threads, batches and adaptive stopping.
+- **`compare-spatial-spec.md`** — The specification of `compareSpatial()`, the new main function (phase 3): arguments, checks, the correlation and similarity tests, the output, progress and reproducibility.
+- **`handoff-docs.md`** — The documentation phase's requests to the other phases (all done) and the questions it leaves for the maintainers.
 - **`investigation/`** — Detailed reports, one per topic. Each claim cites source file:line or a reproduced measurement.
   - `01-locfit-smoother.md` — Exactly what `locfit(..., kern="gauss", nn=delta)` + `fitted()` computes: the adaptive `rbox` tree and bilinear interpolation, shown to be linear in the data and reproduced bit for bit.
   - `02-geoR-variogram.md` — Exact `geoR::variog` binning and estimator semantics, distance-formula and FMA subtleties, and lattice ties at `max.dist`.

@@ -1,0 +1,402 @@
+---
+title: "Acute kidney injury (10x Visium)"
+author:
+- Kalen Clifton
+- Vivien Jiang
+- Jean Fan
+output: rmarkdown::html_document
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4,
+  out.width = "100%"
+)
+```
+
+This case study compares two mouse kidney sections assayed with 10x Visium: a
+kidney 24 hours after ischemic acute kidney injury (AKI) and a kidney after a
+sham surgery (control). It looks for genes whose spatial pattern of expression
+changed with the injury, and reproduces Figures 2f-k of the
+[STcompare paper](https://doi.org/10.1093/bioinformatics/btag644) with
+`compareSpatial()`.
+
+The analysis runs live. It downloads 30 MB once (the files are cached for
+later runs), and takes a minute or two on a computer with 8 cores, of which the
+comparison of 1046 genes takes about half.
+
+```{r setup, message = FALSE}
+library(STcompare)
+library(SpatialExperiment)
+library(ggplot2)
+library(patchwork)
+
+# use up to 8 threads, leaving one core free
+threads <- min(8L, max(1L, parallel::detectCores() - 1L, na.rm = TRUE))
+```
+
+Reading the 10x HDF5 files needs the Bioconductor package rhdf5
+(`BiocManager::install("rhdf5")`).
+
+# Download the data
+
+The counts, the spot positions and the positions of the AKI section aligned to
+the control section are on Zenodo
+([doi:10.5281/zenodo.17676991](https://doi.org/10.5281/zenodo.17676991)). The
+helper below downloads a file once into a cache directory and checks its MD5
+checksum, so a broken or partial download is never used.
+
+```{r download}
+cacheDir <- file.path(tools::R_user_dir("STcompare", which = "cache"),
+                      "downloads")
+
+downloadCached <- function(url, file, md5) {
+  dir.create(cacheDir, recursive = TRUE, showWarnings = FALSE)
+  path <- file.path(cacheDir, file)
+  if (file.exists(path) && unname(tools::md5sum(path)) == md5) return(path)
+  old <- options(timeout = max(1800, getOption("timeout")))
+  on.exit(options(old))
+  partial <- paste0(path, ".part")
+  utils::download.file(url, partial, mode = "wb", quiet = TRUE)
+  if (unname(tools::md5sum(partial)) != md5) {
+    unlink(partial)
+    stop("The download of ", file, " is incomplete or has changed ",
+         "(MD5 mismatch); please try again.", call. = FALSE)
+  }
+  file.rename(partial, path)
+  path
+}
+
+zenodo <- "https://zenodo.org/records/19074288/files/"
+files <- list(
+  aki_counts = downloadCached(
+    paste0(zenodo, "IL3_filtered_feature_bc_matrix.h5?download=1"),
+    "IL3_filtered_feature_bc_matrix.h5", "a3ea3a2cb4c3e01403d0116ab580c157"),
+  control_counts = downloadCached(
+    paste0(zenodo, "NL3_filtered_feature_bc_matrix.h5?download=1"),
+    "NL3_filtered_feature_bc_matrix.h5", "6793a0f7ceeb082bce383748cfc2805a"),
+  control_positions = downloadCached(
+    paste0(zenodo, "NL3_tissue_positions.csv?download=1"),
+    "NL3_tissue_positions.csv", "24b23088b7a22a53086f9b62b21fed29"),
+  aki_aligned = downloadCached(
+    paste0("https://zenodo.org/records/19486091/files/",
+           "aki_region_onehot_STalign_to_ctrl_region_onehot_affine_only.csv.gz",
+           "?download=1"),
+    "aki_region_onehot_STalign_to_ctrl_region_onehot_affine_only.csv.gz",
+    "adede04898833d385eb52fa2032f2434"))
+```
+
+The cache is `tools::R_user_dir("STcompare", "cache")`; set the environment
+variable `R_USER_CACHE_DIR` to move it, or delete the directory to free the
+space.
+
+# Counts and positions
+
+The counts are 10x HDF5 files, with genes in rows and spots in columns. Gene
+symbols are not unique in the 10x feature files (a few symbols belong to two
+genes), so `make.unique()` adds a suffix to the second one: STcompare needs
+unique gene names.
+
+```{r counts}
+read10xH5 <- function(path) {
+  h5 <- rhdf5::h5read(path, "matrix")
+  counts <- Matrix::sparseMatrix(i = as.integer(h5$indices),
+                                 p = as.integer(h5$indptr),
+                                 x = as.numeric(h5$data),
+                                 dims = as.integer(h5$shape), index1 = FALSE)
+  dimnames(counts) <- list(make.unique(as.character(h5$features$name)),
+                           as.character(h5$barcodes))
+  counts
+}
+akiCounts <- read10xH5(files$aki_counts)
+controlCounts <- read10xH5(files$control_counts)
+dim(akiCounts)
+dim(controlCounts)
+```
+
+The position files list the spots under the tissue, with their row and column
+on the Visium array. For the AKI section, the file also has its positions
+after alignment to the control section with
+[STalign](https://jef.works/STalign/): an affine alignment of the two sections'
+cortex, outer medulla and inner medulla, computed in Python.
+
+```{r positions}
+controlPositions <- read.csv(files$control_positions, row.names = 1)
+akiAligned <- read.csv(files$aki_aligned, row.names = 1)
+head(controlPositions, 3)
+head(akiAligned[, c("x", "y", "aligned_x", "aligned_y")], 3)
+
+# keep the spots under the tissue
+controlCounts <- controlCounts[, rownames(controlPositions)]
+akiCounts <- akiCounts[, rownames(akiAligned)]
+```
+
+We rotate the sections by 90 degrees so that the kidneys are upright, as in
+the paper, and compare the positions before and after the alignment:
+
+```{r alignment, fig.height = 3.5, fig.alt = "Spot positions of the control (blue) and AKI (red) sections before and after the alignment of the AKI section to the control section."}
+rotate <- function(x, y) cbind(x = y, y = max(x) - x)
+controlXY <- rotate(controlPositions$array_row, controlPositions$array_col)
+akiXY <- rotate(akiAligned$x, akiAligned$y)
+akiAlignedXY <- rotate(akiAligned$aligned_x, akiAligned$aligned_y)
+rownames(controlXY) <- rownames(controlPositions)
+rownames(akiXY) <- rownames(akiAlignedXY) <- rownames(akiAligned)
+
+overlay <- function(aki, title) {
+  ggplot(rbind(data.frame(controlXY, sample = "control"),
+               data.frame(aki, sample = "AKI")), aes(x, y, colour = sample)) +
+    geom_point(size = 0.2) +
+    scale_colour_manual(values = c(control = "blue", AKI = "red")) +
+    coord_equal() +
+    labs(title = title, colour = NULL) +
+    theme_void() +
+    theme(plot.title = element_text(size = 11, hjust = 0.5))
+}
+overlay(akiXY, "Before alignment") + overlay(akiAlignedXY, "After alignment") +
+  plot_layout(guides = "collect")
+```
+
+# Rasterize both sections together
+
+A spot of one section has no counterpart at exactly the same position in the
+other, so both sections are aggregated onto one grid of hexagonal pixels with
+`SEraster::rasterizeGeneExpression()`, called **once** for both, so that a
+pixel name means the same location in both. The resolution should be larger
+than the remaining misalignment of the two sections and small enough to keep
+the structures of interest, such as the thin layers of the medulla. Here a
+pixel is 5 array units across and holds about 10 spots; `fun = "sum"` adds the
+counts of the spots in a pixel.
+
+```{r rasterize}
+control <- SpatialExperiment(assays = list(counts = controlCounts),
+                             spatialCoords = controlXY)
+aki <- SpatialExperiment(assays = list(counts = akiCounts),
+                         spatialCoords = akiAlignedXY)
+rast <- SEraster::rasterizeGeneExpression(list(control = control, AKI = aki),
+                                          assay_name = "counts",
+                                          resolution = 5, fun = "sum",
+                                          square = FALSE)
+rast$control
+summary(rast$control$num_cell)
+```
+
+The pixels differ in their total counts, so we normalize each pixel to counts
+per million (CPM). The similarity test compares levels, so it needs a linear
+scale such as CPM.
+
+```{r cpm, fig.height = 3.5, fig.alt = "The control and AKI sections rasterized onto shared hexagonal pixels, coloured by the total counts of each pixel."}
+cpm <- function(m) Matrix::t(Matrix::t(m) / Matrix::colSums(m)) * 1e6
+for (s in names(rast)) {
+  assay(rast[[s]], "CPM") <- cpm(assay(rast[[s]], "pixelval"))
+}
+SEraster::plotRaster(rast$control, assay_name = "pixelval",
+                     plotTitle = "control", name = "total counts") +
+  SEraster::plotRaster(rast$AKI, assay_name = "pixelval",
+                       plotTitle = "AKI", name = "total counts")
+```
+
+# Choose the genes
+
+STcompare can test every gene, but genes without a spatial pattern in either
+section have little to compare. The published analysis tested the genes that
+are spatially variable in **both** sections, to find genes whose pattern
+changed even though they are patterned in both. It identified them with
+Moran's I, as implemented in the GitHub package
+[MERINGUE](https://github.com/JEFworks-Lab/MERINGUE), on the CPM of the
+pixels:
+
+```{r meringue, eval = FALSE}
+# Not run: needs remotes::install_github("JEFworks-Lab/MERINGUE")
+moransI <- function(spe, filterDist = 10) {
+  w <- MERINGUE::getSpatialNeighbors(spatialCoords(spe), filterDist = filterDist)
+  MERINGUE::getSpatialPatterns(assay(spe, "CPM"), w)
+}
+controlI <- moransI(rast$control)
+akiI <- moransI(rast$AKI)
+svgGenes <- intersect(rownames(controlI)[controlI$p.adj == 0],
+                      rownames(akiI)[akiI$p.adj == 0])
+```
+
+To keep this tutorial free of GitHub-only dependencies, STcompare ships the
+resulting list: the 1046 genes of the published analysis, spatially variable in
+both sections (an adjusted p-value of 0 in both; recomputing them with the
+current MERINGUE gives the same list up to 4 genes at the edge of that
+criterion).
+
+```{r svg}
+svgGenes <- scan(system.file("extdata", "vignette-aki-svg-genes.txt",
+                             package = "STcompare"),
+                 what = "", comment.char = "#", quiet = TRUE)
+length(svgGenes)
+head(svgGenes)
+```
+
+Without such a selection, most genes of the transcriptome are detected in few
+pixels or not at all. `compareSpatial()` does not test a gene that is constant
+in a section, or detected in fewer than \(\sqrt{N}\) of the \(N\) shared
+pixels of either section (`minDetected`): the correlation of such a gene is
+decided by a few pixels, and its p-value would be too small (see
+[How STcompare works](https://jef.works/STcompare/articles/how-STcompare-works.html#rarely-detected-genes)).
+Here that means 18 of the 311 shared pixels. Counting the shared pixels in
+which each gene is detected in the section where it is detected least shows
+how many genes a comparison of the whole transcriptome would test:
+
+```{r detected}
+shared <- intersect(colnames(rast$control), colnames(rast$AKI))
+detected <- sapply(rast, function(r) Matrix::rowSums(assay(r, "pixelval")[, shared] > 0))
+table(cut(pmin(detected[, "control"], detected[, "AKI"]), c(-1, 0, 17, Inf),
+          labels = c("not detected", "1 to 17 pixels", "18 pixels or more")))
+```
+
+Sparse genes above the threshold can still get p-values that are somewhat too
+small, which is another reason to test the spatially variable genes.
+
+# Run the comparison
+
+`compareSpatial()` runs the spatial correlation test and the spatial
+similarity for every gene, on the pixels shared by the two sections. The named
+list `rast` labels the samples: `control` is the first sample (x) and `AKI` the
+second (y).
+
+```{r compare}
+res <- compareSpatial(rast, assay = "CPM", genes = svgGenes,
+                      nPermutations = 1000, nThreads = threads)
+res
+```
+
+`r sum(res$status == "skipped")` of the spatially variable genes are detected
+in fewer than 18 shared pixels of a section and are not tested (status
+`"skipped"`).
+
+**Why `nPermutations = 1000`?** The permutations of a gene stop early when its
+p-value is clearly not small (here `r sum(res$stop == "exceedances")` of
+`r sum(res$status == "ok")` tested genes, after a median of
+`r median(res$nPermutations[res$stop == "exceedances"])` permutations), so the
+run time is dominated by the significant genes, which run to `nPermutations`.
+With 1000, the smallest possible p-value is 1/1001 and this comparison takes
+`r round(attr(res, "runtime")[["elapsed"]])` seconds on `r threads` threads.
+That resolution is enough here, because many genes are significant: with the
+Benjamini-Hochberg adjustment, the \(k\)-th smallest of \(G\) p-values needs to
+be at most \(0.05\,k/G\), which is far above 1/1001 for the hundreds of genes
+that reach it. The default, `nPermutations = 10000`, is safer when few genes
+are significant among many, and takes about 7 times longer for these genes; on
+these data it finds exactly the same significant genes. See
+[Parameters, performance and reproducibility](https://jef.works/STcompare/articles/parameters-performance-reproducibility.html).
+
+# Interpret the results
+
+We classify the tested genes by the sign of their correlation and their
+adjusted p-value:
+
+```{r classes}
+tab <- as.data.frame(res)
+tab <- tab[tab$status == "ok", ]
+tab$class <- factor(ifelse(tab$padj < 0.05,
+                           ifelse(tab$r > 0, "positive", "negative"),
+                           "not significant"),
+                    levels = c("positive", "negative", "not significant"))
+table(tab$class)
+```
+
+Of the `r nrow(tab)` tested genes that are spatially variable in both sections,
+`r sum(tab$class == "positive")` have significantly correlated patterns in the
+control and the AKI section, and `r sum(tab$class == "negative")` significantly
+anti-correlated patterns. (The published analysis, with the legacy two-stage
+permutations, found 707 and 24.) Most of these genes keep their pattern after
+the injury; a small group has the opposite pattern.
+
+```{r violin, fig.height = 3.5, fig.alt = "Violin plots of the correlation between the control and AKI sections for significantly positive, significantly negative and not significant genes."}
+ggplot(tab, aes(class, r, colour = class)) +
+  geom_violin() +
+  geom_jitter(width = 0.2, alpha = 0.2, size = 0.6) +
+  scale_colour_manual(values = c(positive = "forestgreen", negative = "blue",
+                                 "not significant" = "grey50")) +
+  labs(x = NULL, y = "Correlation (control vs AKI)") +
+  theme_classic() +
+  theme(legend.position = "none")
+```
+
+Correlation describes the pattern; the similarity describes the levels. Among
+the significantly correlated genes, positively and negatively correlated genes
+cover the whole range of similarity: the two tests answer different questions.
+
+```{r correlation-vs-similarity, fig.height = 3.5, fig.alt = "Similarity against correlation for the significantly correlated genes: positively and negatively correlated genes cover the whole range of similarity."}
+ggplot(subset(tab, class != "not significant"),
+       aes(r, similarity, colour = class)) +
+  geom_point(alpha = 0.4, size = 1) +
+  scale_colour_manual(values = c(positive = "forestgreen", negative = "blue")) +
+  labs(x = "Correlation", y = "Similarity", colour = NULL) +
+  theme_classic()
+```
+
+# Example genes
+
+Two examples illustrate the combinations:
+
+1. a significantly positively correlated gene with the lowest similarity: the
+   same pattern at a different level;
+2. a significantly negatively correlated gene whose pixels are higher in the
+   control about as often as in the AKI section: a different pattern at a
+   similar overall level.
+
+```{r examples}
+positive <- tab[tab$class == "positive", ]
+gene1 <- positive$gene[order(positive$similarity, -positive$r)][1]
+negative <- tab[tab$class == "negative", ]
+gene2 <- negative$gene[order(abs(negative$dissimilarityX -
+                                 negative$dissimilarityY))][1]
+tab[c(gene1, gene2), c("gene", "r", "padj", "similarity",
+                       "dissimilarityX", "dissimilarityY")]
+```
+
+`dissimilarityX` is the share of pixels more than two-fold higher in the
+control (x), and `dissimilarityY` in the AKI section (y). We plot the CPM of
+the two genes on the shared pixels, and the classes of the pixels from
+`spatialSimilarity()`, which `linearRegression()` and `pixelClass()` draw:
+
+```{r example-plots, fig.height = 6.5, message = FALSE, warning = FALSE, fig.alt = "For each of the two example genes: maps of its CPM in the control and AKI sections, a scatter plot of the two at each pixel coloured by similarity class, and a map of the classes."}
+shared <- intersect(colnames(rast$control), colnames(rast$AKI))
+sim <- spatialSimilarity(list(control = rast$control[c(gene1, gene2), ],
+                              AKI = rast$AKI[c(gene1, gene2), ]),
+                         assayName = "CPM")
+genePanels <- function(gene) {
+  (SEraster::plotRaster(rast$control[, shared], assay_name = "CPM",
+                        feature_name = gene, plotTitle = paste(gene, "control"),
+                        name = "CPM") |
+     SEraster::plotRaster(rast$AKI[, shared], assay_name = "CPM",
+                          feature_name = gene, plotTitle = paste(gene, "AKI"),
+                          name = "CPM")) /
+    (linearRegression(sim, gene, assayName = "CPM") |
+       pixelClass(sim, gene, assayName = "CPM"))
+}
+genePanels(gene1)
+genePanels(gene2)
+```
+
+```{r example-text, include = FALSE}
+higher1 <- if (tab[gene1, "dissimilarityY"] > tab[gene1, "dissimilarityX"]) {
+  list(share = tab[gene1, "dissimilarityY"], where = "after the injury")
+} else {
+  list(share = tab[gene1, "dissimilarityX"], where = "in the control")
+}
+```
+
+`r gene1` has the same pattern in both sections
+(r = `r round(tab[gene1, "r"], 2)`), but in
+`r round(100 * higher1$share)`% of the kept pixels it is more than two-fold
+higher `r higher1$where`. `r gene2` is anti-correlated
+(r = `r round(tab[gene2, "r"], 2)`) although
+`r round(100 * tab[gene2, "similarity"])`% of its pixels are within two-fold:
+its overall level did not change, but where it is highest did. The pixels more
+than two-fold higher in the control
+(`r round(100 * tab[gene2, "dissimilarityX"])`%, yellow) and after the injury
+(`r round(100 * tab[gene2, "dissimilarityY"])`%, red) lie in different regions.
+
+# Session information
+
+```{r session}
+sessionInfo()
+```

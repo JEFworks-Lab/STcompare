@@ -1,494 +1,350 @@
 ---
-title: "Getting Started with STcompare"
-author: 
-- "Vivien Jiang"
-- "Kalen Clifton" 
-- "Jean Fan" 
-output: html_document
+title: "Getting started with STcompare"
+author:
+- Vivien Jiang
+- Kalen Clifton
+- Jean Fan
+output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Getting Started with STcompare}
-  %\VignetteEncoding{UTF-8}
+  %\VignetteIndexEntry{Getting started with STcompare}
   %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
-
-```{r setup, include=FALSE}
-
+```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.width = 8,
-  fig.height = 6,
-  dpi = 72,
-  dev = "png",
-  fig.path = "getting-started-with-STcompare-figures/"
-
+  fig.width = 7,
+  fig.height = 3.5,
+  out.width = "100%"
 )
 ```
 
-# Introduction 
+# Introduction
 
-Spatial transcriptomic (ST) technologies enable the investigation of how tissue organization relates to cellular function by profiling the spatial location of cells within a tissue and the gene expression profiles associated with those locations. As ST technologies are increasingly applied in the context of disease characterization and translational research, identifying genes that spatially change in their expression patterns in diseased tissues as compared to healthy controls could reveal localized molecular variation associated with pathological processes, offering insights into disease mechanisms as well as aiding in the discovery of diagnostic biomarkers. 
+Spatial transcriptomics (ST) measures gene expression at known locations in a
+tissue. When two tissues are compared, for example a diseased section and a
+healthy control, the usual differential expression analysis compares the mean
+expression of each gene and ignores where the gene is expressed. A gene can
+then look unchanged although its spatial pattern changed, or look changed
+although its pattern is the same and only its level differs.
 
-Attempts at such comparative analysis of ST datasets can be performed using traditional non-spatial bulk or single cell transcriptomics analysis approaches such as differential gene expression (DGE) analysis, comparing the mean expression of genes between two datasets by fold-change. However, this type of DGE analysis does not consider the spatial information. As such, a gene can be identified as not differentially expressed across two datasets by having the same mean gene expression, but the gene can still have two distinct spatial patterns of expression. On the other hand, a gene can be identified as differentially expressed across the two datasets by having very different mean gene expression but have spatial expression patterns that are highly similar. By not considering spatial information, traditional DGE analysis fails to characterize such cases. To demonstrate these cases, we simulated ST datasets where one pair of genes has different radial expression patterns but the same mean expression, while the other pair has same radial expression patterns but different mean expression. 
+STcompare compares two structurally matched tissues location by location.
+For every gene it answers two questions:
 
-Clifton K, Jiang V, Singh S, Matsuura R, Rabb H, Fan J., STcompare: Comparative spatial transcriptomics data analysis to characterize differentially spatially patterned genes. bioRxiv 2025.11.21.689847. doi: https://doi.org/10.1101/2025.11.21.689847
+| Question | Test | Output |
+|---|---|---|
+| Is the gene's spatial **pattern** the same in both samples? | Spatial correlation: Pearson's correlation of the two samples over matched pixels, with a permutation p-value that accounts for spatial autocorrelation | `r`, `p`, `padj` |
+| Is the gene's expression **level** the same at matched locations? | Spatial similarity: the share of matched pixels where the two values are within a fold change of each other | `similarity` (descriptive, no p-value) |
 
-# Install 
+The two tests are complementary: a gene can have the same pattern at a
+different level (high correlation, low similarity), or the same level with a
+different pattern.
 
-```{r eval=FALSE, message=FALSE, warning=FALSE}
-require(remotes)
-remotes::install_github('JEFworks-Lab/STcompare')
+This tutorial uses small simulated data that ships with the package and runs in
+under a minute. The method is described in Clifton et al. (2026),
+[doi:10.1093/bioinformatics/btag644](https://doi.org/10.1093/bioinformatics/btag644).
 
-```
-
-In this tutorial we will walk through applying `STcompare`'s two differential spatial comparison tests to simulated kidney datasets: 
-
-1.	**Spatial Correlation:** Person correlation assumes that each sample is independent and identically distributed random variables. However, in terms of gene expression, the gene expression of one cell influences the gene expression of the neighboring cells. Spatial Correlation computes the empirical p-value instead to consider the dependent relationship. We will show why the p-value null distribution correction is needed in the Spatial Correlation test. 
-
-
-2.	**Spatial Fold Change:** Computes a Similarity score for each gene in the comparison, compares the change in expression at matched locations. 
-
-
-
-# Load Libraries 
-
-```{r import_packages, message=FALSE, warning=FALSE}
+```{r setup, message = FALSE}
 library(STcompare)
 library(SpatialExperiment)
-library(SEraster)
 library(ggplot2)
 library(patchwork)
-library(viridis)
-library(reshape2)
-
 ```
 
-# Simulated Pattern Kidney 
+# Simulated kidneys
 
-Here we load the simulated kidney data `speKidney` that we will use to demonstrate `spatialCorrelation` and `spatialSimilarity`
+`speKidney` is a list of three simulated single-cell datasets, `A`, `B` and
+`C`, each a `SpatialExperiment` with one gene called `Gene`, its counts in the
+assay `counts`, and the x-y coordinates of the cells in `spatialCoords()`.
 
-`speKidney` is a list of three `SpatialExperiment` objects representing three simulated single-cell kidney datasets named A, B, and C. A [`SpatialExperiment`]("https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html")  object store spatial transcriptomics data, combining gene expression matrices with the spatial coordinates of each spatial location. Each element of `speKidney` contains `assays`: gene-by-cell expression matrices and `spatialCoords`: x–y spatial coordinates for each spatial location.
-
-
-```{r load_data}
-
-data("speKidney") 
-head(speKidney)
+```{r data}
+data(speKidney)
+speKidney$A
 ```
 
-Looking at the row dimensions and names, we can see that each dataset contains one gene called `Gene`. Looking at the column dimensions and names, we can see that the three samples vary slightly in the number of spatial locations, i.e. cells.
-
-Next we plot the spatial patterns of gene expression for each dataset.
-
-```{r spatialExpression,  message=FALSE, warning=FALSE}
-
-# This function takes the Spatial Experiment Object and creates a plot 
-# of the spatial patterns of gene expression. 
-plotSpatialPatterns <- function(spatialExperimentObj, name) {
-  df <- cbind(
-    as.data.frame(spatialCoords(spatialExperimentObj)),
-    as.data.frame(colData(spatialExperimentObj))
-  )
-  
-  df$Gene <- as.numeric(assay(spatialExperimentObj, "counts")["Gene", ])
-  
-  ggplot(df, aes(x = x, y = y, color = Gene)) +
-    geom_point(size = 0.6) +
-    coord_equal() +
-    theme_bw() +
-    theme(
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank()
-    ) + 
-    scale_color_viridis(option = "D") +
-    labs(
-      x = "x",
-      y = "y",
-      color = "Gene",
-      title = paste("Simulated Kidney", name)
-    )
-}
-
-pA <- plotSpatialPatterns(speKidney$A, "A")
-pB <- plotSpatialPatterns(speKidney$B, "B")
-pC <- plotSpatialPatterns(speKidney$C, "C")
-
-pA + pB + pC
-
+```{r cells, fig.height = 3, fig.alt = "Maps of the cells of the simulated kidneys A, B and C, coloured by the expression of Gene: A and C share a pattern and B has the opposite pattern."}
+cells <- do.call(rbind, lapply(c("A", "B", "C"), function(s) {
+  data.frame(spatialCoords(speKidney[[s]]),
+             expression = assay(speKidney[[s]], "counts")["Gene", ],
+             sample = s)
+}))
+ggplot(cells, aes(x, y, colour = expression)) +
+  geom_point(size = 0.4) +
+  facet_wrap(~sample) +
+  coord_equal() +
+  scale_colour_viridis_c() +
+  theme_void()
 ```
 
-Upon plotting the gene expression spatial patterns for each dataset, we can see that A and B share gene expression magnitude but differ in spatial pattern, and A and C share spatial pattern but differ in gene expression magnitude.
-
-# Mean comparision is not sufficient 
-
-Traditionally, these simulated kidneys would be compared using differential gene expression (DGE) analysis such as comparing the average of the mean expression. 
-
-```{r box_plot,  message=FALSE, warning=FALSE}
-
-# Convert the counts for each kidney (A, B, C) into one dataframe.
-# Each kidney’s expression counts are extracted from the "counts" assay and stored as a numeric vector.
-df <- data.frame(
-  value = c(
-    as.numeric(assay(speKidney$A, "counts")), 
-    as.numeric(assay(speKidney$B, "counts")), 
-    as.numeric(assay(speKidney$C, "counts"))
-  ),
-  
-  # Create a "sample" column showing which kidney each pixel belongs to.
-  # The `rep()` call ensures that the correct number of labels (A/B/C) is assigned
-  # based on the length of each counts vector.
-  sample = factor(rep(
-    c("A", "B", "C"),
-    times = c(
-      length(as.numeric(assay(speKidney$A, "counts"))), 
-      length(as.numeric(assay(speKidney$B, "counts"))), 
-      length(as.numeric(assay(speKidney$C, "counts")))
-    )
-  ))
-)
-
-# Plot a boxplot comparing the distribution of pixel intensities across the 3 kidneys.
-# This represents a traditional magnitude-only comparison, 
-# which cannot distinguish pattern similarity/differences.
-compare_box_plot <- ggplot(df, aes(x = sample, y = value, fill = sample)) +
-  geom_boxplot(outlier.shape = 16, outlier.size = 1.5, alpha = 0.7) +
-  labs(x = "Sample", y = "Pixel Intensity", title = "Expression Magnitude Across Samples") +
-  theme_minimal(base_size = 14) +
-  theme(legend.position = "none")
-compare_box_plot
-
-
-```
-
-Comparing the mean between A and B does not capture the spatial gene expression difference. Comparing the means between A and C tells us the expression magnitudes have a fold difference, but it does not capture how the gene expression patterns in A and C are similarly spatially organized. 
-
-1. We will use `spatialCorrelationGeneExp` test to quantify the correlation in gene expression pattern between (A and B) and (A and C). Where we expect (A and B) will have a significant negative correlation and we expect (A and C) will have a significant positive correlation.
-2. And we will use `SpatialSimilarity` test to quantify the difference in gene expression magnitude at matched spatial locations not reflected by DGE between (A and B)   
-
-
-# Using STcompare 
-
-## Input formatting 
-
-1. **Tissue Alignment**\
-  For `STcompare` to produce meaningful comparisons, the tissues must first be spatially aligned so that corresponding structures are matched across samples.
-  The `STalign` package can be used to align two tissues. [STalign Tutorial]("https://jef.works/STalign/notebooks/merfish-merfish-alignment.html")
-
-2. **Rasterization**\
-  `STcompare` takes a list of [`SpatialExperiment`]("https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html") objects and requires them to have matched spatial locations. Use `SEraster` to rasterize multiple samples onto the same coordinate system, allowing `STcompare` to pairwise compare across any number of samples. [SEraster formatting tutorial]("https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html")
-
-
-Since our simulated data is already aligned we first use `SEraster` to rasterize this list of simulated kidneys, stored as `SpatialExperiment` objects, onto the same coordinate plane. 
-
-```{r rasterization,  message=FALSE, warning=FALSE}
-rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
-                assay_name = 'counts', resolution = 0.2,
-                square = FALSE)
-
-# After rasterization, the output is a SpatialExperiment object, but the spatial units are now raster pixels rather than individual cells or spots. The assay has been converted to pixelval, and additional metadata (num_cell, cellID_list, geometry) records which original cells contributed to each pixel.
-head(rastKidney)
-
-# These are the plots to visualize what the kidneys looks like 
-pA <- plotRaster(rastKidney$A, plotTitle = "Rasterized Kidney A")
-pB <- plotRaster(rastKidney$B, plotTitle = "Rasterized Kidney B")
-pC <- plotRaster(rastKidney$C, plotTitle = "Rasterized Kidney C")
-
-pA + pB + pC
-
-```
-
-
-
-## Spatial correlation 
-
-Now, we will use `spatialCorrelationGeneExp` to understand correlation of expression across pixels. 
-
-As input `spatialCorrelationGeneExp` takes a list of two `SpatialExperiment` objects. First, we will compare A and B.
-
-```{r spatialCorrelationAB, eval = TRUE, message=FALSE, warning=FALSE}
-
-# From the list of rasterized kidneys, rastKidney, we will take a subset of rastKidney 
-# rastGexpListAB is a list of two kidneys, A and B 
-rastGexpListAB <- list(A = rastKidney$A, B = rastKidney$B)
-
-# spatialCorrelationGeneExp takes input of a list of two SpatialExperiment objects -- rastGexpListAB
-# nThreads, the default is 1, should be set to the number of cores available to allow for parallel computing 
-scAB <- spatialCorrelationGeneExp(rastGexpListAB, nThreads = 1)
-
-# correlationCoef is showing a negative linear relationship 
-# Both the naive and the permuted p-values (pValuePermuteY and pValuePermuteX) are showing that the correlation is significant 
-head(scAB)
-
-```
-
-As output `spatialCorrelationGeneExp` returns:
-
-* `correlationCoef` Pearson's correlation coefficient shows the strength and direction of a linear relationship between the two objects 
-* `pValueNaive` is the analytical p-value naively assuming independent observations, often time not accurate 
-* `pValuePermuteX` is the p-value when creating an empirical null from permutations of observations in X 
-* `pValuePermuteY` is the p-value when creating an empirical null from permutations of observations in Y -- we recommend using the higher of `pValuePermuteY` or `pValuePermuteX`, as a more accurate p-value than `pValueNaive`
-* `deltaStarMedianX` the median delta star (the delta which minimizes the difference between the variogram of the permutation and the variogram of observations) across permutations of X
-* `deltaStarMedianY` the median delta star across permutations of Y
-* `deltaStarX` is list of delta star for all permutations of X
-* `deltaStarY` is list of delta star for all permutations of Y
-* `nullCorrelationsX` is a list of correlation coefficients for Y and all permutations of X
-* `nullCorrelationsY` is a list of correlation coefficients for X and all permutations of Y
-
-Because `correlationCoef = -0.9472813` and `pValuePermuteX` and `pValuePermuteY` < 0.05, we can conclude that gene expression at matched pixel locations is negatively correlated in A and B as expected.
-
-We can also visualize our results with `plotCorrelationGeneExp`. In the title we include the empirical p-value `p_E` as the higher of `pValuePermuteY` or `pValuePermuteX`.
-
-```{r spatialCorrelationABplot, eval = TRUE, message=FALSE, warning=FALSE}
-# visualization of the negative correlation 
-# plotCorrelationGeneExp needs the list of rasterized SpatialExperiment objects, the table from spatialCorrelationGeneExp of the same objects, 
-# and the gene name you are trying to plot. In the case, the gene name is "Gene". 
-expAB <- plotCorrelationGeneExp(rastGexpListAB, scAB, "Gene")
-expAB
-
-```
-
-
-We can repeat the analysis for A and C.
-
-```{r spatialCorrelationAC,  message=FALSE, warning=FALSE}
-
-# From the list of rasterized kidneys, rastKidney, we will take a subset of rastKidney 
-# rastGexpListAC is a list of two kidneys, A and C
-rastGexpListAC <- list(A = rastKidney$A, C = rastKidney$C)
-
-# correlationCoef is showing a positive linear relationship 
-# Both the naive and the permuted p-values (pValuePermuteY and pValuePermuteX) are showing that the correlation is significant 
-scAC <- spatialCorrelationGeneExp(rastGexpListAC)
-head(scAC)
-
-# visualization of the positive correlation
-# plotCorrelationGeneExp needs the list of rasterized SpatialExperiment objects, the table from spatialCorrelationGeneExp of the same objects, 
-# and the gene name you are trying to plot. In the case, the gene name is "Gene".
-expAC <- plotCorrelationGeneExp(rastGexpListAC, scAC, "Gene")
-expAC
-
-```
-
-Because `correlationCoef = 0.9431531` and `pValuePermuteX` and `pValuePermuteY` < 0.05, we can conclude that gene expression at matched pixel locations is positively correlated in A and C.
-
-
-## Why we generate empirical p-values through permutations 
-
-Next, we will demonstrate how using the analytical p-value, which naively assumes spatial locations are independent observations, when interpreting Pearson's correlation coefficients results in a high false positive rate when the datasets that are compared have spatial autocorrelation.
-
-`simRanPatternRasts` is a list of 100 simulated `SpatialExperiment` objects representing kidney-shaped 
-datasets, each containing one independently generated spatially patterned (i.e spatially autocorrelated) gene with
-no correlation between datasets. Each dataset consists of N = 5000 simulated
-cells distributed within a kidney-shaped region, with spatial coordinates and
-expression values generated from Gaussian random fields. All of the objects in `simRanPatternRasts` are already
-rasterized onto the same coordinate plane. 
-
-Using the kidney 1 and kidney 7 in the `simRanPatternRasts` dataset, we plot the spatial gene expression patterns and run `spatialCorrelationGeneExp` expecting the two datasets to have no significant correlation.
-
-```{r show_ran_kid, eval=TRUE, echo=TRUE, message=FALSE}
-
-# using plotRaster from the SEraster package to visualize kidney 1 and 7
-plotRaster(simRanPatternRasts[[1]], plotTitle = "simRanPatternRasts Kidney 1")
-plotRaster(simRanPatternRasts[[7]], plotTitle = "simRanPatternRasts Kidney 7")
-
-# taking a subset of simRanPatternRasts
-# rastGexpList is a list of rasterize SpatialExperiment objects kidney 1 and kidney 7 
-rastGexpList <- list(kidney_1 = simRanPatternRasts[[1]], kidney_7 = simRanPatternRasts[[7]])
-
-# finding the correlation and the p-value of kidney 1 and kidney 7 
-sc <- spatialCorrelationGeneExp(rastGexpList)
-
-# the naive p-value is showing that the correlation is significant 
-# while both of the permuted p-values are showing not significant p-values 
-head(sc) 
-
-# the plot further shows that there isn't a correlation between kidney 1 and kidney 7
-plotCorrelationGeneExp(rastGexpList, sc, "1")
-
-
-```
-
-We see that the naive p-value is in the significant range (p-value < 0.05). 
-However, based on the way the kidneys are simulated (simulated to have no correlation), this should not be the case, which is reflected in the permuted p-values. 
-Unlike the naive p-value, the permuted p-values do not show significant correlation.
-
-
-Additionally, for each pairwise kidney SpatialExperiment object in the list of 100 random simulations, the corrected p-value can be computed using `spatialCorrelationGeneExpIterPermutation` for each pair. To reduce runtime for the tutorial, we provide the output from running this function as `simRanPatternResults.RData`. 
-
-
-
-```{r load-results, eval=TRUE, echo=TRUE, message=FALSE}
-
-# Full script to generate the precomputed vignette results available at:
-# system.file("scripts", "simRanPatternSpatialCorrelation.R", package = "STcompare")
-
-# load data generated from the script 
-load(system.file("extdata", "simRanPatternResults.RData", package = "STcompare"))
-
-# Var1 and Var2 is every pairwise combination between the 100 kidneys 
-# cors is the correlation coefficient of that pair 
-# corspv is the naive p-value for that pair 
-# corspv_correct is the permuted p-value for that pair (chosen to be the higher of pValuePermuteY and pValuePermuteX)
-head(cors_df)
-
-cors_df <- na.omit(cors_df)
-
-# apply BH correction for the naive p-value 
-cors_df$corspv_bh <- p.adjust(cors_df$corspv, method = "BH")
-
-# Avoid log(0)
-cors_df$corspv_bh[cors_df$corspv_bh == 0] <- 1e-10
-cors_df$corspv_corrected[cors_df$corspv_corrected == 0] <- 1e-10
-
-# -log10
-cors_df$log_bh <- -log10(cors_df$corspv_bh)
-cors_df$log_corrected <- -log10(cors_df$corspv_corrected)
-
-plot_df <- data.frame(
-  analytical_pval  = cors_df$log_bh,
-  empirical_pval = cors_df$log_corrected
-)
-plot_df_long <- melt(plot_df, variable.name = "type", value.name = "neglog10_pval")
-
-
-plt <- ggplot(plot_df_long, aes(x = type, y = neglog10_pval, color = type)) +
+A and B have the same expression levels but opposite patterns, and A and C have
+the same pattern at different levels. Comparing the distributions of the
+expression values, which is what a mean-based comparison does, misses both
+differences:
+
+```{r boxplot, fig.width = 4, fig.height = 3, out.width = "60%", fig.alt = "Box plots of the expression of Gene in A, B and C: A and B have the same distribution, and C is higher."}
+ggplot(cells, aes(sample, expression)) +
   geom_boxplot() +
-  geom_hline(
-    yintercept = -log10(0.05),
-    linetype = "dashed",
-    linewidth = 0.5
-  ) +
-  theme_classic() +
-  labs(
-    x = "P-value type",
-    y = "-log10(p-value)",
-    title = "BH-corrected Analytical p-value (pA) vs BH-corrected empirical p-value (pE)"
-  ) +
-  theme(
-    legend.position = "none",
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12),
-    axis.title = element_text(size = 14),
-    plot.title = element_text(size = 15)
-  )
-plt
-
-
-# percentage of signficant pairs based on the BH corrected naive p-value
-naive_sig <- plot_df[plot_df$analytical_pval > -log10(0.05), ]
-naive_sig_per <- dim(naive_sig)[1] / dim(plot_df)[1]
-naive_sig_per
-dim(naive_sig)[1]
-
-empirical_sig <- plot_df[plot_df$empirical_pval > -log10(0.05), ]
-empirical_per <- dim(empirical_sig)[1] / dim(plot_df)[1]
-empirical_per
-dim(empirical_sig)[1]
-
-dim(plot_df)
-
+  labs(x = "Sample", y = "Expression") +
+  theme_classic()
 ```
 
-Based on the boxplot, the dotted line represent the significance (p-value < 0.05).
-The median for the naive p-value is higher than the empirical one and there are more pairs that are above the significance line 
-in the naive p-value plot than in the empirical p-value. 
-We observe that ~43% of these analytical p-values are less than 0.05, 
-while only ~4% of the empirical p-values are less than 0.05. 
+A and B are indistinguishable by their means, and A and C differ only by a
+fold change. STcompare's two tests separate these cases.
 
-## Spatial fold change 
+# Prepare the input
 
-Now, we use `spatialSimilarity` to understand the magnitude changes across matched spatial locations. 
+STcompare compares the same locations in two samples, so the samples must
+first be put on a common grid:
 
-Here, we find the spatialSimilarity pairwise between (A and B) and (A and C) in `rastKidney`.
+1. **Align** the tissues, so that the same coordinates point to the same
+   structure in both samples. [STalign](https://jef.works/STalign/) does this
+   for sections that are not already aligned; the simulated kidneys are.
+2. **Rasterize** both samples **together**, in one call of
+   `SEraster::rasterizeGeneExpression()`. This aggregates cells or spots into
+   pixels of a shared grid, so that a pixel name means the same location in
+   every sample. Samples rasterized in separate calls generally do not share
+   their grid, and `compareSpatial()` refuses pixels whose coordinates differ.
 
-First, we will compare A and B. Let *x* be the expression of pixel in A and *y* be the expression of that same pixel in B. 
-Then a pixel is defined as similar if *|log2(y/x)| < b*. As default we set *b = 1* so that pixels are similar if there is a less than two-fold change.
-
-Then the similarity score *S* is the proportion of similar pixels over the total number of pixels.
-
-
-```{r spatial_similarity,  message=FALSE, warning=FALSE}
-
-# spatialSimilarity also takes in a list of 2 SpatialExperiment objects you want to compare between 
-# t1 and t2 are the thresholding value for the first and second object in the list. 
-# The threshold is used to remove pixels that have no or little expression for a given gene in the pixel.
-# Failure to remove those those pixels will result in a trivial similarity score due to noise. 
-# If t1 and t2 aren't provided, minQuantile is used to threshold based on the quantile of expression. 
-# The default for minQuantile is 0.05, meaning by default the pixels at the bottom 5% are removed. 
-# minPixels is the percentage of pixels left after thresholding. The default is 0.1. 
-# When there is not enough pixels left, the similarity score will also be trivial.
-# foldChange is the number of fold that are considered similar. The default is 1 fold. 
-
-# compare kidney A and B 
-sAB <- spatialSimilarity(
-  list(A = rastKidney$A, B = rastKidney$B)
-)
-
-# compare kidney A and C 
-sAC <- spatialSimilarity(
-  list(A = rastKidney$A, C = rastKidney$C)
-)
-
+```{r rasterize}
+rast <- SEraster::rasterizeGeneExpression(speKidney, assay_name = "counts",
+                                          resolution = 0.2, fun = "mean",
+                                          square = FALSE)
+rast$A
 ```
 
-To visualize the results of comparing A and C with `spatialSimilarity` we use the `linearRegression` and `pixelClass` functions.
+The result is a list of `SpatialExperiment` objects, one per sample, whose
+columns are hexagonal pixels and whose assay `pixelval` holds the mean
+expression of the cells in each pixel. Pixels are shared where both samples
+have cells.
 
-```{r lr_pc_AB,  message=FALSE, warning=FALSE}
-
-# To get the linear regression and the pixel classification plots, 
-# the inputs are the spatialSimilarity output and the gene name 
-
-# The Linear regression shows the areas in which gene expression 
-# each pixels falls, the pixel is either: higher in B, similar, higher in A  
-lrAB <- linearRegression(input=sAB, gene = "Gene")
-lrAB
-
-# Similar to the linear regression plot, the pixel classification plot takes 
-# the plot of the rasterized kidney and classifies each pixel with the pixels 
-# that are below the threshold are gray 
-pcAB <- pixelClass(input=sAB, gene="Gene")
-pcAB
-
+```{r rasterplot, fig.height = 3, fig.alt = "The three kidneys rasterized onto one grid of hexagonal pixels, coloured by the mean expression of Gene."}
+SEraster::plotRaster(rast$A, plotTitle = "A") +
+  SEraster::plotRaster(rast$B, plotTitle = "B") +
+  SEraster::plotRaster(rast$C, plotTitle = "C")
 ```
 
-For gene `Gene` in the comparison between A and B, we see that A and B has a similarity score of S=0.535.
-This means that 53.5% of the intersecting pixels between A and B are within a two-fold change 
+# Compare two samples
 
-We can also visualize the results of comparing A and C.
+`compareSpatial()` runs both tests for every gene in both samples. It takes
+two `SpatialExperiment` objects, or a named list of two, whose names label the
+samples in the output. Here we compare A with B.
 
-```{r lr_pc_AC,  message=FALSE, warning=FALSE}
-
-# all the pixels have higher expression in C than in A, 
-# and are outside of the similar expression boundaries
-
-lrAC <- linearRegression(input=sAC, gene = "Gene")
-lrAC
-
-pcAC <- pixelClass(input=sAC, gene="Gene")
-pcAC
+```{r ab}
+ab <- compareSpatial(rast[c("A", "B")], nThreads = 2)
+ab
 ```
 
-All the pixels have over 2-fold increase in C relative to the same pixels in A. 
+The printed header summarises the settings and the counts; the table has one
+row per gene. `nThreads` sets the number of threads; the results do not
+depend on it, and `options(STcompare.nThreads = 8)` sets it for a whole
+session. In an interactive session, `compareSpatial()` also shows a progress
+line with an estimate of the remaining time while the permutations run.
 
+A and B are strongly negatively correlated (r = `r round(ab$r, 3)`): none of
+the `r ab$nPermutations` null correlations was as extreme, so p is the smallest
+possible value, 1/`r sprintf("%d", ab$nPermutations + 1L)`. `r round(100 * ab$similarity)`% of
+their matched pixels are within two-fold of each other. Now A and C:
 
-# Conclusion 
+```{r ac}
+ac <- compareSpatial(rast[c("A", "C")], nThreads = 2)
+as.data.frame(ac)[, c("gene", "r", "p", "padj", "nPermutations",
+                      "similarity", "dissimilarityX", "dissimilarityY")]
+```
 
-In spatial data, changes in expression pattern and magnitude can be independent observations. 
+A and C are positively correlated (r = `r round(ac$r, 3)`), yet none of their
+pixels are within two-fold: in `r round(100 * ac$dissimilarityY)`% of the
+pixels kept for the similarity, C is more than twice as high as A.
 
-- A and B are negatively correlated but have similar magnitude at matched spatial locations 
-- A and C are positively correlated but do not have similar magnitude at matched spatial locations 
+## Reading the result
 
-We demonstrate that `STcompare` can be used to identify these differences that would otherwise not have been detected using mean gene expression magnitude comparison. 
-We also demonstrate that `STcompare` generates empirical p-values, providing p-value correction that is needed to take into account that gene expression in each pixel is not independent from that of its neighbors’. 
+| Column | Meaning |
+|---|---|
+| `gene`, `nPixels` | The gene and the number of shared pixels. |
+| `r` | Pearson's correlation of the gene's values in the two samples over the shared pixels. |
+| `pNaive` | The p-value of `cor.test()`, which assumes that pixels are independent. Neighbouring pixels are not independent, so this value is far too small; it is shown for reference only (see below). |
+| `p` | The permutation p-value of the spatial correlation test. It accounts for the spatial autocorrelation of both samples: the null correlations come from surrogates of one sample that keep its spatial autocorrelation but are unrelated to the other sample. Use this p-value. |
+| `padj` | `p` adjusted for multiple testing across the genes of the call (Benjamini-Hochberg by default, `adjustMethod`). |
+| `pX`, `pY` | Descriptive p-values of the two directions: surrogates of the first sample (X) correlated with the second, and surrogates of the second (Y) correlated with the first. `p` combines them. |
+| `nPermutations`, `stop` | How many permutations the gene used, and why it stopped: `"exceedances"` when it stopped early because its p-value is clearly not small, `"limit"` when it reached the `nPermutations` argument. |
+| `deltaStarMedianX`, `deltaStarMedianY` | The median smoothing bandwidth (delta star) chosen for the surrogates of each sample. |
+| `deltaGridEdge` | `TRUE` when most surrogates chose the smallest or the largest bandwidth of the grid, a hint to extend the `delta` argument. |
+| `similarity` | The share of the kept pixels whose values are within a fold change of each other, \|log2(y / x)\| <= `foldChange` (1, two-fold, by default). |
+| `dissimilarityX`, `dissimilarityY` | The share of kept pixels more than `foldChange` higher in the first sample (X) and in the second (Y). The three shares add up to 1. The similarity compares fold changes, so it needs values that are not negative: it is `NA` for genes with negative values. |
+| `nPixelsSimilarity`, `thresholdX`, `thresholdY` | The number of pixels kept for the similarity: those above the gene's expression threshold in either sample, `thresholdX` or `thresholdY` (its 5% quantile by default). |
+| `status`, `message` | `"ok"`; `"skipped"`, with the reason, for a gene that is not tested for correlation because it is constant or detected in few pixels of a sample (see `minDetected` in `?compareSpatial`); or `"failed"`, with the reason, for a gene that could not be tested (for example because of missing values). |
 
+`as.data.frame()` turns the result into a plain data frame, and `summary()`
+gives the counts:
 
+```{r summary}
+summary(ac)
+```
 
+## Adaptive permutations: genes that are clearly not significant stop early
 
+The permutation p-value is computed from up to `nPermutations` (10,000 by
+default) surrogate pairs, but a gene stops as soon as `exceedances` (10 by
+default) null correlations are at least as extreme as the observed one. A
+gene whose patterns are unrelated stops after a few dozen permutations,
+while a significant gene runs to the limit, which sets the smallest possible
+p-value, `1 / (nPermutations + 1)`. For example, two independently simulated
+patterns from `simRanPatternRasts`:
 
+```{r early}
+data(simRanPatternRasts)
+indep <- compareSpatial(simRanPatternRasts[[1]], simRanPatternRasts[[2]],
+                        nThreads = 2)
+as.data.frame(indep)[, c("r", "p", "nPermutations", "stop")]
+```
 
+This gene stopped after `r indep$nPermutations` permutations, with p =
+`r signif(indep$p, 2)`, while A and B used all `r ab$nPermutations`. The
+article [How STcompare works](how-STcompare-works.html) explains why the
+p-value stays valid when genes stop at different times.
 
+# Visualize a comparison
 
+The rasterized maps show the patterns. `plotCorrelationGeneExp()` plots the
+values of a gene in the two samples at the shared pixels, with its correlation
+and adjusted p-value:
 
+```{r correlation-plots, fig.height = 3.5, fig.alt = "Scatter plots of the values of Gene at the shared pixels: A against B falls along a line with negative slope, A against C along a line with positive slope."}
+plotCorrelationGeneExp(rast[c("A", "B")], ab, "Gene") +
+  plotCorrelationGeneExp(rast[c("A", "C")], ac, "Gene")
+```
 
+For the pixel-level view of the similarity, `spatialSimilarity()` computes the
+same similarity as `compareSpatial()` and also returns the class of every
+pixel, which `linearRegression()` and `pixelClass()` plot:
 
+```{r similarity, fig.height = 3.5, message = FALSE, warning = FALSE, fig.alt = "Left: values of Gene in A against B at each pixel, coloured by whether they are within two-fold. Right: map of the pixels coloured by the same classes."}
+simAB <- spatialSimilarity(rast[c("A", "B")])
+simAC <- spatialSimilarity(rast[c("A", "C")])
+linearRegression(simAB, "Gene") + pixelClass(simAB, "Gene")
+```
+
+In the scatter plot (left), each point is a pixel, with its value in A on the
+x axis and in B on the y axis. Pixels between the dashed lines are within
+two-fold (blue); the others are higher in A (yellow) or in B (red). The map
+(right) shows where these pixels are. For A and C, every kept pixel is higher
+in C:
+
+```{r similarityAC, fig.height = 3.5, message = FALSE, warning = FALSE, fig.alt = "The same plots for A and C: every kept pixel is more than two-fold higher in C."}
+linearRegression(simAC, "Gene") + pixelClass(simAC, "Gene")
+```
+
+# Why permutation p-values? A calibration check
+
+Neighbouring pixels have similar values: the patterns are spatially
+autocorrelated. Two unrelated but smooth patterns can therefore have a sizeable
+correlation by chance, much more often than `cor.test()` expects from
+independent observations. `simRanPatternRasts` holds 100 independently
+simulated, spatially autocorrelated patterns rasterized onto one grid, so any
+two of them are unrelated. We compare 50 disjoint pairs, (1, 2), (3, 4), and
+so on, with a different seed for each pair, and collect the results.
+
+```{r calibration}
+pairs <- matrix(seq_along(simRanPatternRasts), nrow = 2)
+calibration <- do.call(rbind, lapply(seq_len(ncol(pairs)), function(k) {
+  res <- compareSpatial(simRanPatternRasts[[pairs[1, k]]],
+                        simRanPatternRasts[[pairs[2, k]]],
+                        tests = "correlation", nPermutations = 1000,
+                        seed = k, nThreads = 2, verbose = FALSE)
+  as.data.frame(res)
+}))
+nrow(calibration)
+summary(calibration$nPermutations)
+```
+
+Most pairs stopped after a few dozen permutations, so the 50 tests take a few
+seconds. The null hypothesis is true for every pair, so a calibrated test
+gives p < 0.05 for about 5% of them:
+
+```{r calibration-counts}
+c(naive = sum(calibration$pNaive < 0.05),
+  permutation = sum(calibration$p < 0.05))
+c(naive = sum(p.adjust(calibration$pNaive, "BH") < 0.05),
+  permutation = sum(p.adjust(calibration$p, "BH") < 0.05))
+```
+
+`r sum(calibration$pNaive < 0.05)` of 50 naive p-values are below 0.05, and
+`r sum(p.adjust(calibration$pNaive, "BH") < 0.05)` pairs remain "significant"
+after the Benjamini-Hochberg adjustment. The permutation test gives
+`r sum(calibration$p < 0.05)` of 50, in line with the 2.5 expected by chance:
+the one-sided binomial p-value of seeing at least that many is
+`r format.pval(binom.test(sum(calibration$p < 0.05), 50, 0.05, alternative = "greater")$p.value, digits = 2)`,
+against
+`r format.pval(binom.test(sum(calibration$pNaive < 0.05), 50, 0.05, alternative = "greater")$p.value, digits = 2)`
+for the naive test. After the adjustment, the permutation test gives
+`r sum(p.adjust(calibration$p, "BH") < 0.05)`.
+
+```{r calibration-plot, fig.height = 3, fig.alt = "Histograms of the p-values of 50 unrelated pairs: the naive p-values pile up near 0, the permutation p-values do not."}
+pvalues <- rbind(
+  data.frame(test = "naive (cor.test)", p = calibration$pNaive),
+  data.frame(test = "permutation (compareSpatial)", p = calibration$p))
+ggplot(pvalues, aes(p)) +
+  geom_histogram(breaks = seq(0, 1, 0.05), colour = "white") +
+  geom_hline(yintercept = 50 * 0.05, linetype = "dashed") +
+  facet_wrap(~test) +
+  labs(x = "p-value of 50 unrelated pairs", y = "Pairs") +
+  theme_classic()
+```
+
+Under the null hypothesis, p-values are uniformly distributed (dashed line).
+The naive p-values pile up near 0; the permutation p-values do not. Many
+permutation p-values are close to 1: a pair whose patterns are clearly
+unrelated reaches 10 exceedances within its first few permutations and stops
+with p = 10 / L, for example 1 after 10 permutations.
+
+# Migrating from the legacy functions
+
+The functions of earlier versions are still available, unchanged in their
+interface. They are computed by the same compiled engine and reproduce the
+published analyses exactly. `compareSpatial()` is the recommended entry point
+for new analyses.
+
+| Earlier function | `compareSpatial()` |
+|---|---|
+| `spatialCorrelationGeneExp(list(A = a, B = b))` | `compareSpatial(list(A = a, B = b), tests = "correlation")` |
+| `spatialCorrelationGeneExpIterPermutations()` (100, then 1000 permutations for promising genes) | adaptive permutations, the default (`exceedances = 10`, `nPermutations = 10000`) |
+| `spatialSimilarity(list(a, b))` | `compareSpatial(a, b, tests = "similarity")` |
+| `correlationCoef`, `pValueNaive` | `r`, `pNaive` |
+| `pValuePermuteX`, `pValuePermuteY` (each adjusted across genes); significant when both are below 0.05 | `p` = the larger of the two directions' p-values, and `padj`; significant when `padj` < 0.05 |
+| `deltaStarMedianX`, `deltaStarMedianY` | the same |
+| `percentSimilarity`, `percentDissimilarityX`, `percentDissimilarityY` | `similarity`, `dissimilarityX`, `dissimilarityY` |
+| `numPixelInThresh`, `t1`, `t2` | `nPixelsSimilarity`, `thresholdX`, `thresholdY` |
+
+The differences in the results:
+
+- `r`, `pNaive` and the similarity scores are identical.
+- The permutation p-values differ within Monte Carlo error: `compareSpatial()`
+  draws independent permutations for each gene and direction (the earlier
+  functions share one set across genes), stops early for genes that are
+  clearly not significant, and adjusts one combined p-value per gene. On the
+  published kidney and brain analyses the two approaches agree on the
+  significance of 95-98% of the genes (see
+  [Parameters, performance and reproducibility](parameters-performance-reproducibility.html)).
+- `compareSpatial()` does not test genes detected in only a few of the shared
+  pixels of either sample (`minDetected`): the surrogates would give them
+  p-values that are too small.
+- `compareSpatial()` checks that the shared pixels have the same coordinates,
+  uses the genes present in both samples, and reports genes that are skipped or
+  cannot be tested in its `status` and `message` columns instead of stopping.
+
+# Next steps
+
+- [How STcompare works](how-STcompare-works.html): the tests step by step.
+- [Parameters, performance and reproducibility](parameters-performance-reproducibility.html):
+  choosing the resolution, the smoothing grid and the number of permutations;
+  threads and run times; seeds.
+- Two case studies run the published analyses on real data in a minute or two:
+  [acute kidney injury (10x Visium)](https://jef.works/STcompare/articles/acute-kidney-injury-10x-visium-rasterized.html)
+  and [MERFISH vs Visium in the mouse brain](https://jef.works/STcompare/articles/brain-MERFISH-10x-visium.html).
+
+# Session information
+
+```{r session}
+sessionInfo()
+```

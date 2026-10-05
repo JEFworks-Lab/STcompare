@@ -115,10 +115,10 @@ The harness is already in the repo: `data-raw/` and `tests/testthat/`. See `data
 |---|---|---|
 | 0 (done) | Investigation, test data (`data-raw/`, `tests/testthat/fixtures/`, 1.2 MB), legacy-reference tests | `devtools::test()` passes against the current R code: 1,618 expectations in about 55 s; slow tiers are opt-in with `STCOMPARE_SLOW_TESTS=true`; mutation testing caught 35 of 36 mutants |
 | 1 (done 2026-10-04) | The C++ engine is now the only implementation behind the exported functions; the legacy R code and `matchingVariograms()` are removed, and geoR and locfit moved to Suggests. The engine also supports adaptive stopping (§7: growing batches, an active set, exact stopping index) | `bench/validate-published.R` reproduces all six published analyses (3,734,400 stored nulls): identical delta*, nulls within 1.1e-13, BH p bit-identical, in about 2 min on 16 threads against about 26 h of the authors' runs. About 500–650× faster per gene on 1 thread. 2,819 lean tests in about 50 s. ASan/UBSan/TSan clean. `R CMD check --as-cran`: 0 errors |
-| 2 | Correctness fixes (see `investigation/09`), each with a NEWS entry and an updated test. Already done (2026-10-04): (b+1)/(B+1) p-values everywhere; BH across genes in `spatialCorrelationGeneExp`; `BPPARAM` passed through | No silent NA rows; no segfaults (validate δ·N ≥ 2); `BPPARAM`/`nThreads` honoured; global RNG untouched |
-| 3 | A new main function with modern defaults: independent per-gene random streams, adaptive Besag–Clifford p-values (§7), a combined p = max(pX, pY) with BH, tidy results. Also: vectorised `spatialSimilarity` (85–90% faster just by hoisting accessors), input validation (pixel coordinates, not just names), progress and ETA | Docs agree with code; examples run in < 5 s each; adaptive p-values are super-uniform on the null calibration tier |
-| 4 | Documentation: "How it works", parameter guide, performance guide, FAQ, pkgdown reference groups | Every new user question in `investigation/06` §"What a new user can't find" has an answer |
-| 5 | Hygiene: roxygen-managed NAMESPACE (stop exporting helpers), declare dependencies, move about 32 MB of `inst/extdata` out of the tarball (now 48.6 MB), `R CMD check` clean, CI | 0 errors/warnings; tarball < 10 MB |
+| 2 (done 2026-10-05) | Correctness fixes (see `investigation/09`), each with a NEWS entry and an updated test: (b+1)/(B+1) p-values everywhere; BH across genes in `spatialCorrelationGeneExp`; `BPPARAM` passed through; NA rows with one warning each instead of crashes (δ·N ≥ 2, duplicated coordinates, fewer than 3 pairs); `spatialSimilarity()`, `savePlots()` and `plotCorrelationGeneExp()` fixes (B12–B36) | No silent NA rows; no segfaults; `BPPARAM`/`nThreads` honoured; global RNG untouched. Met |
+| 3 (done 2026-10-05) | `compareSpatial()` (`compare-spatial-spec.md`): independent per-gene random streams, adaptive Besag–Clifford p-values (§7), a combined p = max(pX, pY) with BH, tidy results with methods, input validation (pixel coordinates, not just names), progress and ETA, the vectorised similarity shared with `spatialSimilarity()`. After the acceptance review: rarely detected genes are not tested (`minDetected`, spec §9) | Docs agree with code; examples run in < 5 s each; adaptive p-values are super-uniform on the null calibration tier. Met; the surrogate null itself is too optimistic for sparse genes (§8) |
+| 4 (done 2026-10-05) | Documentation: three vignettes (Getting started, How STcompare works, Parameters, performance and reproducibility) and two case-study articles that run the published analyses live in one to two minutes, README, pkgdown menus and reference groups | Every new user question in `investigation/06` §"What a new user can't find" has an answer. Met, except an FAQ |
+| 5 (done 2026-10-05) | Hygiene: roxygen-managed NAMESPACE (11 exports), declared dependencies, `inst/extdata` results moved to `bench/published`, `R CMD check` clean | 0 errors/warnings (1 NOTE: CRAN incoming); tarball 2.4 MB. No CI yet |
 
 ## 6. Decisions (made 2026-10-04)
 
@@ -167,7 +167,31 @@ The harness is already in the repo: `data-raw/` and `tests/testthat/`. See `data
 - It is a statistical change, so it goes into the new main function (phase 3). There it replaces the legacy two-stage scheme of `spatialCorrelationGeneExpIterPermutations()`, which stays unchanged for reproducibility.
 - The engine support is built in phase 1, so no rework is needed: grouping tasks into stopping units (both directions of a gene), growing batches, an active set, and exact stopping indices. The engine spec, §6, gives the details.
 
+**Limit of the guarantee.** The p-value is valid with respect to the null distribution that the surrogates
+sample. For genes detected in a few pixels, the surrogates' nearly normal values make extreme null
+correlations too rare, so p is too small however many permutations are drawn (§8).
+
 **Possible later refinements (opt-in):**
 - BH-aware allocation of permutations, spending effort only on genes whose BH decision is still uncertain (MMCTest and QuickMMCTest, Gandy & Hahn).
 - Anytime-valid confidence intervals for p.
 - Tail approximation for very small p (for example a generalised Pareto fit; Knijnenburg et al. 2009). This is a method change.
+
+## 8. Open: the surrogate null of sparse genes (added 2026-10-05)
+
+The acceptance review of `compareSpatial()` found that independent sparse genes get p-values that are too
+small in the far tail: P(p ≤ 0.001) was 0.008–0.03 for genes with 3–150 nonzero pixels of 311, and 0.003–0.015 for
+genes detected in 0.5–10% of 2170 pixels. The cause is the Viladomat surrogate itself (smoothing plus Gaussian noise keeps the
+variogram, not the marginal distribution), not the adaptive scheme: the excess kurtosis of the permutation
+distribution of r grows roughly as N / (kx·ky) for genes detected in kx and ky pixels, and the surrogates do
+not reproduce it. The legacy functions share the problem, hidden by their 100 permutations.
+
+What is done: `minDetected` (default √N pixels) skips the genes where the effect is largest, and the
+documentation says that the p-values of other sparse genes can still be somewhat too small. Options for the
+maintainers, each a method change to validate on the calibration tier:
+- **Amplitude adjustment.** Rank-remap the original values onto each surrogate (as in AAFT surrogates), so that
+  every surrogate has exactly the marginal distribution of the data. For a gene without spatial structure this
+  becomes the plain permutation test, which is exact.
+- **A permutation guard.** Also count exceedances of the plain shuffle (cor(x[π], y), almost free, from the
+  permutation already drawn) and report the larger sequential p-value; it is valid wherever either null is.
+- **Rank correlation.** Test Spearman's correlation, whose null depends much less on the marginals.
+

@@ -1,19 +1,80 @@
 url: https://jef.works/STcompare/
+
 template:
   bootstrap: 5
-navbar:
-  title: "STcompare"
-  left:
-    - text: "Install"
-      href: articles/Install.html
-    - text: "Tutorials"
-      menu:
-      - text: "Getting Started with STcompare"
-        href: articles/getting-started-with-STcompare.html
-      - text: "Acute Kidney Injury 10x Visium"
-        href: articles/acute-kidney-injury-10x-visium-rasterized.html
-      - text: "Comparison of MERFISH and Visium for Mouse Brain"
-        href: articles/brain-MERFISH-10x-visium.html
-    - text: "Functions"
-      href: reference/index.html
 
+navbar:
+  structure:
+    left: [tutorials, articles, reference, news]
+    right: [search, github]
+  components:
+    tutorials:
+      text: Tutorials
+      menu:
+      - text: Getting started with STcompare
+        href: articles/getting-started-with-STcompare.html
+      - text: -------
+      - text: Case studies
+      - text: Acute kidney injury (10x Visium)
+        href: articles/acute-kidney-injury-10x-visium-rasterized.html
+      - text: Comparison of MERFISH and Visium for mouse brain
+        href: articles/brain-MERFISH-10x-visium.html
+    articles:
+      text: Articles
+      menu:
+      - text: How STcompare works
+        href: articles/how-STcompare-works.html
+      - text: Parameters, performance and reproducibility
+        href: articles/parameters-performance-reproducibility.html
+      - text: -------
+      - text: Installation
+        href: articles/Install.html
+
+articles:
+- title: Get started
+  navbar: ~
+  contents:
+  - getting-started-with-STcompare
+  - articles/Install
+- title: Case studies
+  desc: >
+    The published analyses, run live on public data in a minute or two.
+  contents:
+  - articles/acute-kidney-injury-10x-visium-rasterized
+  - articles/brain-MERFISH-10x-visium
+- title: Concepts and guides
+  contents:
+  - how-STcompare-works
+  - parameters-performance-reproducibility
+
+reference:
+- title: Compare two samples
+  desc: >
+    The main function: the spatial correlation test and the spatial similarity
+    for every gene, and the methods of its result.
+  contents:
+  - compareSpatial
+  - STcompareResult
+- title: Spatial correlation, legacy functions
+  desc: >
+    The correlation functions of earlier versions. They reproduce the published
+    analyses exactly.
+  contents:
+  - spatialCorrelationGeneExp
+  - spatialCorrelationGeneExpIterPermutations
+  - spatialCorrelationGeneExpWithinSample
+  - spatialCorrelation
+  - viladomatCorrelation
+- title: Spatial similarity and plotting
+  desc: >
+    The similarity with the class of every pixel, and plots of single genes.
+  contents:
+  - spatialSimilarity
+  - linearRegression
+  - pixelClass
+  - plotCorrelationGeneExp
+  - savePlots
+- title: Example data
+  contents:
+  - speKidney
+  - simRanPatternRasts

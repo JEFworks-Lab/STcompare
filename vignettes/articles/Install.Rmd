@@ -1,0 +1,82 @@
+---
+title: "Installation"
+output: rmarkdown::html_document
+---
+
+# Install STcompare
+
+STcompare depends on Bioconductor packages (SpatialExperiment, SEraster and
+others). Install it with BiocManager, which finds them; BiocManager uses the
+remotes package to install packages from GitHub:
+
+```r
+install.packages(c("BiocManager", "remotes"))
+BiocManager::install("JEFworks-Lab/STcompare")
+```
+
+STcompare needs R 4.5 or later: SEraster is distributed by Bioconductor from
+release 3.21, which requires R 4.5.
+
+# A C++17 compiler
+
+STcompare contains compiled code, so installing it from source needs a C++17
+compiler:
+
+- **macOS:** the Xcode command line tools. Run `xcode-select --install` in a
+  terminal.
+- **Windows:** [Rtools](https://cran.r-project.org/bin/windows/Rtools/), the
+  version that matches your version of R.
+- **Linux:** the C++ compiler of your distribution, for example
+  `sudo apt install build-essential` on Debian and Ubuntu. SEraster also needs
+  the system libraries of the sf package (GDAL, GEOS and PROJ); see the
+  [sf installation notes](https://r-spatial.github.io/sf/#installing).
+
+The compiled code reproduces R's arithmetic exactly, so the installation stops
+with an explanatory error if the compiler flags include `-ffast-math`,
+`-Ofast` or similar options, for example from `~/.R/Makevars`. Remove them and
+install again.
+
+# Check the installation
+
+```r
+library(STcompare)
+example(compareSpatial)
+```
+
+The example rasterizes the simulated kidneys that ship with the package and
+compares them in a few seconds.
+
+`compareSpatial()` runs its permutations on several threads. Set the number
+once per session, for example to 8:
+
+```r
+options(STcompare.nThreads = 8)
+```
+
+The legacy correlation functions, such as `spatialCorrelationGeneExp()`, do not
+read this option; give them the number of threads with their argument
+`nThreads`.
+
+The first use of the Bioconductor packages in a session can print lines such as
+`Warning: stack imbalance in '<-', 2 then 3`. They come from a dependency
+(SparseArray) when its namespace is loaded and are harmless.
+
+# Packages for the tutorials
+
+The tutorials use a few more packages: patchwork to arrange the figures,
+rhdf5 to read the 10x HDF5 files of the
+[kidney case study](acute-kidney-injury-10x-visium-rasterized.html), and
+jsonlite for the [brain case study](brain-MERFISH-10x-visium.html).
+
+```r
+BiocManager::install(c("patchwork", "rhdf5", "jsonlite"))
+```
+
+To install the vignettes with the package, so that `browseVignettes("STcompare")`
+lists them, also install the packages that build them (knitr and rmarkdown,
+among the suggested packages):
+
+```r
+BiocManager::install("JEFworks-Lab/STcompare", build_vignettes = TRUE,
+                     dependencies = TRUE)
+```

@@ -198,3 +198,24 @@
   `SystemRequirements: C++17`; ggplot2 (>= 3.5.0) is required; patchwork and sf are suggested, class and
   reshape2 (no longer used) are not, and `Config/Needs/website` lists the packages that only the case-study
   articles of the website need.
+
+## Documentation
+
+* The tutorials run the analyses live with `compareSpatial()` instead of loading precomputed results.
+  "Getting started" uses the built-in data, including a null-calibration check on 50 independent pairs of
+  `simRanPatternRasts` that replaces `simRanPatternResults.RData`. The case studies "Acute kidney injury
+  (10x Visium)" and "Comparison of MERFISH and Visium for mouse brain" download and cache their inputs and run
+  in one to two minutes on 8 threads.
+* New articles: "How STcompare works" (the tests step by step, with figures from the built-in data, and why
+  rarely detected genes are not tested) and "Parameters, performance and reproducibility" (choosing the
+  settings, run times, threads, seeds, and the legacy functions compared with `compareSpatial()`). Their
+  formulas render offline (MathML), and the figures of all tutorials have alternative text.
+* The case studies no longer need MERINGUE or scatterbar. The spatially variable genes of the published
+  analyses ship in `inst/extdata/vignette-aki-svg-genes.txt` and `vignette-brain-svg-genes.txt`, and
+  `data-raw/vignette_gene_lists.R` in the source repository regenerates them.
+* The README has the installation with BiocManager (and remotes, which BiocManager needs to install from
+  GitHub), the R and C++17 compiler requirements, a quick start, links to every tutorial, and corrected
+  descriptions: alignment is done with STalign and rasterization with SEraster, and it is "Pearson's", not
+  "Person", correlation.
+* The website has Tutorials and Articles menus, a grouped function reference with descriptive titles, and a
+  changelog. The case studies and the installation page are pkgdown articles, not package vignettes.
