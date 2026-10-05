@@ -87,7 +87,8 @@ test_that("portable: p-values agree in distribution with the stored reference an
   grid <- seq(0.1, 0.9, 0.1)
   for (dir in c("X", "Y")) {
     p_new <- cr$results[[paste0("p", dir)]]
-    p_ref <- ref$results[[paste0("p", dir)]]
+    # the reference stores tail counts; convert them with the package's p-value definition
+    p_ref <- stc_p_from_count(ref$results[[paste0("nExtreme", dir)]], ref$results$B)
     dp <- p_new - p_ref
     expect_lte(mean(abs(dp)), 0.1)
     if (any(dp != 0)) {

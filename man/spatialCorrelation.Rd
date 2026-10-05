@@ -31,7 +31,7 @@ observations}
 \item{nPermutations}{\code{integer} or \code{double}: number of permutations
 to generate to build the empirical null distribution. This number will
 determine the precision of the p-value. Default is \code{100}, such that
-the smallest p-value is 0.01}
+the smallest possible p-value is \eqn{1 / 101}, about 0.0099}
 
 \item{deltaX}{\code{numeric}: A single numeric or a numeric vector for
 controlling the degree of smoothing in permutations of X. Delta is a
@@ -89,10 +89,12 @@ The output is returned as a \code{data.frame} containing the columns:
   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
   observations}
-  \item{\code{pValuePermuteX}}{the p-value when creating an empirical null
-  from permutations of observations in X}
-  \item{\code{pValuePermuteY}}{the p-value when creating an empirical null from
-  permutations of observations in Y}
+  \item{\code{pValuePermuteX}}{the empirical p-value when creating a null
+  from permutations of observations in X, computed as \eqn{(b + 1) / (B + 1)}
+  where \eqn{b} is the number of null correlations whose absolute value is
+  at least the absolute value of the observed correlation}
+  \item{\code{pValuePermuteY}}{the empirical p-value when creating a null from
+  permutations of observations in Y, computed like \code{pValuePermuteX}}
   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
   minimizes the difference between the variogram of the permutation and the
   variogram of observations) across permutations of X}

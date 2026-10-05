@@ -311,12 +311,17 @@ change and is used as a statistical reference only.
 The fixtures store **raw nulls, deltaStar and raw (unadjusted) p-values**, so that fixing the following does
 not invalidate them:
 
-- **`p.adjust()` in `spatialCorrelationGeneExp()` is a no-op.** It is applied inside the per-gene loop, to a
-  single p-value (`R/spatialCorrelation.R:836-842`). No test checks adjusted p-values of more than one gene. The
-  published (BH-adjusted) p of the iterative protocol are stored for reference only.
-- **Empirical p-values can be exactly 0** (`extreme / B`, with no +1). The tests compute the expected p-value
-  from raw nulls with `stc_empirical_p()` in `tests/testthat/helper-fixtures.R`. If the definition changes,
-  update that one function; no fixture rebuild is needed. The tail counts `nExtreme` are stored as well.
+- **The p-value definition changed after the fixtures were built.** The fixtures were built with the legacy
+  definition `b / B` (strict `>`, so p could be exactly 0). The package now computes `(b + 1) / (B + 1)`, with
+  `b` counting `|null| >= |r|`, and `spatialCorrelationGeneExp()` now applies `adjustMethod` across genes
+  instead of to one gene at a time (where it had no effect). Neither change invalidates the fixtures:
+  - the tests compute expected p-values from the stored raw nulls with `stc_empirical_p()` in
+    `tests/testthat/helper-fixtures.R`;
+  - stored legacy p-values (`expected$*$pValue`, `pRawX_first100`) are only checked for fixture integrity,
+    with `stc_legacy_p()`;
+  - the tail counts `nExtreme` are stored as well.
+
+  The published (BH-adjusted) p of the iterative protocol are stored for reference only.
 - **`spatialSimilarity()` reports `numPixelInThresh = 1`** for a gene skipped by `minPixels` (the row count of
   its one-row summary). The hand-computed test does not check that value.
 - **Errors become silent NA rows**, and **locfit segfaults** (the R session dies) when 1 <= delta * N < 2 (for

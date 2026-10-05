@@ -143,11 +143,15 @@ expect_nulls_close <- function(null, ref, info = NULL, tol = 0.01, frac = 0.6) {
 }
 
 # --- Definitions shared by tests and fixtures --------------------------------------------------------------
-# Empirical p-value as defined by the current implementation: the fraction of null correlations whose
-# absolute value is strictly larger than |r| (legacy definition: no "+1", so it can be exactly 0).
-# Tests compare package p-values with this function applied to raw nulls. If the definition is fixed (e.g.
-# (k + 1) / (B + 1)), change it here; the fixtures keep raw nulls and need no rebuild.
-stc_empirical_p <- function(null, r) sum(abs(null) > abs(r)) / length(null)
+# Empirical p-value as defined by the package: (b + 1) / (B + 1), where b counts the null correlations
+# whose absolute value is at least |r|. Tests compare package p-values with this function applied to raw
+# nulls; the fixtures keep raw nulls, so changing the definition needs no rebuild.
+stc_empirical_p <- function(null, r) (sum(abs(null) >= abs(r)) + 1) / (length(null) + 1)
+stc_p_from_count <- function(b, B) (b + 1) / (B + 1)
+
+# The legacy definition (b / B with strict ">", so it can be exactly 0). The fixtures were built with it, so
+# fixture-integrity checks of stored p-values use this; package outputs are checked with stc_empirical_p().
+stc_legacy_p <- function(null, r) sum(abs(null) > abs(r)) / length(null)
 
 # Positive-control recipe of the calibration tier (calibration_fixture.rds$mix_recipe): a field with the same
 # covariance model as f_i and f_j whose population correlation with f_i is rho.

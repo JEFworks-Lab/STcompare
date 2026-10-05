@@ -32,8 +32,9 @@ variogram should be subsetted to the percentile that is more robust.}
 
 \item{nPermutations}{\code{integer}: Number of permutations to generate to
 build the empirical null distribution. This number will determine the
-precision of the p-value. For example, if \code{nPermutations <- 100}, then
-the smallest p-value is 0.01}
+precision of the p-value. The smallest possible p-value is
+\eqn{1 / (nPermutations + 1)}, for example about 0.0099 when
+\code{nPermutations <- 100}}
 
 \item{nThreads}{\code{integer}: Number of threads for parallelization.
 Default = 1. Inputting this argument when the \code{BPPARAM} argument is
@@ -60,7 +61,9 @@ The output is returned as a list.
   \item{\code{deltaStar}}{numeric vector of length of `nPermutations`,
   the delta that minimizes the residual sum of squares for each permutation}
   \item{\code{pValueGlobal}}{numeric, empirical p-value for the Pearson's
-  correlation of X and Y}
+  correlation of X and Y, computed as \eqn{(b + 1) / (B + 1)} where \eqn{b}
+  is the number of null correlations whose absolute value is at least the
+  absolute value of the observed correlation}
   \item{\code{nullCorGlobal}}{a B x 1 matrix, where B is `nPermutations`.
   This matrix is the correlation coefficients between the permutations and
   X that compose that null distribution used to calculate the empirical p-value}

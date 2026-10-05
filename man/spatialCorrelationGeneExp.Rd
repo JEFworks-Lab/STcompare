@@ -34,7 +34,7 @@ SpatialExperiment objects have more than one assay.}
 \item{nPermutations}{\code{integer} or \code{double}: number of permutations
 to generate to build the empirical null distribution. This number will
 determine the precision of the p-value. Default is \code{100}, such that
-the smallest p-value is 0.01}
+the smallest possible unadjusted p-value is \eqn{1 / 101}, about 0.0099}
 
 \item{deltaX}{\code{list}: List of single numerics or list of numeric vectors
 to use for delta, the parameter controlling the degree of smoothing in
@@ -103,9 +103,10 @@ empirical p-values regardless of parallelization back-end. Default is
 \code{0}.}
 
 \item{adjustMethod}{\code{character}: multiple-testing correction method
-passed to \code{stats::p.adjust()} for the final \code{pValuePermuteX} and
-\code{pValuePermuteY} columns separately. Must be one of
-\code{p.adjust.methods}. Default is \code{"BH"}.}
+passed to \code{stats::p.adjust()}. It is applied across all genes,
+separately to the \code{pValuePermuteX} column and to the
+\code{pValuePermuteY} column. Must be one of \code{p.adjust.methods}; use
+\code{"none"} for unadjusted p-values. Default is \code{"BH"}.}
 }
 \value{
 The output is returned as a \code{data.frame}. The rownames are the
@@ -115,10 +116,13 @@ The output is returned as a \code{data.frame}. The rownames are the
   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
   observations}
-  \item{\code{pValuePermuteX}}{the p-value when creating an empirical null from permutations
-  of observations in X}
-  \item{\code{pValuePermuteY}}{the p-value when creating an empirical null from
-  permutations of observations in Y}
+  \item{\code{pValuePermuteX}}{the empirical p-value when creating a null from
+  permutations of observations in X, computed as \eqn{(b + 1) / (B + 1)} (see
+  \code{\link{spatialCorrelation}}) and then adjusted across genes with
+  \code{adjustMethod}}
+  \item{\code{pValuePermuteY}}{the empirical p-value when creating a null from
+  permutations of observations in Y, adjusted across genes like
+  \code{pValuePermuteX}}
   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
   minimizes the difference between the variogram of the permutation and the
   variogram of observations) across permutations of X}

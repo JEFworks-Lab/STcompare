@@ -262,7 +262,9 @@ make_case <- function(name, X, Y, pos, pixel = NULL, deltaX = seq(0.1, 0.9, 0.1)
     r_obs <- as.vector(cor(xv, yv))
     list(r_obs = r_obs, deltaStar = as.numeric(p$deltaStar), deltaStarMedian = p$deltaStarMedian,
          nullCor = as.numeric(p$nullCorGlobal), nExtreme = sum(abs(p$nullCorGlobal) > abs(r_obs)),
-         pValue = p$pValueGlobal, perm_fingerprint = perm_fingerprint(p$permutations),
+         # legacy definition b / B, independent of the package's current p-value formula
+         pValue = sum(abs(p$nullCorGlobal) > abs(r_obs)) / length(p$nullCorGlobal),
+         perm_fingerprint = perm_fingerprint(p$permutations),
          perm1 = if (keep_perm1) as.numeric(p$permutations[, 1]) else NULL)
   }
   list(name = name, notes = notes,
@@ -371,8 +373,9 @@ if ("tier0" %in% tiers) {
   runtime <- vapply(cases, function(cs) cs$.runtime, 0)
   cases <- lapply(cases, function(cs) { cs$.runtime <- NULL; cs })
   fixture <- list(rng = rng_semantics, cases = cases, similarity = similarity, edge_cases = edge_cases,
-                  notes = paste("Legacy R behaviour, pinned for a future C++ backend. Expected p-values are raw",
-                                "(extreme / B, can be 0, no multiple-testing adjustment); nulls and deltaStar are the",
+                  notes = paste("Legacy R behaviour, pinned for a future C++ backend. Expected p-values use the legacy",
+                                "definition (b / B with strict '>', can be 0, no multiple-testing adjustment; the package",
+                                "now computes (b + 1) / (B + 1)); nulls and deltaStar are the",
                                 "primary references. Tolerances: integers, bin counts and deltaStar exact; RNG draws",
                                 "1e-14; floating point 1e-12. The values are exact only where geoR bins each case's",
                                 "pixel pairs as on the build machine (meta$platform_signature, compared per case by",
@@ -479,7 +482,8 @@ if ("tier1" %in% tiers) {
                     call = paste("spatialCorrelation(X = fields[i, sh], Y = (rho == 0 ? fields[j, sh] : stc_mix(fields[i, sh], fields[j, sh], rho)),",
                                  "pos = coords[sh, ], nPermutations = 100, seed = 0, BPPARAM = SerialParam()) with sh the pixels",
                                  "present in both fields and default deltas / maxDistPrctile; RNGkind() at R defaults"),
-                    notes = paste("raw p-values (extreme / B), tail counts nExtremeX/Y, deltaStar medians and the B x 60",
+                    notes = paste("raw p-values as computed by the package at build time, tail counts nExtremeX/Y",
+                                  "(strict '>'; tests convert them with the current p-value definition), deltaStar medians and the B x 60",
                                   "matrices of deltaStar (deltaStarX, deltaStarY) of the legacy R implementation")),
                   notes = paste("Each field: GRF (exponential / Matern nu = 0.5, range 0.1 in [0,1]^2) + N(0, 0.3) noise + 10,",
                                 "cells kept inside a kidney-shaped region (~1240 of 5000 cells), rasterized on a shared hex grid",

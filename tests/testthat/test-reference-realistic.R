@@ -40,7 +40,7 @@ test_that("fixture integrity: realistic fixture (not regression coverage)", {
       expect_length(G$nullX, 100)
       expect_length(G$deltaStarY, 100)
       expect_true(all(c(G$deltaStarX, G$deltaStarY) %in% P$params$delta), info = g)
-      expect_identical(G$pRawX_first100, stc_empirical_p(G$nullX, G$correlationCoef), info = g)
+      expect_identical(G$pRawX_first100, stc_legacy_p(G$nullX, G$correlationCoef), info = g)
     }
   }
   expect_true(all(unlist(lapply(names(test_genes), function(p) test_genes[[p]] %in% rf$pairs[[p]]$genes))))

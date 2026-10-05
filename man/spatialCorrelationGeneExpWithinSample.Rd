@@ -25,7 +25,7 @@ one assay.}
 \item{nPermutations}{\code{integer} or \code{double}: number of permutations
 to generate to build the empirical null distribution. This number will
 determine the precision of the p-value. Default is \code{100}, such that
-the smallest p-value is 0.01}
+the smallest possible p-value is \eqn{1 / 101}, about 0.0099}
 
 \item{maxDistPrctile}{\code{numeric}: percentile of distances between pixels
 to use as max distance in when calculating variograms. Default = 0.25. At

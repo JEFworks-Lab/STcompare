@@ -222,7 +222,7 @@ test_that("exact: quakes with returnPermutations = FALSE reproduces the stored r
   expect_equal(of$pValuePermuteY, stc_empirical_p(cs$expected$reverse$nullCor, cs$expected$reverse$r_obs))
 })
 
-test_that("portable: the empirical p-value counts only strictly larger |null| (ties do not count)", {
+test_that("portable: the empirical p-value is (b + 1) / (B + 1) and ties count as extreme", {
   q <- fx$cases$quakes_irregular$input
   X <- sort(q$X)
   Y <- q$Y
@@ -235,7 +235,8 @@ test_that("portable: the empirical p-value counts only strictly larger |null| (t
     },
     .package = "STcompare")
   expect_identical(abs(as.numeric(o$nullCorGlobal)), rep(abs(as.vector(stats::cor(X, Y))), 4))
-  expect_identical(o$pValueGlobal, 0)
+  # all 4 nulls tie with |r|, so b = 4 and p = (4 + 1) / (4 + 1)
+  expect_identical(o$pValueGlobal, 1)
 })
 
 test_that("portable: results do not depend on the number of workers (nThreads = 2)", {
@@ -267,8 +268,41 @@ test_that("portable: spatialCorrelationGeneExp() forwards seed, deltas and maxDi
   expect_identical(c(og$pValuePermuteX, og$pValuePermuteY), c(os$pValuePermuteX, os$pValuePermuteY))
 })
 
+test_that("portable: spatialCorrelationGeneExp() adjusts p-values across genes with adjustMethod", {
+  rk <- fx_speKidney_raster()
+  sh <- intersect(rownames(SpatialExperiment::spatialCoords(rk$A)), rownames(SpatialExperiment::spatialCoords(rk$C)))
+  a <- as.numeric(SummarizedExperiment::assay(rk$A)[1, sh])
+  cc <- as.numeric(SummarizedExperiment::assay(rk$C)[1, sh])
+  # three "genes" on the A-C pixels: X is always A; Y is C (positive), max(C) - C (negative) and C in
+  # reversed pixel order (unrelated)
+  mk <- function(rows) {
+    m <- do.call(rbind, rows)
+    dimnames(m) <- list(c("pos", "neg", "rev"), sh)
+    SpatialExperiment::SpatialExperiment(assays = list(counts = m),
+                                         spatialCoords = SpatialExperiment::spatialCoords(rk$A)[sh, ])
+  }
+  x <- mk(list(a, a, a))
+  y <- mk(list(cc, max(cc) - cc, rev(cc)))
+  local_default_rng()
+  run <- function(method) quiet_locfit(spatialCorrelationGeneExp(list(x, y), nPermutations = 3, verbose = FALSE,
+                                                                 adjustMethod = method))
+  raw <- run("none")
+  expect_identical(rownames(raw), c("pos", "neg", "rev"))
+  for (dir in c("X", "Y")) {
+    col <- paste0("pValuePermute", dir)
+    expect_equal(raw[[col]], mapply(stc_empirical_p, raw[[paste0("nullCorrelations", dir)]], raw$correlationCoef),
+                 info = dir)
+    for (method in c("BH", "bonferroni")) {
+      expect_equal(run(method)[[col]], stats::p.adjust(raw[[col]], method = method), info = paste(dir, method))
+    }
+  }
+  # an invalid method fails before any permutation is computed
+  expect_error(spatialCorrelationGeneExp(list(x, y), nPermutations = 3, verbose = FALSE, adjustMethod = "nope"),
+               "adjustMethod must be one of")
+})
+
 test_that("exact: spatialCorrelationGeneExp() with default arguments reproduces kidney_AB", {
-  # nulls, deltaStar and r only: the wrapper's p-value adjustment is applied per gene (a known legacy issue)
+  # nulls, deltaStar and r only; p-values are checked in the tests above
   skip_if_not_exact(KF, "kidney_AB")
   rk <- fx_speKidney_raster()
   cs <- fx$cases$kidney_AB

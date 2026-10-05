@@ -165,8 +165,9 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #'
 #' @param nPermutations \code{integer}: Number of permutations to generate to
 #'   build the empirical null distribution. This number will determine the
-#'   precision of the p-value. For example, if \code{nPermutations <- 100}, then
-#'   the smallest p-value is 0.01
+#'   precision of the p-value. The smallest possible p-value is
+#'   \eqn{1 / (nPermutations + 1)}, for example about 0.0099 when
+#'   \code{nPermutations <- 100}
 #'
 #' @param nThreads \code{integer}: Number of threads for parallelization.
 #'   Default = 1. Inputting this argument when the \code{BPPARAM} argument is
@@ -192,7 +193,9 @@ matchingVariograms <- function( X.randomized, long, lat, delta, target_variog,
 #'   \item{\code{deltaStar}}{numeric vector of length of `nPermutations`,
 #'   the delta that minimizes the residual sum of squares for each permutation}
 #'   \item{\code{pValueGlobal}}{numeric, empirical p-value for the Pearson's
-#'   correlation of X and Y}
+#'   correlation of X and Y, computed as \eqn{(b + 1) / (B + 1)} where \eqn{b}
+#'   is the number of null correlations whose absolute value is at least the
+#'   absolute value of the observed correlation}
 #'   \item{\code{nullCorGlobal}}{a B x 1 matrix, where B is `nPermutations`.
 #'   This matrix is the correlation coefficients between the permutations and
 #'   X that compose that null distribution used to calculate the empirical p-value}
@@ -322,9 +325,10 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
   # null distribution for the global correlation:
   cor.global <- cor(permutations,Y)
 
-  # p-value:
-  extreme <- sum(abs(cor.global) > abs(cor.global.obs))
-  p.value.global <- extreme / B
+  # p-value: (b + 1) / (B + 1), where b counts the null correlations that are
+  # at least as extreme as the observed one, so it is never 0
+  extreme <- sum(abs(cor.global) >= abs(cor.global.obs))
+  p.value.global <- (extreme + 1) / (B + 1)
 
   return(list(deltaStarMedian = delta.star.median,
               deltaStar = c(delta.star),
@@ -355,7 +359,7 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #' @param nPermutations \code{integer} or \code{double}: number of permutations
 #'   to generate to build the empirical null distribution. This number will
 #'   determine the precision of the p-value. Default is \code{100}, such that
-#'   the smallest p-value is 0.01
+#'   the smallest possible p-value is \eqn{1 / 101}, about 0.0099
 #'
 #' @param deltaX \code{numeric}: A single numeric or a numeric vector for
 #'   controlling the degree of smoothing in permutations of X. Delta is a
@@ -412,10 +416,12 @@ viladomatCorrelation <- function(data, delta, maxDistPrctile, nPermutations,
 #'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
 #'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
 #'   observations}
-#'   \item{\code{pValuePermuteX}}{the p-value when creating an empirical null
-#'   from permutations of observations in X}
-#'   \item{\code{pValuePermuteY}}{the p-value when creating an empirical null from
-#'   permutations of observations in Y}
+#'   \item{\code{pValuePermuteX}}{the empirical p-value when creating a null
+#'   from permutations of observations in X, computed as \eqn{(b + 1) / (B + 1)}
+#'   where \eqn{b} is the number of null correlations whose absolute value is
+#'   at least the absolute value of the observed correlation}
+#'   \item{\code{pValuePermuteY}}{the empirical p-value when creating a null from
+#'   permutations of observations in Y, computed like \code{pValuePermuteX}}
 #'   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
 #'   minimizes the difference between the variogram of the permutation and the
 #'   variogram of observations) across permutations of X}
@@ -644,7 +650,7 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #' @param nPermutations \code{integer} or \code{double}: number of permutations
 #'   to generate to build the empirical null distribution. This number will
 #'   determine the precision of the p-value. Default is \code{100}, such that
-#'   the smallest p-value is 0.01
+#'   the smallest possible unadjusted p-value is \eqn{1 / 101}, about 0.0099
 #'
 #' @param deltaX \code{list}: List of single numerics or list of numeric vectors
 #'   to use for delta, the parameter controlling the degree of smoothing in
@@ -711,11 +717,12 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   generate noise in the variogram matching step. Ensures reproducibility of
 #'   empirical p-values regardless of parallelization back-end. Default is
 #'   \code{0}.
-#' 
+#'
 #' @param adjustMethod \code{character}: multiple-testing correction method
-#'   passed to \code{stats::p.adjust()} for the final \code{pValuePermuteX} and
-#'   \code{pValuePermuteY} columns separately. Must be one of
-#'   \code{p.adjust.methods}. Default is \code{"BH"}.
+#'   passed to \code{stats::p.adjust()}. It is applied across all genes,
+#'   separately to the \code{pValuePermuteX} column and to the
+#'   \code{pValuePermuteY} column. Must be one of \code{p.adjust.methods}; use
+#'   \code{"none"} for unadjusted p-values. Default is \code{"BH"}.
 #'
 #' @return The output is returned as a \code{data.frame}. The rownames are the
 #'   rownames of the SpatialExperiments. The names of the columns and their
@@ -724,10 +731,13 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
 #'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
 #'   observations}
-#'   \item{\code{pValuePermuteX}}{the p-value when creating an empirical null from permutations
-#'   of observations in X}
-#'   \item{\code{pValuePermuteY}}{the p-value when creating an empirical null from
-#'   permutations of observations in Y}
+#'   \item{\code{pValuePermuteX}}{the empirical p-value when creating a null from
+#'   permutations of observations in X, computed as \eqn{(b + 1) / (B + 1)} (see
+#'   \code{\link{spatialCorrelation}}) and then adjusted across genes with
+#'   \code{adjustMethod}}
+#'   \item{\code{pValuePermuteY}}{the empirical p-value when creating a null from
+#'   permutations of observations in Y, adjusted across genes like
+#'   \code{pValuePermuteX}}
 #'   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
 #'   minimizes the difference between the variogram of the permutation and the
 #'   variogram of observations) across permutations of X}
@@ -772,6 +782,12 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
                                       verbose = TRUE,
                                       seed = 0,
                                       adjustMethod = "BH"){
+
+  # correction method should be from p.adjust.methods
+  if (!adjustMethod %in% stats::p.adjust.methods) {
+    stop("adjustMethod must be one of: ",
+         paste(stats::p.adjust.methods, collapse = ", "))
+  }
 
   ## set up parallel execution back-end with BiocParallel
   if (is.null(BPPARAM)) {
@@ -827,22 +843,23 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
                                  deltaX = deltaX[[i]], deltaY = deltaY[[i]],
                                  maxDistPrctile = maxDistPrctile,
                                  returnPermutations = returnPermutations,
-                                 nThreads = nThreads, BPPARAM = NULL,
+                                 nThreads = nThreads, BPPARAM = BPPARAM,
                                  seed = seed)
 
     #name row of dataframe with gene name
     row.names(output) <- g
 
-    # mht correct for pValuePermuteX and pValuePermuteY seperately
-    output$pValuePermuteX <- stats::p.adjust(
-      output$pValuePermuteX, method = adjustMethod
-    )
-    output$pValuePermuteY <- stats::p.adjust(
-      output$pValuePermuteY, method = adjustMethod
-    )
     return(output)
 
   }))
+
+  # mht correct for pValuePermuteX and pValuePermuteY separately, across genes
+  correctedCorrelation$pValuePermuteX <- stats::p.adjust(
+    correctedCorrelation$pValuePermuteX, method = adjustMethod
+  )
+  correctedCorrelation$pValuePermuteY <- stats::p.adjust(
+    correctedCorrelation$pValuePermuteY, method = adjustMethod
+  )
 
   return(correctedCorrelation)
 }
@@ -863,7 +880,7 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
 #' @param nPermutations \code{integer} or \code{double}: number of permutations
 #'   to generate to build the empirical null distribution. This number will
 #'   determine the precision of the p-value. Default is \code{100}, such that
-#'   the smallest p-value is 0.01
+#'   the smallest possible p-value is \eqn{1 / 101}, about 0.0099
 #'
 #' @param deltaX \code{list}: List of single numerics or list of numeric vectors
 #'   to use for delta, the parameter controlling the degree of smoothing in
