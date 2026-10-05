@@ -28,6 +28,7 @@ LazyData: true
 RoxygenNote: 7.3.3
 Imports: 
     BiocParallel,
+    Rcpp,
     dplyr,
     geoR,
     ggplot2,
@@ -42,7 +43,7 @@ Suggests:
     class,
     knitr,
     rmarkdown, 
-    reshape2,
-    testthat (>= 3.1.7)
+    reshape2
 VignetteBuilder: knitr
-Config/testthat/edition: 3
+LinkingTo: 
+    Rcpp
