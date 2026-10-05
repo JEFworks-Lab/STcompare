@@ -2,45 +2,46 @@
 % Please edit documentation in R/visualizationFunctions.R
 \name{pixelClass}
 \alias{pixelClass}
-\title{Generates a spatial plot of pixel classifications for a given gene.}
+\title{Map the similarity class of every pixel}
 \usage{
 pixelClass(input, gene, assayName = NULL)
 }
 \arguments{
-\item{input}{A list. Results from `spatialSimilarity()`. This includes the
-similarity table, log-transformed pixel data, and analysis parameters.}
+\item{input}{A list. Results from \code{spatialSimilarity()}. This includes
+the similarity table, log-transformed pixel data, and analysis parameters.}
 
 \item{gene}{Character. The name of the gene to visualize.}
 
 \item{assayName}{A character string or numeric specifying the assay in the
-Spatial Experiment to use. Default is \code{NULL}. If no value is supplied
-for \code{assayName}, then the first assay is used as a default}
+Spatial Experiment to use. Default is \code{NULL}: the assay that
+\code{spatialSimilarity()} used. The classification comes from
+\code{input}, so the plot does not depend on it.}
 }
 \value{
 A ggplot2 spatial plot displaying classified pixels, where:
-\itemize{
+\describe{
   \item{\strong{blue}}{Pixels classified as similar (within the fold-change threshold).}
   \item{\strong{yellow}}{Pixels with greater expression in dataset X than Y.}
   \item{\strong{red}}{Pixels with greater expression in dataset Y than X.}
   \item{\strong{grey}}{Pixels with gene expression below the threshold in both experiments.}
 }
-  The plot is generated using `sf` (simple features) for spatial
-  representation and is overlaid with pixel classifications. The plot title
-  includes the gene name and its similarity score.
+  The plot title includes the gene name and its similarity score.
 }
 \description{
 This function visualizes the spatial distribution of gene expression
-similarity by classifying pixels into three categories: below threshold,
-similar, and not similar. The plot is generated using spatial geometry from
-the SpatialExperiment object.
+similarity by classifying pixels into four categories: below threshold,
+similar, higher in the first dataset and higher in the second dataset. The
+plot is drawn with the pixel geometries of rasterized SpatialExperiment
+objects (\code{colData()} column \code{geometry}, which needs the sf
+package), otherwise with points at the spatial coordinates.
 }
 \examples{
 data(speKidney)
 ##### Rasterize to get pixels at matched spatial locations #####
 rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
                 assay_name = 'counts', resolution = 0.2, fun = "mean",
-                BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
-s <- spatialSimilarity(list(rastKidney$A, rastKidney$B))
+                square = FALSE)
+s <- spatialSimilarity(list(A = rastKidney$A, B = rastKidney$B))
 pixelClass(s, "Gene")
 
 }

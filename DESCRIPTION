@@ -1,46 +1,63 @@
 Package: STcompare
 Type: Package
-Title: Framework for Spatial Transcriptomic Data Comparision 
-Version: 0.1.0
-Authors@R: 
+Title: Framework for Spatial Transcriptomic Data Comparison
+Version: 0.1.0.9000
+Authors@R:
     c(
       person(
-        "Kalen", "Clifton", email = "kclifto2@jh.edu", 
-        role = c("aut", "cre"), 
+        "Kalen", "Clifton", email = "kclifto2@jh.edu",
+        role = c("aut", "cre"),
         comment = c(ORCID = "0000-0002-4095-8104")
-      ), 
+      ),
       person(
         "Vivien", "Jiang", email = "vjiang1@jhu.edu",
-        comment = c(ORCID = "0009-0002-1417-4389"), 
+        comment = c(ORCID = "0009-0002-1417-4389"),
         role = c("aut")
-      ), 
+      ),
       person(
-        "Jean", "Fan", email = "jeanfan@jhu.edu", 
-        role = c("aut", "rev"), 
+        "Jean", "Fan", email = "jeanfan@jhu.edu",
+        role = c("aut", "rev"),
         comment = c(ORCID = "0000-0002-0212-5451")
       )
     )
-URL: https://jef.works/STcompare/
-Description: STcompare is an R package for comparing spatial gene expression patterns across spatial transcriptomics (ST) datasets. 
+URL: https://jef.works/STcompare/, https://github.com/JEFworks-Lab/STcompare
+BugReports: https://github.com/JEFworks-Lab/STcompare/issues
+Description: Compares the spatial gene expression patterns of two spatial
+    transcriptomics datasets of structurally matched tissues, rasterized onto
+    a shared grid of pixels. For each gene, a spatial correlation test gives a
+    permutation p-value that accounts for the spatial autocorrelation of both
+    patterns (Viladomat et al. (2014) <doi:10.1111/biom.12139>), and a spatial
+    fold-change similarity measures how often the expression at matched
+    locations is within a fold change. The method is described in Clifton et
+    al. (2026) <doi:10.1093/bioinformatics/btag644>.
 License: GPL-3
+biocViews: Software, Spatial, Transcriptomics, GeneExpression,
+    StatisticalMethod
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
-Imports: 
+Imports:
     BiocParallel,
     dplyr,
-    geoR,
-    ggplot2,
-    locfit,
+    ggplot2 (>= 3.5.0),
+    Rcpp,
     SEraster (>= 0.1.0),
     SpatialExperiment,
     SummarizedExperiment,
     viridis
-Depends: 
-    R (>= 4.3.0)
-Suggests: 
-    class,
+Depends:
+    R (>= 4.5.0)
+Suggests:
+    geoR,
     knitr,
-    rmarkdown, 
-    reshape2
+    locfit,
+    patchwork,
+    rmarkdown,
+    sf,
+    testthat (>= 3.1.7)
+LinkingTo:
+    Rcpp
+SystemRequirements: C++17
 VignetteBuilder: knitr
+Config/testthat/edition: 3
+Config/Needs/website: jsonlite, Matrix, rhdf5

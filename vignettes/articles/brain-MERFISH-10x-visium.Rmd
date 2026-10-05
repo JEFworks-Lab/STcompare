@@ -1,0 +1,486 @@
+---
+title: "Comparison of MERFISH and Visium for mouse brain"
+author:
+- Kalen Clifton
+- Vivien Jiang
+- Jean Fan
+output: rmarkdown::html_document
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4,
+  out.width = "100%"
+)
+```
+
+This case study compares two sections of the adult mouse brain assayed with two
+different technologies: MERFISH, which measures a targeted panel of genes in
+single cells, and 10x Visium, which measures the whole transcriptome in spots of
+55 µm. The sections come from different animals and were aligned with
+[STalign](https://jef.works/STalign/). We ask how well the spatial patterns of
+gene expression, and of cell types, correspond across the two technologies.
+
+The analysis runs live. It downloads 75 MB once (the files are cached for
+later runs), and takes about two minutes on a computer with 8 cores.
+
+```{r setup, message = FALSE}
+library(STcompare)
+library(SpatialExperiment)
+library(ggplot2)
+library(patchwork)
+
+# use up to 8 threads, leaving one core free
+threads <- min(8L, max(1L, parallel::detectCores() - 1L, na.rm = TRUE))
+```
+
+Reading the Visium scale factors needs the package jsonlite.
+
+# Download the data
+
+The MERFISH data, slice 2 replicate 3 aligned to the Visium section, are on
+Zenodo ([doi:10.5281/zenodo.10724029](https://doi.org/10.5281/zenodo.10724029)),
+the Visium data on the
+[10x Genomics website](https://www.10xgenomics.com/datasets/adult-mouse-brain-ffpe-1-standard-1-3-0),
+and the cell-type annotations of both on Zenodo
+([doi:10.5281/zenodo.19582556](https://doi.org/10.5281/zenodo.19582556)). The
+helper below downloads a file once into a cache directory and checks its MD5
+checksum, so a broken or partial download is never used.
+
+```{r download}
+cacheDir <- file.path(tools::R_user_dir("STcompare", which = "cache"),
+                      "downloads")
+
+downloadCached <- function(url, file, md5) {
+  dir.create(cacheDir, recursive = TRUE, showWarnings = FALSE)
+  path <- file.path(cacheDir, file)
+  if (file.exists(path) && unname(tools::md5sum(path)) == md5) return(path)
+  old <- options(timeout = max(1800, getOption("timeout")))
+  on.exit(options(old))
+  partial <- paste0(path, ".part")
+  utils::download.file(url, partial, mode = "wb", quiet = TRUE)
+  if (unname(tools::md5sum(partial)) != md5) {
+    unlink(partial)
+    stop("The download of ", file, " is incomplete or has changed ",
+         "(MD5 mismatch); please try again.", call. = FALSE)
+  }
+  file.rename(partial, path)
+  path
+}
+
+tenx <- paste0("https://cf.10xgenomics.com/samples/spatial-exp/1.3.0/",
+               "Visium_FFPE_Mouse_Brain/")
+celltypes <- "https://zenodo.org/records/19582556/files/"
+files <- list(
+  merfish = downloadCached(
+    "https://zenodo.org/records/10724029/files/STalign_S2R3_to_Visium.csv.gz?download=1",
+    "STalign_S2R3_to_Visium.csv.gz", "c092af84ca82a50539f4fdc0f51e8fdc"),
+  visium_counts = downloadCached(
+    paste0(tenx, "Visium_FFPE_Mouse_Brain_filtered_feature_bc_matrix.tar.gz"),
+    "Visium_FFPE_Mouse_Brain_filtered_feature_bc_matrix.tar.gz",
+    "017fc078b4aa21e1df39027d0bf3ccad"),
+  visium_spatial = downloadCached(
+    paste0(tenx, "Visium_FFPE_Mouse_Brain_spatial.tar.gz"),
+    "Visium_FFPE_Mouse_Brain_spatial.tar.gz", "a78bb08009c4defd791354dd5c292bfa"),
+  type_similarity = downloadCached(
+    paste0(celltypes, "STalign_cell_type_transcriptional_correlations.csv.gz?download=1"),
+    "STalign_cell_type_transcriptional_correlations.csv.gz",
+    "f2a4dc1997ed8ba2344094d534ff64fd"),
+  merfish_types = downloadCached(
+    paste0(celltypes, "STalign_S2R3_cell_type_annotations.csv.gz?download=1"),
+    "STalign_S2R3_cell_type_annotations.csv.gz", "085e49b9bb8f0693d5854d2013b351dc"),
+  visium_types = downloadCached(
+    paste0(celltypes, "STalign_Visium_cell_type_annotations.csv.gz?download=1"),
+    "STalign_Visium_cell_type_annotations.csv.gz", "897985b732e45a7b4dbee3a64cd357e8"))
+```
+
+The cache is `tools::R_user_dir("STcompare", "cache")`; set the environment
+variable `R_USER_CACHE_DIR` to move it, or delete the directory to free the
+space.
+
+# MERFISH
+
+The MERFISH table has one row per cell: its original position, its position
+aligned to the Visium section (`STalign_x`, `STalign_y`), the probability that
+STalign matched it to the Visium section (`Pmatch`), and the counts of the
+gene panel. We keep the cells matched with high confidence and rotate the
+section by 90 degrees to the usual orientation.
+
+```{r merfish}
+merfish <- read.csv(files$merfish, row.names = 1)
+dim(merfish)
+names(merfish)[1:8]
+matched <- merfish$Pmatch > 0.95
+merfishCounts <- t(as.matrix(merfish[matched, -(1:5)]))
+merfishXY <- cbind(x = merfish$STalign_x[matched],
+                   y = -merfish$STalign_y[matched])
+rownames(merfishXY) <- colnames(merfishCounts)
+dim(merfishCounts)
+```
+
+# Visium
+
+The Visium counts come as a Matrix Market file and the spot positions, in
+pixels of the full-resolution image, as a table. We convert the positions to
+the pixels of the high-resolution image, the frame of the STalign alignment,
+and apply the same rotation.
+
+```{r visium}
+visiumDir <- tempfile("visium-")
+untar(files$visium_counts, exdir = visiumDir)
+untar(files$visium_spatial, exdir = visiumDir,
+      files = c("spatial/tissue_positions_list.csv",
+                "spatial/scalefactors_json.json"))
+mtx <- file.path(visiumDir, "filtered_feature_bc_matrix")
+visiumCounts <- methods::as(Matrix::readMM(file.path(mtx, "matrix.mtx.gz")),
+                            "CsparseMatrix")
+features <- read.delim(file.path(mtx, "features.tsv.gz"), header = FALSE)
+barcodes <- readLines(file.path(mtx, "barcodes.tsv.gz"))
+dimnames(visiumCounts) <- list(make.unique(features$V2), barcodes)
+
+# columns: barcode, in_tissue, array_row, array_col, pixel row, pixel column
+positions <- read.csv(file.path(visiumDir, "spatial", "tissue_positions_list.csv"),
+                      header = FALSE, row.names = 1)
+scale <- jsonlite::fromJSON(file.path(visiumDir, "spatial",
+                                      "scalefactors_json.json"))$tissue_hires_scalef
+visiumXY <- cbind(x = positions[barcodes, 5], y = -positions[barcodes, 4]) * scale
+rownames(visiumXY) <- barcodes
+dim(visiumCounts)
+```
+
+# Normalize and rasterize both technologies together
+
+Only the genes measured by both technologies can be compared. To control for
+the different detection efficiencies, each cell or spot is normalized by its
+total counts over these genes, to counts per million (CPM).
+
+```{r normalize}
+genes <- intersect(rownames(visiumCounts), rownames(merfishCounts))
+length(genes)
+cpm <- function(m) Matrix::t(Matrix::t(m) / Matrix::colSums(m)) * 1e6
+merfishSpe <- SpatialExperiment(
+  assays = list(CPM = cpm(Matrix::Matrix(merfishCounts[genes, ], sparse = TRUE))),
+  spatialCoords = merfishXY)
+visiumSpe <- SpatialExperiment(assays = list(CPM = cpm(visiumCounts[genes, ])),
+                               spatialCoords = visiumXY)
+```
+
+Cells and spots are then aggregated, in **one** call, onto a shared grid of
+hexagonal pixels with `fun = "mean"`. The resolution, 20 pixels of the
+high-resolution image, is about 80 µm, a little more than a Visium spot (55 µm
+across, 100 µm apart), so that a pixel holds about one spot and many cells. The
+assay `pixelval` holds the mean CPM of each pixel; for the correlation, we also
+compute its logarithm, as in the published analysis.
+
+```{r rasterize}
+rast <- SEraster::rasterizeGeneExpression(
+  list(MERFISH = merfishSpe, Visium = visiumSpe),
+  assay_name = "CPM", resolution = 20, fun = "mean", square = FALSE)
+for (s in names(rast)) {
+  assay(rast[[s]], "lognorm") <- log10(assay(rast[[s]], "pixelval") + 1)
+}
+sapply(rast, ncol)
+sapply(rast, function(r) median(r$num_cell))
+```
+
+Genes that are rarely detected cannot be compared, and a gene with no
+expression in one technology cannot be tested. We keep the genes detected in
+more than 1% of the pixels of both technologies:
+
+```{r filter}
+detected <- sapply(rast, function(r) Matrix::rowMeans(assay(r, "pixelval") > 0))
+analysed <- rownames(detected)[detected[, "MERFISH"] > 0.01 &
+                               detected[, "Visium"] > 0.01]
+length(analysed)
+```
+
+To look at the pixels shared by both technologies, we draw each pixel as a
+point at its centre (`SEraster::plotRaster()` draws the hexagons, which is
+better suited to fewer, larger pixels). For example, Slc17a6 has a similar
+pattern in both technologies:
+
+```{r example-gene, fig.height = 3, fig.alt = "Maps of the log-transformed expression of Slc17a6 at the shared pixels, measured by MERFISH and by Visium: both show the same regions of high expression."}
+shared <- intersect(colnames(rast$MERFISH), colnames(rast$Visium))
+plotPixels <- function(spe, feature, title, assay = "lognorm") {
+  values <- data.frame(spatialCoords(spe),
+                       value = as.numeric(assay(spe, assay)[feature, ]))
+  ggplot(values, aes(x, y, colour = value)) +
+    geom_point(size = 0.4, shape = 16) +
+    coord_equal() +
+    scale_colour_viridis_c(name = NULL) +
+    labs(title = title) +
+    theme_void()
+}
+plotPixels(rast$MERFISH[, shared], "Slc17a6", "Slc17a6, MERFISH") +
+  plotPixels(rast$Visium[, shared], "Slc17a6", "Slc17a6, Visium")
+```
+
+# Spatially variable genes
+
+We expect genes with a spatial pattern in both technologies to be positively
+correlated, and genes without a pattern not to be. The published analysis
+classified the genes with Moran's I, as implemented in the GitHub package
+[MERINGUE](https://github.com/JEFworks-Lab/MERINGUE):
+
+```{r meringue, eval = FALSE}
+# Not run: needs remotes::install_github("JEFworks-Lab/MERINGUE")
+moransI <- function(mat, coords, filterDist) {
+  w <- MERINGUE::getSpatialNeighbors(coords, filterDist = filterDist)
+  I <- MERINGUE::getSpatialPatterns(mat, w)
+  MERINGUE::filterSpatialPatterns(mat = mat, I = I, w = w, adjustPv = TRUE,
+                                  alpha = 0.05, minPercentCells = 0.01)
+}
+# MERFISH: log10(CPM + 1) of the pixels; Visium: CPM of the spots
+merfishI <- moransI(assay(rast$MERFISH, "lognorm")[analysed, ],
+                    spatialCoords(rast$MERFISH), filterDist = 21)
+visiumI <- moransI(assay(visiumSpe, "CPM"), spatialCoords(visiumSpe),
+                   filterDist = 25)
+svgGenes <- intersect(rownames(merfishI), rownames(visiumI))
+```
+
+STcompare ships the resulting list, so that this tutorial needs no GitHub-only
+dependencies: the 230 of the `r length(analysed)` genes that are spatially
+variable in both technologies.
+
+```{r svg}
+svgGenes <- scan(system.file("extdata", "vignette-brain-svg-genes.txt",
+                             package = "STcompare"),
+                 what = "", comment.char = "#", quiet = TRUE)
+length(svgGenes)
+nonSvgGenes <- setdiff(analysed, svgGenes)
+length(nonSvgGenes)
+```
+
+# Spatial correlation of genes across technologies
+
+We run the spatial correlation test on the log-transformed values. As in the
+other case study, `nPermutations = 1000` keeps the run time short; see
+[Parameters, performance and reproducibility](https://jef.works/STcompare/articles/parameters-performance-reproducibility.html)
+for the trade-off.
+
+```{r compare}
+res <- compareSpatial(rast, assay = "lognorm", genes = analysed,
+                      tests = "correlation", nPermutations = 1000,
+                      nThreads = threads)
+res
+```
+
+```{r rare-text, include = FALSE}
+detectedShared <- sapply(rast, function(r) {
+  Matrix::rowSums(assay(r, "pixelval")[analysed, shared] > 0)
+})
+sqrtN <- ceiling(sqrt(res$nPixels[1]))
+rare <- rownames(detectedShared)[apply(detectedShared, 1, min) < sqrtN]
+nSkipped <- sum(res$status == "skipped")
+skippedText <- if (nSkipped == 0) {
+  "none of the analysed genes is constant in a technology, so all of them are tested"
+} else {
+  sprintf("%d of the analysed genes %s constant in a technology and %s not tested (status `\"skipped\"`)",
+          nSkipped, if (nSkipped == 1) "is" else "are",
+          if (nSkipped == 1) "is" else "are")
+}
+```
+
+With the default rank-remapped surrogates, `compareSpatial()` skips only genes
+that are constant in a sample: `r skippedText`. That includes the `r length(rare)`
+genes detected in fewer than \(\sqrt{N}\) = `r sqrtN` of the \(N\) =
+`r res$nPixels[1]` shared pixels of a technology, most of them rarely detected
+by Visium (for example `r paste(head(rare[order(apply(detectedShared[rare, , drop = FALSE], 1, min))], 3), collapse = ", ")`):
+the correlation of such a gene is decided by a few pixels, and the surrogates of
+the legacy functions (`surrogate = "gaussian"`), whose values are nearly normal,
+would give it a p-value that is far too small, so that mode skips these genes
+(`minDetected`); the remapped surrogates have the gene's own values and give
+calibrated p-values (see
+[How STcompare works](https://jef.works/STcompare/articles/how-STcompare-works.html#rarely-detected-genes)).
+The message about `deltaGridEdge` says that for some genes, most surrogates
+chose the smallest (0.01) or the largest smoothing bandwidth of the grid. Their
+p-values are still valid, but the surrogates may match their spatial
+autocorrelation less well; a wider grid (`delta`) would test that.
+
+```{r svg-summary}
+tab <- as.data.frame(res)
+tab$svg <- ifelse(tab$gene %in% svgGenes, "spatially variable",
+                  "not spatially variable")
+table(tab$svg, tab$status)
+tab <- tab[tab$status == "ok", ]
+tab$significant <- tab$padj < 0.05
+table(tab$svg, ifelse(tab$significant, ifelse(tab$r > 0, "positive", "negative"),
+                      "not significant"))
+```
+
+`r sum(tab$significant & tab$r > 0 & tab$svg == "spatially variable")` of
+`r sum(tab$svg == "spatially variable")`
+(`r round(100 * mean(tab$significant[tab$svg == "spatially variable"] & tab$r[tab$svg == "spatially variable"] > 0))`%)
+tested spatially variable genes are significantly positively correlated between
+MERFISH and Visium, and
+`r if (any(tab$significant & tab$r < 0)) paste(sum(tab$significant & tab$r < 0), "are") else "none is"`
+significantly negatively correlated.
+`r sum(!tab$significant & tab$svg == "not spatially variable")` of
+`r sum(tab$svg == "not spatially variable")`
+(`r round(100 * mean(!tab$significant[tab$svg == "not spatially variable"]))`%)
+tested genes without a spatial pattern are not significantly correlated, as
+expected.
+The correspondence of the patterns is lower than between two MERFISH replicates
+(93% of spatially variable genes in the paper), most likely because of the
+different sensitivities of the two technologies and the different tissue
+preservation (fresh frozen for MERFISH, FFPE for Visium) rather than a poor
+alignment.
+
+Two examples: the spatially variable gene with the strongest correlation, and
+the gene without a spatial pattern with the lowest correlation among those that
+are not significant. For each, the maps in both technologies and the values at
+the shared pixels:
+
+```{r gene-examples, fig.height = 3, fig.alt = "For two genes, maps of their log-transformed expression measured by MERFISH and by Visium, and a scatter plot of the two at each shared pixel: the first gene has matching patterns, the second does not."}
+svgPositive <- tab[tab$svg == "spatially variable" & tab$significant & tab$r > 0, ]
+geneSig <- svgPositive$gene[which.max(svgPositive$r)]
+nonSvgNotSig <- tab[tab$svg == "not spatially variable" & !tab$significant, ]
+geneNotSig <- nonSvgNotSig$gene[which.min(nonSvgNotSig$r)]
+
+panels <- function(gene) {
+  plotPixels(rast$MERFISH[, shared], gene, "MERFISH") +
+    plotPixels(rast$Visium[, shared], gene, "Visium") +
+    (plotCorrelationGeneExp(rast, res, gene, assayName = "lognorm") +
+       theme(plot.title = element_text(size = 9))) +
+    plot_layout(widths = c(1, 1, 1.3))
+}
+panels(geneSig)
+panels(geneNotSig)
+```
+
+# Similarity of the levels
+
+The similarity asks whether the two technologies measure similar levels at
+the same pixels. It compares fold changes, so we compute it on the CPM
+(`pixelval`), a linear scale; on log-transformed values, the ratio of two
+values is not a fold change. The similarity test needs no permutations.
+
+```{r similarity}
+sim <- compareSpatial(rast, assay = "pixelval", genes = analysed,
+                      tests = "similarity", verbose = FALSE)
+tab$similarity <- sim[tab$gene, "similarity"]
+summary(tab$similarity)
+```
+
+```{r similarity-plot, fig.height = 3.5, warning = FALSE, fig.alt = "Similarity against correlation for the significantly positively correlated spatially variable genes: most similarities are low."}
+ggplot(subset(tab, svg == "spatially variable" & significant),
+       aes(r, similarity)) +
+  geom_point(alpha = 0.5, size = 1) +
+  labs(x = "Correlation", y = "Similarity",
+       title = "Significantly positively correlated spatially variable genes") +
+  theme_classic()
+```
+
+Even for genes whose patterns agree, the levels at matched pixels often differ
+more than two-fold (the median similarity of these genes is
+`r round(median(tab$similarity[tab$svg == "spatially variable" & tab$significant], na.rm = TRUE), 2)`):
+the two technologies capture each gene with a different efficiency, so the
+fraction of a pixel's counts that a gene gets differs between them even after
+normalization. Correlation, which ignores the levels,
+is the appropriate test to compare technologies; similarity is more useful for
+samples assayed in the same way.
+
+# Cell types
+
+While sensitivity to individual genes differs between technologies, the
+underlying cell types should be the same. In the STalign paper (Clifton et
+al. 2023), the MERFISH cells were clustered into cell types and the Visium
+spots deconvolved into proportions of cell types, and the two sets of cell
+types were matched by their transcriptional similarity:
+
+```{r celltypes}
+typeSimilarity <- as.matrix(read.csv(files$type_similarity, row.names = 1,
+                                     check.names = FALSE))
+colnames(typeSimilarity) <- rownames(typeSimilarity)
+merfishTypes <- read.csv(files$merfish_types, row.names = 1)
+visiumTypes <- as.matrix(read.csv(files$visium_types, row.names = 1,
+                                  check.names = FALSE))
+colnames(visiumTypes) <- rownames(typeSimilarity)
+
+# cell types whose best transcriptional match is mutual
+best <- rownames(typeSimilarity)[
+  diag(typeSimilarity) == apply(typeSimilarity, 1, max) &
+  diag(typeSimilarity) == apply(typeSimilarity, 2, max)]
+best
+```
+
+To compare where the cell types are, each cell type becomes a row of an assay:
+a one-hot encoding of the MERFISH cells' labels, and the deconvolved
+proportions of the Visium spots. Rasterized together with `fun = "mean"`, the
+pixels hold the proportion of each cell type.
+
+```{r celltype-rasterize}
+labelled <- intersect(colnames(merfishSpe), rownames(merfishTypes))
+labels <- factor(merfishTypes[labelled, "x"], levels = rownames(typeSimilarity))
+oneHot <- t(sapply(levels(labels), function(type) as.numeric(labels == type)))
+colnames(oneHot) <- labelled
+rastTypes <- SEraster::rasterizeGeneExpression(
+  list(MERFISH = SpatialExperiment(assays = list(proportion = oneHot),
+                                   spatialCoords = merfishXY[labelled, ]),
+       Visium = SpatialExperiment(assays = list(proportion = t(visiumTypes)),
+                                  spatialCoords = visiumXY[rownames(visiumTypes), ])),
+  assay_name = "proportion", resolution = 20, fun = "mean", square = FALSE)
+```
+
+```{r celltype-maps, fig.height = 4.5, fig.alt = "Maps of the proportions of three matched cell types at the shared pixels, measured by MERFISH (top) and by Visium (bottom)."}
+sharedTypes <- intersect(colnames(rastTypes$MERFISH),
+                         colnames(rastTypes$Visium))
+typeMaps <- lapply(names(rastTypes), function(s) {
+  lapply(head(best, 3), function(type) {
+    plotPixels(rastTypes[[s]][, sharedTypes], type, paste0(type, ", ", s),
+               assay = "pixelval")
+  })
+})
+wrap_plots(unlist(typeMaps, recursive = FALSE), nrow = 2)
+```
+
+The proportions are on a linear scale, so both tests apply:
+
+```{r celltype-compare}
+resTypes <- compareSpatial(rastTypes, nPermutations = 1000, nThreads = threads)
+tabTypes <- as.data.frame(resTypes)
+tabTypes$matched <- tabTypes$gene %in% best
+tabTypes[order(-tabTypes$matched, tabTypes$p),
+         c("gene", "matched", "r", "padj", "nPermutations", "similarity")]
+```
+
+```{r celltype-count, include = FALSE}
+matched <- tabTypes[tabTypes$matched, ]
+positive <- !is.na(matched$padj) & matched$padj < 0.05 & matched$r > 0
+matchedPositive <- sum(positive)
+others <- matched[!positive, ]
+one <- nrow(others) == 1L
+othersText <- if (nrow(others)) {
+  sprintf("The other%s, %s, %s not (r = %s; status %s).",
+          if (one) "" else "s", paste(others$gene, collapse = " and "),
+          if (one) "is" else "are", paste(round(others$r, 2), collapse = " and "),
+          paste(others$status, collapse = " and "))
+} else ""
+merfishPixels <- Matrix::rowSums(
+  assay(rastTypes$MERFISH, "pixelval")[best, sharedTypes] > 0)
+rarest <- names(which.min(merfishPixels))
+rarestText <- if (positive[matched$gene == rarest]) {
+  sprintf(paste("They include %s, which MERFISH labels in only %d of the %d",
+                "shared pixels (r = %s, adjusted p = %s): the surrogates take",
+                "the cell type's own values, so a type confined to few pixels",
+                "gets a calibrated p-value instead of being skipped (see",
+                "[How STcompare works](https://jef.works/STcompare/articles/how-STcompare-works.html#rarely-detected-genes))."),
+          rarest, merfishPixels[rarest], length(sharedTypes),
+          round(tabTypes[rarest, "r"], 2), signif(tabTypes[rarest, "padj"], 2))
+} else ""
+```
+
+`r if (matchedPositive == length(best)) paste("All", length(best)) else paste(matchedPositive, "of the", length(best))`
+cell types with a mutual transcriptional match are significantly positively
+correlated between the technologies: their spatial patterns correspond, even
+though the patterns of many individual genes do not. `r othersText`
+`r rarestText`
+
+# Session information
+
+```{r session}
+sessionInfo()
+```

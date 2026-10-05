@@ -9,7 +9,8 @@ A list of length 100, where each element is a \code{SpatialExperiment}
 object containing:
 \describe{
   \item{\code{assays}}{Matrix of simulated expression values named \code{"pixelval"}.}
-  \item{\code{colData}}{Data frame of per-cell metadata including coordinates and IDs.}
+  \item{\code{colData}}{Data frame of per-pixel metadata: the number and IDs of
+  the cells in the pixel, the pixel shape and resolution, and its geometry.}
   \item{\code{spatialCoords}}{Matrix of spatial \eqn{(x, y)} coordinates.}
 }
 }
@@ -22,9 +23,10 @@ simRanPatternRasts
 \description{
 A list of 100 simulated \code{SpatialExperiment} objects representing kidney-shaped
 datasets, each containing one independently generated spatially patterned gene with
-no correlation between datasets. Each dataset consists of \eqn{N = 5000} simulated
-cells distributed within a kidney-shaped region, with spatial coordinates and
-expression values generated from Gaussian random fields.
+no correlation between datasets. For each dataset, \eqn{N = 5000} cells were
+simulated in the unit square, and the 1201 to 1381 cells within a kidney-shaped
+region were kept, with spatial coordinates and expression values generated from
+Gaussian random fields.
 }
 \details{
 Each simulated dataset was generated as follows:
@@ -62,21 +64,21 @@ Each simulated dataset was generated as follows:
 Each element of \code{simRanPatternRasts} is a \code{SpatialExperiment} object with:
 \itemize{
   \item One simulated gene (1 row)
-  \item 250–300 spatial pixels (columns)
+  \item 272 to 288 spatial pixels (columns)
   \item An assay named \code{"pixelval"} containing expression values
   \item \code{colData} with columns: \code{num_cell}, \code{cellID_list},
-  \code{geometry}, and \code{sample_id}
+  \code{type}, \code{resolution}, \code{geometry}, and \code{sample_id}
   \item Spatial coordinates (\code{x}, \code{y})
 }
 }
 \examples{
 data(simRanPatternRasts)
 simRanPatternRasts[[1]]
-assays(simRanPatternRasts[[1]])$pixelval[1, 1:5]
+SummarizedExperiment::assays(simRanPatternRasts[[1]])$pixelval[1, 1:5]
 
 }
 \seealso{
-\linkS4class{SpatialExperiment}, \code{\link[MASS]{mvrnorm}},
+\code{\link[SpatialExperiment]{SpatialExperiment}}, \code{\link[MASS]{mvrnorm}},
   \code{\link[stats]{rnorm}}
 }
 \keyword{datasets}

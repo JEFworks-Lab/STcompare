@@ -5,3 +5,8 @@
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
+^data-raw$
+^dev$
+^bench$
+^images$
+^vignettes/articles$

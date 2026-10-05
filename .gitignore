@@ -17,3 +17,12 @@ test/*
 
 *_cache/
 plots/*
+
+# compiled code (src/)
+src/*.o
+src/*.so
+src/*.dll
+
+# outputs of devtools::build_vignettes() and R CMD check
+/doc/
+*.Rcheck/

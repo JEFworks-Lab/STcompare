@@ -1,73 +1,14 @@
-# Helper to run `spatialCorrelation()` for a subset of genes at a fixed
-# permutation count while keeping the outer loop focused on the iterative
-# rerun logic.
-.run_spatial_correlation_iteration <- function(
-    genes,
-    source,
-    target,
-    shared_pixels,
-    pos,
-    assayName,
-    nPermutations,
-    deltaX,
-    deltaY,
-    maxDistPrctile,
-    returnPermutations,
-    nThreads,
-    BPPARAM,
-    verbose,
-    seed) {
-
-  if (length(genes) == 0) {
-    return(NULL)
-  }
-
-  res_list <- lapply(seq_along(genes), function(j) {
-
-    # store the gene name
-    gene <- genes[j]
-    gene_idx <- match(gene, rownames(source))
-
-    if (verbose) {
-      message(sprintf(
-        "nPermutations=%s | gene %d/%d: %s",
-        nPermutations, j, length(genes), gene
-      ))
-    }
-
-    X <- SummarizedExperiment::assays(source)[[assayName]][gene, shared_pixels]
-    Y <- SummarizedExperiment::assays(target)[[assayName]][gene, shared_pixels]
-
-    out <- spatialCorrelation(
-      X, Y, pos,
-      nPermutations = nPermutations,
-      deltaX = deltaX[[gene_idx]],
-      deltaY = deltaY[[gene_idx]],
-      maxDistPrctile = maxDistPrctile,
-      returnPermutations = returnPermutations,
-      nThreads = nThreads,
-      BPPARAM = BPPARAM,
-      seed = seed
-    )
-
-    rownames(out) <- gene
-    out
-  })
-
-  do.call(rbind, res_list)
-}
-
-# Helper to decide which genes should be rerun with a larger number of
-# permutations. Only genes with both empirical permutation p-values below the
-# current screening threshold are carried forward.
+# Genes to rerun with more permutations after round k: both unadjusted empirical p-values below the
+# screening threshold 100 * alpha / nPermutations[k]. Genes with an NA p-value (NA rows) are never carried
+# forward.
 .get_genes_to_repermute <- function(results_df, alpha, nPermutes) {
-  t <- (alpha / nPermutes) * 100 
-  keep <- results_df$pValuePermuteX < t & results_df$pValuePermuteY < t
-  rownames(results_df)[keep]
+  t <- (alpha / nPermutes) * 100
+  keep <- results_df$pX < t & results_df$pY < t
+  which(!is.na(keep) & keep)
 }
 
 
-#' spatialCorrelationGeneExpIterPermutations
+#' Spatial correlation test with more permutations for promising genes
 #'
 #' @description Function to calculate Pearson's correlation between assays from
 #'   two SpatialExperiment datasets using an iterative permutation strategy. It
@@ -76,28 +17,49 @@
 #'   permutation counts to refine their empirical p-values while accounting for
 #'   original degree of autocorrelation.
 #'
+#' @details Every round tests the genes as \code{\link{spatialCorrelationGeneExp}}
+#'   does, in one call of the compiled code on \code{nThreads} threads. A gene
+#'   carried forward from a round with \eqn{B_k} permutations to a round with
+#'   \eqn{B_{k+1}} keeps its first \eqn{B_k} permutations and adds permutations
+#'   \eqn{B_k + 1, ..., B_{k+1}}. Permutation \eqn{b} depends only on the seed
+#'   and on \eqn{b}, so the result is the same as a fresh run with
+#'   \eqn{B_{k+1}} permutations, at a fraction of the cost.
+#'
+#'   Genes for which a null cannot be computed (see
+#'   \code{\link{spatialCorrelation}}) get \code{NA} in every column computed
+#'   from permutations, with one warning per gene, and are not carried forward.
+#'
 #' @param input \code{list} List of two SpatialExperiment objects with matched
 #'   spatial locations. The first element corresponds to the first
-#'   SpatialExperiment (`X`), and the second to the second SpatialExperiment
-#'   (`Y`). The SpatialCoords of the two SpatialExperiment objects should be on
+#'   SpatialExperiment (\code{X}), and the second to the second SpatialExperiment
+#'   (\code{Y}). The SpatialCoords of the two SpatialExperiment objects should be on
 #'   the same coordinate framework and observations at the same coordinate
 #'   location in both datasets should have the same row names. If the
 #'   SpatialExperiment objects do not have shared locations, use
-#'   `SEraster::rasterizeGeneExpression()` to generate SpatialExperiment objects
+#'   \code{SEraster::rasterizeGeneExpression()} to generate SpatialExperiment objects
 #'   with shared pixel locations. See \code{assayName} parameter if the
 #'   SpatialExperiment objects have more than one assay.
 #'
 #' @param alpha \code{numeric}: significance threshold used to decide which genes
 #'   should be rerun at the next permutation level. After each iteration, a gene
-#'   is carried forward only when both \code{pValuePermuteX} and
-#'   \code{pValuePermuteY} are less than \code{alpha / nPermutations[k]}.
-#'   Default is \code{0.05}.
+#'   is carried forward only when both its unadjusted \code{pValuePermuteX} and
+#'   \code{pValuePermuteY} are less than \code{100 * alpha / nPermutations[k]},
+#'   that is, less than \code{alpha} after 100 permutations and less than
+#'   \code{alpha / 10} after 1000 permutations. When \code{100 * alpha} is a
+#'   whole number, as for the default, these are the genes with fewer than
+#'   \code{100 * alpha} exceedances (null correlations at least as large as the
+#'   observed correlation in absolute value) in each direction. Otherwise a
+#'   gene with exactly \code{floor(100 * alpha)} exceedances may not be carried
+#'   forward: for example, with \code{alpha = 0.053} and 100 permutations, a
+#'   gene can have at most 4 exceedances, not 5. Default is \code{0.05}.
 #'
 #' @param nPermutations \code{numeric vector}: numbers of permutations to use
 #'   across iterative rounds. The vector is applied from smallest to largest.
 #'   All genes are first tested with \code{nPermutations[1]}; genes passing the
 #'   screening rule defined by \code{alpha} are rerun with
-#'   \code{nPermutations[2]}, and so on. Default is \code{c(100, 1000)}.
+#'   \code{nPermutations[2]}, and so on. A gene's smallest possible unadjusted
+#'   p-value is \eqn{1 / (B + 1)}, where \eqn{B} is the number of permutations
+#'   in the last round in which it was tested. Default is \code{c(100, 1000)}.
 #'
 #' @param deltaX \code{list}: List of single numerics or list of numeric vectors
 #'   to use for delta, the parameter controlling the degree of smoothing in
@@ -123,7 +85,7 @@
 #'   (gene) in Y.
 #'
 #' @param maxDistPrctile \code{numeric}: percentile of distances between pixels
-#'   to use as max distance in when calculating variograms. Default = 0.25. At
+#'   to use as max distance when calculating variograms. Default = 0.25. At
 #'   greater distances the variogram is less precise because there are fewer
 #'   pairs of points with that distance between them. Therefore, since the goal
 #'   is to minimize the difference between the variogram of X and those of its
@@ -140,29 +102,28 @@
 #'   \code{NULL}. If no value is supplied for \code{assayName}, then the first
 #'   assay is used as a default.
 #'
-#' @param nThreads \code{integer}: Number of threads for parallelization.
-#'   Default = 1. Inputting this argument when the \code{BPPARAM} argument is
-#'   \code{NULL} would set parallel execution back-end to be
-#'   \code{BiocParallel::MulticoreParam(workers = nThreads)}. We recommend
-#'   setting this argument to be the number of cores available
-#'   (\code{parallel::detectCores(logical = FALSE)}). If \code{BPPARAM} argument
-#'   is not \code{NULL}, the \code{BPPARAM} argument would override
-#'   \code{nThreads} argument.
+#' @param nThreads \code{integer}: Number of threads of the compiled code.
+#'   Default = 1. The permutations of all genes are distributed over the
+#'   threads, and the results do not depend on the number of threads. We
+#'   recommend the number of cores available
+#'   (\code{parallel::detectCores(logical = FALSE)}).
 #'
-#' @param BPPARAM \code{BiocParallelParam}: Optional additional argument for
-#'   parallelization. This argument is provided for advanced users of
-#'   \code{BiocParallel} for further flexibility for setting up
-#'   parallel-execution back-end. Default is NULL. If provided, this is assumed
-#'   to be an instance of \code{BiocParallelParam}.
+#' @param BPPARAM \code{BiocParallelParam}: Optional. If not \code{NULL}, its
+#'   number of workers (\code{BiocParallel::bpnworkers(BPPARAM)}) is used as the
+#'   number of threads instead of \code{nThreads}. No BiocParallel back-end is
+#'   started (nothing is forked). Default is \code{NULL}.
 #'
-#' @param verbose \code{logical}: indicate whether to print the current
-#'   permutation level together with the row number and name to show progress as
-#'   the function iterates through genes.
+#' @param verbose \code{logical}: if \code{TRUE} (default), print a message
+#'   when the computation starts (genes, permutation rounds and threads) and
+#'   when it ends (elapsed time and the number of genes tested in each round).
 #'
-#' @param seed \code{integer}: Seed for the random number generator used to
-#'   generate noise in the variogram matching step. Ensures reproducibility of
-#'   empirical p-values regardless of parallelization back-end. Default is
-#'   \code{0}.
+#' @param seed \code{integer}: Seed for the random number generator. Default
+#'   \code{0}. The permutations are drawn after \code{set.seed(seed)} with the
+#'   session's random number generator kinds (\code{RNGkind()}), and the noise
+#'   of permutation \eqn{b} after \code{set.seed(seed + b)} with
+#'   \code{"L'Ecuyer-CMRG"}; every gene uses the same seed. The results depend
+#'   on the seed only, and the global random number generator state
+#'   (\code{.Random.seed}) is left unchanged.
 #'
 #' @param adjustMethod \code{character}: multiple-testing correction method
 #'   passed to \code{stats::p.adjust()} for the final \code{pValuePermuteX} and
@@ -173,12 +134,14 @@
 #'   rownames of the SpatialExperiments, and each row reflects the last
 #'   permutation round in which that gene was evaluated. The columns and their
 #'   contents are as follows:
-#' \itemize{
+#' \describe{
 #'   \item{\code{correlationCoef}}{Pearson's correlation coefficient.}
 #'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
 #'   observations}
 #'   \item{\code{pValuePermuteX}}{multiple-testing-adjusted p-value from an
-#'   empirical null generated by permutations of observations in X}
+#'   empirical null generated by permutations of observations in X; before
+#'   adjustment it is \eqn{(b + 1) / (B + 1)} (see
+#'   \code{\link{spatialCorrelation}})}
 #'   \item{\code{pValuePermuteY}}{multiple-testing-adjusted p-value from an
 #'   empirical null generated by permutations of observations in Y}
 #'   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
@@ -187,14 +150,14 @@
 #'   \item{\code{deltaStarMedianY}}{the median delta star across permutations of Y}
 #'   \item{\code{deltaStarX}}{list of delta star for all permutations of X}
 #'   \item{\code{deltaStarY}}{list of delta star for all permutations of Y}
-#'   \item{\code{nullCorrelationsX}}{correlation coefficients for Y and all
-#'   permutations of X}
-#'   \item{\code{nullCorrelationsY}}{correlation coefficients for X and all
-#'   permutations of Y}
-#'   \item{\code{permutationsX}}{(optional) a N x B matrix, where N is the
+#'   \item{\code{nullCorrelationsX}}{list of B x 1 matrices: the correlation
+#'   coefficients for Y and all permutations of X}
+#'   \item{\code{nullCorrelationsY}}{list of B x 1 matrices: the correlation
+#'   coefficients for X and all permutations of Y}
+#'   \item{\code{permutationsX}}{(optional) an N x B matrix, where N is the
 #'   length of X and B is the final \code{nPermutations} used for that gene.
 #'   Each column is the resulting values of a permutation of X}
-#'   \item{\code{permutationsY}}{(optional) a N x B matrix, where N is the
+#'   \item{\code{permutationsY}}{(optional) an N x B matrix, where N is the
 #'   length of Y and B is the final \code{nPermutations} used for that gene.
 #'   Each column is the resulting values of a permutation of Y}
 #'   }
@@ -203,13 +166,11 @@
 #'
 #' @examples
 #' data(speKidney)
-#' \dontrun{
 #' rastKidney <- SEraster::rasterizeGeneExpression(
 #'   speKidney,
 #'   assay_name = "counts",
 #'   resolution = 0.2,
 #'   fun = "mean",
-#'   BPPARAM = BiocParallel::MulticoreParam(),
 #'   square = FALSE
 #' )
 #'
@@ -218,11 +179,12 @@
 #' corr <- spatialCorrelationGeneExpIterPermutations(
 #'   rastGexpListAB,
 #'   nPermutations = c(100, 1000),
-#'   nThreads = 5
+#'   nThreads = 2
 #' )
 #'
-#' negCorrelation
-#' }
+#' corr[, 1:6]
+#' # the number of permutations of each gene
+#' lengths(corr$nullCorrelationsX)
 spatialCorrelationGeneExpIterPermutations <- function(
     input,
     alpha = 0.05,
@@ -239,8 +201,8 @@ spatialCorrelationGeneExpIterPermutations <- function(
     adjustMethod = "BH") {
 
   # correction method should be from p.adjust.methods
-  if (!adjustMethod %in% p.adjust.methods) {
-    stop("adjustMethod must be one of: ", paste(p.adjust.methods, collapse = ", "))
+  if (!adjustMethod %in% stats::p.adjust.methods) {
+    stop("adjustMethod must be one of: ", paste(stats::p.adjust.methods, collapse = ", "))
   }
 
   if (!is.numeric(nPermutations) || length(nPermutations) < 1) {
@@ -254,106 +216,48 @@ spatialCorrelationGeneExpIterPermutations <- function(
   if (is.unsorted(nPermutations, strictly = FALSE)) {
     nPermutations <- sort(nPermutations)
   }
+  nPermutations <- vapply(nPermutations, .stc_check_nperm, 0L)
+  nThreads <- .stc_threads(nThreads, BPPARAM)
 
-  if (is.null(BPPARAM)) {
-    BPPARAM <- BiocParallel::MulticoreParam(workers = nThreads)
+  d <- .stc_pair_input(input, assayName)
+  G <- length(d$genes)
+  deltaX <- .stc_gene_deltas(deltaX, G, "deltaX")
+  deltaY <- .stc_gene_deltas(deltaY, G, "deltaY")
+
+  t0 <- proc.time()
+  if (verbose) {
+    message(sprintf("spatialCorrelationGeneExpIterPermutations: %d gene(s) x 2 directions on %d shared pixels, permutation rounds %s, %d thread(s)",
+                    G, nrow(d$pos), paste(nPermutations, collapse = ", "), nThreads))
   }
+  naive <- .stc_cor_tests(d$X, d$Y)
 
-  # Determine the positions of shared pixels between two rasterized spatial
-  # experiments
-  source <- input[[1]]
-  target <- input[[2]]
-  shared_pixels <- intersect(rownames(SpatialExperiment::spatialCoords(source)),
-                             rownames(SpatialExperiment::spatialCoords(target)))
-  pos <- SpatialExperiment::spatialCoords(source)[shared_pixels,]
-
-  # If lists of deltas to test are not supplied, try 0.1 to 0.9 for both datasets
-  # for each gene
-  if (is.null(deltaX)){
-    deltaX <- rep(list(seq(0.1,0.9,0.1)), length(rownames(source)))
+  # round 1: every gene; round k + 1: the genes carried forward from round k, whose sessions are
+  # extended from permutation nPermutations[k] + 1 to nPermutations[k + 1]
+  res <- .stc_engine_correlate(d$X, d$Y, d$pos, deltaX = deltaX, deltaY = deltaY,
+                               nPermutations = nPermutations[1], seed = seed,
+                               maxDistPrctile = maxDistPrctile, nThreads = nThreads,
+                               returnPermutations = returnPermutations)
+  state <- attr(res, "state")
+  tested <- G
+  current <- seq_len(G)
+  for (k in seq_along(nPermutations)[-1]) {
+    current <- current[.get_genes_to_repermute(res, alpha = alpha, nPermutes = nPermutations[k - 1])]
+    tested <- c(tested, length(current))
+    if (!length(current)) break
+    res <- .stc_engine_correlate(state = state, units = current, nPermutations = nPermutations[k])
   }
+  # every gene's results at its own number of permutations (the last round in which it was tested)
+  final <- .stc_engine_collect(state, seq_len(G))
+  n_na <- .stc_warn_na_rows("spatialCorrelationGeneExpIterPermutations", paste0("gene ", d$genes), final, naive)
+  final_results <- .stc_result_table(naive, final, isTRUE(returnPermutations), make.unique(d$genes, sep = ""))
 
-  if (is.null(deltaY)){
-    deltaY <- rep(list(seq(0.1,0.9,0.1)), length(rownames(source)))
-  }
-
-  # if name of assay to use in the SpatialExperiment object is not provided,
-  # use the first assay as a default
-  if (is.null(assayName)) {
-    assayName <- 1
-  }
-
-  genes_all <- rownames(source)
-
-  # creates an index for each gene name
-  # storage for latest result per gene
-  final_results <- NULL
-
-  # genes to test in current iteration
-  genes_current <- genes_all
-
-  # go through all nPermutations
-  for (k in seq_along(nPermutations)) {
-
-    # skipping if no more genes are significant
-    if (length(genes_current) == 0) {
-      if (verbose) {
-        message(sprintf(
-          "Iteration %d/%d (nPermutations=%d): no genes left to test — skipping",
-          k, length(nPermutations), nPermutations[k]
-        ))
-      }
-      next
-    }
-
-    iter_res <- .run_spatial_correlation_iteration(
-      genes = genes_current,
-      source = source,
-      target = target,
-      shared_pixels = shared_pixels,
-      pos = pos,
-      assayName = assayName,
-      nPermutations = nPermutations[k],
-      deltaX = deltaX,
-      deltaY = deltaY,
-      maxDistPrctile = maxDistPrctile,
-      returnPermutations = returnPermutations,
-      nThreads = nThreads,
-      BPPARAM = BPPARAM,
-      verbose = verbose,
-      seed = seed
-    )
-
-    # overwrite previous results for genes rerun at this iteration
-    if (is.null(final_results)) {
-      final_results <- iter_res
-    } else {
-      final_results[rownames(iter_res), colnames(iter_res)] <- iter_res
-    }
-
-    # if there are more iterations left
-    # decide which genes needs more permutations
-    if (k < length(nPermutations)) {
-      genes_next <- .get_genes_to_repermute(iter_res, alpha = alpha, nPermutes = nPermutations[k])
-      genes_current <- genes_next
-    } 
-  }
-
-  # mht correct for pValuePermuteX and pValuePermuteY seperately
+  # mht correct for pValuePermuteX and pValuePermuteY separately
   final_results$pValuePermuteX <- stats::p.adjust(final_results$pValuePermuteX, method = adjustMethod)
   final_results$pValuePermuteY <- stats::p.adjust(final_results$pValuePermuteY, method = adjustMethod)
-
-  # order rows back to original gene order
-  final_results <- final_results[genes_all, , drop = FALSE]
+  if (verbose) {
+    tested <- c(tested, rep(0L, length(nPermutations) - length(tested)))
+    message(sprintf("spatialCorrelationGeneExpIterPermutations: done in %s; genes tested per round: %s (%d gene(s) with NA permutation p-values)",
+                    .stc_elapsed(t0), paste(sprintf("%d at B = %d", tested, nPermutations), collapse = ", "), n_na))
+  }
   final_results
 }
-
-
-
-
-
-
-
-
-
-

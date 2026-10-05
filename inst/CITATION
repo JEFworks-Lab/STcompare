@@ -1,0 +1,26 @@
+bibentry(
+  bibtype = "Article",
+  title = paste("{STcompare}: comparative spatial transcriptomics data analysis of structurally matched tissues",
+                "to characterize differentially spatially patterned genes"),
+  author = c(
+    person("Kalen", "Clifton"),
+    person("Vivien", "Jiang"),
+    person("Rafael", "dos Santos Peixoto"),
+    person("Srujan", "Singh"),
+    person("Ryo", "Matsuura"),
+    person("Hamid", "Rabb"),
+    person("Jean", "Fan")
+  ),
+  journal = "Bioinformatics",
+  year = "2026",
+  volume = "42",
+  number = "9",
+  pages = "btag644",
+  doi = "10.1093/bioinformatics/btag644",
+  textVersion = paste(
+    "Clifton K, Jiang V, dos Santos Peixoto R, Singh S, Matsuura R, Rabb H, Fan J (2026).",
+    "STcompare: comparative spatial transcriptomics data analysis of structurally matched tissues",
+    "to characterize differentially spatially patterned genes. Bioinformatics 42(9):btag644.",
+    "doi:10.1093/bioinformatics/btag644"
+  )
+)
