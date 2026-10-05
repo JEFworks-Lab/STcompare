@@ -9,8 +9,8 @@
     .Call(`_STcompare_stc_engine_deltas`, session)
 }
 
-.stc_engine_define <- function(session, pool, task_source, task_grid, task_targets, task_rabs, task_unit, unit_fail_on_dir, task_names = NULL, task_dirs = NULL) {
-    .Call(`_STcompare_stc_engine_define`, session, pool, task_source, task_grid, task_targets, task_rabs, task_unit, unit_fail_on_dir, task_names, task_dirs)
+.stc_engine_define <- function(session, pool, task_source, task_grid, task_targets, task_rabs, task_unit, unit_fail_on_dir, task_names = NULL, task_dirs = NULL, task_remap = NULL) {
+    .Call(`_STcompare_stc_engine_define`, session, pool, task_source, task_grid, task_targets, task_rabs, task_unit, unit_fail_on_dir, task_names, task_dirs, task_remap)
 }
 
 .stc_engine_run <- function(session, units, b_from, b_to, perm, noise, h, n_max, progress = NULL) {

@@ -345,6 +345,13 @@
 #           "pair" only): every gene and direction draws its permutations and noise from its own stream,
 #           keyed by (seed, gene name, direction, permutation) (src/stc_rng.h; compareSpatial()). The gene
 #           names (colnames(X)) must then be unique.
+# surrogate "gaussian" (default): the surrogates as the smoothing and the noise leave them (the legacy
+#           functions); "remap": every surrogate's values are replaced by the permuted vector's own values
+#           in the surrogate's rank order, so that it has exactly that vector's distribution (the amplitude
+#           adjustment of AAFT surrogates; compareSpatial(surrogate = "remap"), src/stc_engine.h). The
+#           nulls, and the surrogates returned with returnPermutations, are those of the remapped surrogates,
+#           and a null within 1e-9 relative of |r| counts as an exceedance (ties of the permutation
+#           distribution, which cor() rounds differently for each rearrangement).
 #
 # Returns a data.frame with one row per gene ("pair", "forward") or per pair of genes ("within", in
 # combn() order): gene (or first, second), r (cor(X, Y) of each gene, as the method computes it), L
@@ -361,12 +368,13 @@
                                   maxDistPrctile = 0.25, nThreads = 1L, returnPermutations = FALSE,
                                   mode = c("pair", "forward", "within"), state = NULL, units = NULL,
                                   chunk = 16L, batch = NULL, noise = c("cpp", "R"),
-                                  streams = c("legacy", "independent")) {
+                                  streams = c("legacy", "independent"),
+                                  surrogate = c("gaussian", "remap")) {
   .stc_local_rng()
   if (is.null(state)) {
     state <- .stc_engine_prepare(X, Y, pos, deltaX, deltaY, seed, maxDistPrctile, nThreads,
                                  returnPermutations, match.arg(mode), chunk, match.arg(noise),
-                                 match.arg(streams))
+                                 match.arg(streams), surrogate = match.arg(surrogate))
   } else {
     if (!is.environment(state) || is.null(state$session)) stop("state must be attr(, \"state\") of an earlier result")
     if (!missing(nThreads) || !missing(chunk)) {
@@ -383,11 +391,13 @@
 # Session, tasks and units of a new engine run (see .stc_engine_correlate()). keepNulls = FALSE (only with
 # independent streams, for compareSpatial()) keeps the nulls and delta* of the current batch only: the
 # results are then the exceedance counts and the delta* counts per grid position (.stc_engine_task_results()
-# $dstar_count), which is what the adaptive stopping and the summaries need.
+# $dstar_count), which is what the adaptive stopping and the summaries need. surrogate = "remap" rank-remaps
+# the surrogates of every task onto its source values.
 .stc_engine_prepare <- function(X, Y, pos, deltaX, deltaY, seed, maxDistPrctile, nThreads,
                                 returnPermutations, mode, chunk, noise, streams = "legacy",
-                                keepNulls = TRUE) {
+                                keepNulls = TRUE, surrogate = "gaussian") {
   independent <- identical(streams, "independent")
+  remap <- identical(surrogate, "remap")
   if (independent && mode != "pair") stop("independent streams are only available for gene-wise comparisons")
   if (!independent && !keepNulls) stop("keepNulls = FALSE needs independent streams")
   X <- .stc_gene_matrix(X, "X")
@@ -485,11 +495,13 @@
                              lapply(task_targets, as.integer), lapply(task_rabs, as.double),
                              as.integer(task_unit), fail_on_dir,
                              task_names = if (independent) rep(enc2utf8(genes), each = 2L),
-                             task_dirs = if (independent) rep(c(1L, 2L), G))
+                             task_dirs = if (independent) rep(c(1L, 2L), G),
+                             task_remap = if (remap) rep(TRUE, length(task_source)))
   state <- new.env(parent = emptyenv())
   state$session <- session
   state$stream <- stream
   state$streams <- streams
+  state$surrogate <- surrogate
   state$ids <- ids
   state$mode <- mode
   state$N <- N
@@ -757,6 +769,8 @@
         r_abs <- abs(if (first) rX[s] else rY[s])
         M <- task$nulls[seq_len(len), target, drop = FALSE]
         nulls <- columns(M)
+        # exceedances as the engine counts them (ties of remapped surrogates within rounding, stc_engine.h)
+        if (identical(state$surrogate, "remap")) r_abs <- r_abs * (1 - 1e-9)
         b <- as.integer(colSums(abs(M) >= rep(r_abs, each = len)))
         ds <- state$gridX[[g]][task$dstar[seq_len(len)]]  # one vector (and median) shared by the pairs
         med <- stats::median(ds)

@@ -173,7 +173,7 @@ pixels kept for the similarity, C is more than twice as high as A.
 | `similarity` | The share of the kept pixels whose values are within a fold change of each other, \|log2(y / x)\| <= `foldChange` (1, two-fold, by default). |
 | `dissimilarityX`, `dissimilarityY` | The share of kept pixels more than `foldChange` higher in the first sample (X) and in the second (Y). The three shares add up to 1. The similarity compares fold changes, so it needs values that are not negative: it is `NA` for genes with negative values. |
 | `nPixelsSimilarity`, `thresholdX`, `thresholdY` | The number of pixels kept for the similarity: those above the gene's expression threshold in either sample, `thresholdX` or `thresholdY` (its 5% quantile by default). |
-| `status`, `message` | `"ok"`; `"skipped"`, with the reason, for a gene that is not tested for correlation because it is constant or detected in few pixels of a sample (see `minDetected` in `?compareSpatial`); or `"failed"`, with the reason, for a gene that could not be tested (for example because of missing values). |
+| `status`, `message` | `"ok"`; `"skipped"`, with the reason, for a gene that is not tested for correlation because it is constant in a sample (or, with `surrogate = "gaussian"`, detected in few pixels of a sample; see `minDetected` in `?compareSpatial`); or `"failed"`, with the reason, for a gene that could not be tested (for example because of missing values). |
 
 `as.data.frame()` turns the result into a plain data frame, and `summary()`
 gives the counts:
@@ -319,16 +319,21 @@ for new analyses.
 The differences in the results:
 
 - `r`, `pNaive` and the similarity scores are identical.
-- The permutation p-values differ within Monte Carlo error: `compareSpatial()`
-  draws independent permutations for each gene and direction (the earlier
-  functions share one set across genes), stops early for genes that are
-  clearly not significant, and adjusts one combined p-value per gene. On the
-  published kidney and brain analyses the two approaches agree on the
-  significance of 95-98% of the genes (see
+- The permutation p-values differ: `compareSpatial()` draws independent
+  permutations for each gene and direction (the earlier functions share one
+  set across genes), stops early for genes that are clearly not significant,
+  gives its surrogates the gene's own values (`surrogate = "remap"`; the
+  earlier functions' surrogates have nearly normal values,
+  `surrogate = "gaussian"`), and adjusts one combined p-value per gene. On the
+  published kidney analysis the two approaches agree on the significance of
+  98% of the genes; on the brain analysis `compareSpatial()` finds 45 more
+  genes among 325, which the remapped surrogates have the power to detect (see
   [Parameters, performance and reproducibility](parameters-performance-reproducibility.html)).
-- `compareSpatial()` does not test genes detected in only a few of the shared
-  pixels of either sample (`minDetected`): the surrogates would give them
-  p-values that are too small.
+- `compareSpatial()` tests every gene that is not constant in a sample,
+  including genes detected in a few pixels, for which the remapped surrogates
+  give calibrated p-values. With `surrogate = "gaussian"` such genes are
+  skipped (`minDetected`), because gaussian surrogates give them p-values that
+  are far too small.
 - `compareSpatial()` checks that the shared pixels have the same coordinates,
   uses the genes present in both samples, and reports genes that are skipped or
   cannot be tested in its `status` and `message` columns instead of stopping.

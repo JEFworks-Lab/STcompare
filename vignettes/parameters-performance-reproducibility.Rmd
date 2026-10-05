@@ -37,7 +37,8 @@ rast <- SEraster::rasterizeGeneExpression(speKidney, assay_name = "counts",
 | Rasterization `resolution` | set in SEraster | The pixel size, hence the number of shared pixels \(N\), the run time and the spatial detail | Larger than the misalignment of the sections, smaller than the structures of interest |
 | `assay` | the first assay | The values compared | Use a normalized, linear-scale assay (for example CPM) for the similarity |
 | `genes` | the genes in both samples | Which genes are compared | To compare whole transcriptomes, choose the genes with a spatial pattern in both samples |
-| `minDetected` | \(\sqrt{N}\) of the \(N\) shared pixels | Which genes are tested for correlation: those detected in at least this share of the pixels of both samples | Raise it (for example to 0.1) when testing many sparsely detected genes; 0 tests every gene that is not constant |
+| `surrogate` | `"remap"` | How the surrogates take their values: the gene's own values in the surrogate's rank order (`"remap"`), or the nearly normal values the smoothing and the noise leave (`"gaussian"`, the legacy functions) | `"gaussian"` to compare with the legacy functions and the published analyses |
+| `minDetected` | 0 with `"remap"`; \(\sqrt{N}\) of the \(N\) shared pixels with `"gaussian"` | Which genes are tested for correlation: those detected in at least this share of the pixels of both samples (0: every gene that is not constant) | With `"gaussian"`, raise it (for example to 0.1) when testing many sparsely detected genes |
 | `delta` | 0.01, 0.05, 0.1, ..., 0.9 | The candidate smoothing bandwidths of the surrogates | When many genes have `deltaGridEdge = TRUE` |
 | `nPermutations` | 10000 | The largest number of permutations per gene, hence the smallest p-value, \(1 / (n + 1)\) | Smaller for a quick look when many genes are significant; larger when few genes are significant among many |
 | `exceedances` | 10 | When a gene stops early, hence the precision of large p-values | Rarely; `Inf` gives a fixed number of permutations |
@@ -70,18 +71,23 @@ can also be computed on log-transformed values. The similarity compares fold
 changes and needs a linear scale.
 
 **Genes.** A gene that is constant in a sample (for example never detected)
-cannot be tested for correlation and gets `status = "skipped"`. So does a gene
-detected in fewer than \(\sqrt{N}\) of the \(N\) shared pixels of either
-sample (`minDetected`; 18 of 311 pixels, 47 of 2170): its correlation is decided
-by the few pixels where both samples detect it, and the surrogates, whose values
-are close to normally distributed, would give it a p-value that is far too small
-(see [How STcompare works](how-STcompare-works.html#rarely-detected-genes)).
-Genes detected in more pixels but mostly zero can still get p-values that are
-somewhat too small, so when comparing whole transcriptomes, test the genes that
-have a spatial pattern in both samples, as the case studies do, or raise
-`minDetected`, for example to 0.1. On the whole AKI raster (32,285 genes on 311
-pixels), the default tests 13,500 genes and skips 14,383 that are constant in a
-sample and 4,402 that are detected in fewer than 18 pixels.
+cannot be tested for correlation and gets `status = "skipped"`. Every other
+gene is tested: the surrogates take the gene's own values (`surrogate =
+"remap"`, the default), so a gene detected in a handful of pixels gets a
+calibrated p-value, and such genes are cheap because their permutations stop
+early (see [How STcompare works](how-STcompare-works.html#rarely-detected-genes)).
+On the whole AKI raster (32,285 genes on 311 pixels), the default tests the
+17,902 genes that are detected in both sections and skips the 14,383 that are
+never detected in one of them. With `surrogate = "gaussian"`, whose surrogates
+have nearly normal values, the correlation of a rarely detected gene is decided
+by the few pixels where both samples detect it and its p-value is far too
+small, so `minDetected` then defaults to \(\sqrt{N}\) of the \(N\) shared pixels
+(18 of 311, 47 of 2170), which skips 4,402 more genes of the AKI raster; genes
+above that filter but mostly zero can still get p-values that are somewhat too
+small, so with gaussian surrogates test the genes that have a spatial pattern
+in both samples, or raise `minDetected`, for example to 0.1. Genes without a
+spatial pattern in a sample have little to compare in any mode, which is why
+the case studies test spatially variable genes.
 
 # The smoothing grid: `delta`
 
@@ -178,23 +184,25 @@ directions, divided by the number of threads. All genes share the parts that
 depend only on the pixel coordinates, and the permutations of all genes are
 spread over `nThreads` threads. The cost of a permutation grows with the
 number of pixels and of bandwidths: one permutation in one direction took
-about 0.16 ms of one thread for the kidney data (311 pixels, 11 bandwidths) and
-1.1 ms for the brain data (2170 pixels, of which the variograms use a random
-subset of 1000).
+about 0.17 ms of one thread for the kidney data (311 pixels, 11 bandwidths) and
+1.25 ms for the brain data (2170 pixels, of which the variograms use a random
+subset of 1000); the remapping of the surrogate onto the gene's values, one
+sort of the pixel values, is about 7% of that.
 
-Measured run times of the case studies (Apple M1 Ultra):
+Measured run times of the case studies (Apple M1 Ultra, default settings
+apart from `nPermutations`):
 
 | Data | Genes | Shared pixels | `nPermutations` | Threads | Run time |
 |---|---:|---:|---:|---:|---:|
-| Kidney, control vs AKI | 1046 | 311 | 1000 | 8 | 29 s |
-| Kidney, control vs AKI | 1046 | 311 | 1000 | 16 | 15 s |
-| Kidney, control vs AKI | 1046 | 311 | 10000 | 16 | 106 s |
-| Brain, MERFISH vs Visium | 325 | 2170 | 1000 | 8 | 40 s |
-| Brain, MERFISH vs Visium | 325 | 2170 | 1000 | 16 | 21 s |
-| Brain, MERFISH vs Visium | 325 | 2170 | 10000 | 16 | 124 s |
+| Kidney, control vs AKI | 1046 | 311 | 1000 | 8 | 32 s |
+| Kidney, control vs AKI | 1046 | 311 | 1000 | 16 | 18 s |
+| Kidney, control vs AKI | 1046 | 311 | 10000 | 16 | 118 s |
+| Brain, MERFISH vs Visium | 325 | 2170 | 1000 | 8 | 54 s |
+| Brain, MERFISH vs Visium | 325 | 2170 | 1000 | 16 | 29 s |
+| Brain, MERFISH vs Visium | 325 | 2170 | 10000 | 16 | 189 s |
 
 The genes that reach the limit dominate: with the default limit, they used
-79-86% of all permutations. To predict the run time of a large analysis, run a
+82-84% of all permutations. To predict the run time of a large analysis, run a
 random subset of genes with the settings you plan to use and scale the run time
 (`attr(res, "runtime")`) by the number of genes.
 
@@ -242,17 +250,22 @@ other genes in the call; only `padj`, which adjusts across the genes of the
 call, depends on the other genes. The permutations are drawn over the shared
 pixels in the column order of the first sample, as in the legacy functions:
 reordering its pixels, or swapping the two samples, gives other permutations.
-A different seed does too, and the p-values then differ within Monte Carlo
-error:
+A different seed does too: the null correlations are other draws, and the
+p-values agree within Monte Carlo error (here two unrelated patterns, with
+`keepNulls = TRUE` to see the first null correlations of each run):
 
 ```{r seeds}
+data(simRanPatternRasts)
 unrelated <- function(seed) {
   compareSpatial(simRanPatternRasts[[1]], simRanPatternRasts[[2]], seed = seed,
-                 tests = "correlation", nThreads = 2, verbose = FALSE)
+                 tests = "correlation", nThreads = 2, verbose = FALSE,
+                 keepNulls = TRUE)
 }
-data(simRanPatternRasts)
-rbind(seed0 = as.data.frame(unrelated(0))[, c("p", "nPermutations")],
-      seed1 = as.data.frame(unrelated(1))[, c("p", "nPermutations")])
+runs <- list(seed0 = unrelated(0), seed1 = unrelated(1))
+t(sapply(runs, function(res) {
+  c(p = res$p, nPermutations = res$nPermutations,
+    firstNulls = round(attr(res, "details")[[1]]$nullX[1:3], 3))
+}))
 ```
 
 **The session's random number generator is left unchanged.**
@@ -317,21 +330,30 @@ The legacy functions share one sequence of permutations across genes and
 directions (the published results depend on it), use a fixed number of
 permutations per round, and report a p-value per direction. `compareSpatial()`
 uses independent permutations for each gene and direction, stops early for
-genes that are clearly not significant, skips rarely detected genes, and
-reports one p-value per gene. On the published analyses, the two agree on the
-significance of 98% of the kidney genes and 95% of the brain genes, counting a
-gene as significant with the legacy function when both of its adjusted p-values
-are below 0.05:
+genes that are clearly not significant, gives its surrogates the gene's own
+values, and reports one p-value per gene. On the published analyses, with its
+default settings (no gene is skipped; `nPermutations = 1000` gives the same
+significant genes), the two agree on the significance of 98% of the kidney
+genes and 86% of the brain genes, counting a gene as significant with the
+legacy function when both of its adjusted p-values are below 0.05:
 
-| Analysis | Significant with both | Legacy function only | `compareSpatial()` only | Skipped by `compareSpatial()` |
-|---|---:|---:|---:|---:|
-| Kidney, 1046 genes | 722 | 8 (1 skipped) | 16 | 7 |
-| Brain, 325 genes | 122 | 6 (4 skipped) | 10 | 28 |
+| Analysis | Significant with both | Legacy function only | `compareSpatial()` only |
+|---|---:|---:|---:|
+| Kidney, 1046 genes | 729 | 2 | 23 |
+| Brain, 325 genes | 128 | 0 | 45 |
 
-The tested genes classified differently are near the significance threshold
-(adjusted p-values between 0.015 and 0.07), where Monte Carlo error and the
-different adjustments (one p-value per gene rather than one per direction, over
-the tested genes) decide. The five skipped genes that the legacy function found
-significant are detected in fewer than \(\sqrt{N}\) pixels of a sample: Kcnt1
-in 17 of the 311 pixels of the AKI section, and four brain genes with weak
-correlations (\(r\) = 0.06 to 0.10).
+The kidney genes classified differently are near the significance threshold
+(adjusted p-values between 0.02 and 0.08 with `compareSpatial()`, and a larger
+of the two legacy p-values between 0.04 and 0.14), where Monte Carlo error and
+the different adjustments (one p-value per gene rather than one per direction)
+decide. The 45 brain genes that only `compareSpatial()` finds are all
+positively correlated (\(r\) = 0.06 to 0.24), and they come from the remapped
+surrogates: with `surrogate = "gaussian"`, the surrogates of the legacy
+function, and its \(\sqrt{N}\) filter (which skips 28 of the brain genes),
+`compareSpatial()` agrees with the legacy function on 95% of the brain genes
+(122 significant with both, 6 with the legacy function only, 10 with
+`compareSpatial()` only). In the calibration study, gaussian surrogates were
+conservative for skewed, zero-inflated genes with a spatial pattern, as the
+log-normalized brain pixels are, so the additional genes are consistent with
+power that the gaussian surrogates lose (`bench/calibration-results.md` in the
+source repository).

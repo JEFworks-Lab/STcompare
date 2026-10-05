@@ -73,11 +73,11 @@ No mismatches.
 <!-- END validate-published:internal -->
 
 <!-- BEGIN validate-published:exported -->
-## Mode `exported` — after the acceptance fixes (compareSpatial minDetected and skipped genes, interrupt check, authors' scripts in bench/published/scripts)
+## Mode `exported` — remap default (compareSpatial surrogate = "remap", minDetected = NULL -> 0 pixels); legacy functions unchanged
 
-Run 2026-10-05 01:49 EDT on DIMKC6JP7VQP1 (Darwin 24.6.0, aarch64-apple-darwin20), R version 4.5.2 (2025-10-31); 16 threads.
-Package: STcompare 0.1.0.9000 from /private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/p345-fix/final/mirror/STcompare, installed with R CMD INSTALL (engine compiled with -g -O2); engine/R source fingerprint `cff553d438a1`.
-Call: `Rscript bench/validate-published.R --mode=exported --threads=16 --label="after the acceptance fixes (compareSpatial minDetected and skipped genes, interrupt check, authors' scripts in bench/published/scripts)"`. Per-gene tables: `/private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/p345-fix/final/validate-out` (outside the repository).
+Run 2026-10-05 11:43 EDT on DIMKC6JP7VQP1 (Darwin 24.6.0, aarch64-apple-darwin20), R version 4.5.2 (2025-10-31); 16 threads.
+Package: STcompare 0.1.0.9000 from /private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/remap-default/mirror/STcompare, installed with R CMD INSTALL (engine compiled with -g -O2); engine/R source fingerprint `19f18547621d`.
+Call: `Rscript bench/validate-published.R --mode=exported --threads=16 --label="remap default (compareSpatial surrogate = "remap", minDetected = NULL -> 0 pixels); legacy functions unchanged"`. Per-gene tables: `/Users/ks38/Library/Caches/org.R-project.R/R/STcompare/bench/validate-published` (outside the repository).
 
 Mismatching genes by check (0 everywhere = the published analysis is reproduced). Genes = genes compared;
 "(+k)": rows of `merfishCorrelation.RData` whose stored p-values do not follow from its stored nulls
@@ -94,12 +94,12 @@ Mismatching genes by check (0 everywhere = the published analysis is reproduced)
 
 | Analysis | Genes | Wall time | Threads | s / gene | Authors' time | Authors' workers | Speedup | RNG state unchanged |
 |---|---:|---|---:|---|---|---|---|---|
-| AKI kidney Visium, iterative | 1046 | 13.5 s | 16 | 0.013 | not recorded | 22 |  | yes |
+| AKI kidney Visium, iterative | 1046 | 13.7 s | 16 | 0.013 | not recorded | 22 |  | yes |
 | AKI kidney Visium, fixed B = 100 | 1046 | 1.9 s | 16 | 0.002 | not recorded | 22 |  | yes |
-| MERFISH replicates, affine | 483 | 38.7 s | 16 | 0.080 | 7.65 h | 20 (MulticoreParam()) | 712× | yes |
-| MERFISH replicates, STalign | 483 | 38.5 s | 16 | 0.080 | 16.8 h | 20 (MulticoreParam()) | 1570× | yes |
-| Brain MERFISH vs Visium | 325 | 12.4 s | 16 | 0.038 | 1.78 h | 22 | 518× | yes |
-| Brain cell types | 16 | 0.9 s | 16 | 0.057 | 6.95 min | 22 | 458× | yes |
+| MERFISH replicates, affine | 483 | 39.2 s | 16 | 0.081 | 7.65 h | 20 (MulticoreParam()) | 704× | yes |
+| MERFISH replicates, STalign | 483 | 38.8 s | 16 | 0.080 | 16.8 h | 20 (MulticoreParam()) | 1558× | yes |
+| Brain MERFISH vs Visium | 325 | 12.7 s | 16 | 0.039 | 1.78 h | 22 | 506× | yes |
+| Brain cell types | 16 | 0.9 s | 16 | 0.058 | 6.95 min | 22 | 451× | yes |
 
 Speedup = the authors' reported wall time / ours (their 20-22 workers on an unrecorded machine, our threads here).
 

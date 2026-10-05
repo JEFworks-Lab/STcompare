@@ -6,7 +6,9 @@ the open questions for the maintainers.
 
 **Status (2026-10-05).** Every request of section 2 is done, each marked **Done** below, except the two
 optional items 7 (move the README figure to `man/figures/`) and 8 (continuous integration), which are left
-to the maintainers. The questions of section 4 are still open.
+to the maintainers. Of the questions of section 4, items 3 and 5 were updated when `surrogate = "remap"`
+became the default of `compareSpatial()` (2026-10-05; `bench/calibration-results.md`); items 1, 2 and 4 are
+still open.
 
 **Files changed by the documentation phase:**
 
@@ -43,8 +45,10 @@ an article too. All URLs of the website are unchanged (`articles/<name>.html`), 
 
 - The articles use `threads <- min(8L, max(1L, parallel::detectCores() - 1L, na.rm = TRUE))` and
   `nPermutations = 1000`. On these data, 1000 gives the same significant genes as the default of 10,000:
-  738 of the 1039 tested AKI genes and 132 of the 297 tested brain genes (since the acceptance review,
-  `compareSpatial()` skips rarely detected genes: 7 and 28 here). The articles explain the trade-off.
+  with the default rank-remapped surrogates (2026-10-05), 752 of the 1046 AKI genes (726 positive, 26
+  negative) and 173 of the 325 brain genes, none skipped; with gaussian surrogates and their sqrt(N)
+  detection filter it was 738 of the 1039 tested AKI genes and 132 of the 297 tested brain genes (7 and 28
+  skipped). The articles explain the trade-off.
 - **Downloads.** They go to `file.path(tools::R_user_dir("STcompare", "cache"), "downloads")`. They are
   checked against the same MD5 sums as `data-raw/download_data.R`, written to `<file>.part` first, and use a
   timeout of at least 30 minutes. `R_USER_CACHE_DIR` relocates the cache.
@@ -216,22 +220,34 @@ Write each list with a comment header, as in the shipped files.
    - **The effect.** The median similarity of the analysed genes is then about 0.05: the two technologies'
      levels rarely agree within two-fold.
    - **Why the correlation is unaffected.** It is still computed on the log values, as published.
-3. **Published numbers quoted.**
+3. **Published numbers quoted.** (Updated 2026-10-05 for the default `surrogate = "remap"`, with
+   `minDetected = NULL` meaning no filter.)
    - **What the article quotes.** The AKI article quotes 707 positive and 24 negative genes for the
      published, legacy analysis.
-   - **What the article computes live.** 711 positive and 27 negative genes (7 genes are skipped).
+   - **What the article computes live.** 726 positive and 26 negative genes (no gene is skipped). With
+     gaussian surrogates and the sqrt(N) filter it was 711 and 27 (7 skipped).
    - **Where the agreement comes from.** The articles "Getting started" and "Parameters, performance and
-     reproducibility" quote the agreement measured after the acceptance review: 98% (AKI) and 95% (brain) of
-     genes are classified the same.
-     - AKI: 722 genes significant with both methods, 8 with the legacy method only (1 of them skipped), 16
-       with `compareSpatial()` only.
-     - Brain: 122 with both, 6 legacy only (4 skipped), 10 new only.
+     reproducibility" quote the agreement measured with the default settings of `compareSpatial()` (seed 0,
+     10,000 permutations; `nPermutations = 1000` gives the same significant genes): 98% (AKI) and 86%
+     (brain) of genes are classified the same, counting a gene as significant with the legacy function when
+     both of its adjusted p-values are below 0.05.
+     - AKI: 729 genes significant with both methods, 2 with the legacy method only (Rps3a1 and Rps15a, padj
+       0.076 and 0.056), 23 with `compareSpatial()` only (padj 0.02 to 0.05).
+     - Brain: 128 with both (every published gene), 0 legacy only, 45 `compareSpatial()` only, all positively
+       correlated (r = 0.06 to 0.24). The calibration study (`bench/calibration-results.md`, item 5) attributes
+       them to the remapped surrogates: gaussian surrogates are conservative for skewed, zero-inflated genes
+       with a spatial pattern, as the log-normalized brain pixels are. With `surrogate = "gaussian"` and the
+       sqrt(N) filter the brain agreement was 95% (122 with both, 6 legacy only of which 4 skipped, 10 new
+       only, 28 skipped), and the AKI agreement 98% (722, 8 of which 1 skipped, 16, 7 skipped).
 4. **Example genes in the brain case study.** The brain article takes the example genes from its own
    results, so they can differ from the published figure. They are the strongest positive SVG (Slc17a7) and
-   the non-significant non-SVG with the lowest correlation; the gene shown before the test is Slc17a6
-   (Baiap2, which the published analysis found significant, has padj 0.06 in the live run).
-5. **A rare matched cell type.** With the default `minDetected`, CT-16 (in 28 of 2174 MERFISH pixels) is not
-   tested in the brain article, although its correlation is 0.76; the published analysis found it significant.
+   the non-significant non-SVG with the lowest correlation (Gpr160 with the remapped surrogates); the gene
+   shown before the test is Slc17a6 (Baiap2, which the published analysis found significant, has padj 0.04
+   with the remapped surrogates; it had 0.06 with gaussian ones).
+5. **A rare matched cell type.** Resolved by the remapped default (2026-10-05): CT-16 (in 28 of 2174 MERFISH
+   pixels) is tested in the brain article and is significant (r = 0.76, padj 0.0036 at 1000 permutations),
+   as in the published analysis, so all 9 matched cell types are significantly positively correlated. With
+   `surrogate = "gaussian"` the sqrt(N) filter (47 pixels) still skips it.
 
 ## 5. Checks done
 

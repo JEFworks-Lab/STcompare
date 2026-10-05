@@ -176,7 +176,17 @@ correlations too rare, so p is too small however many permutations are drawn (§
 - Anytime-valid confidence intervals for p.
 - Tail approximation for very small p (for example a generalised Pareto fit; Knijnenburg et al. 2009). This is a method change.
 
-## 8. Open: the surrogate null of sparse genes (added 2026-10-05)
+## 8. Resolved: the surrogate null of sparse genes (added 2026-10-05, resolved 2026-10-05)
+
+**Resolution.** The first option below, amplitude adjustment, was implemented as `compareSpatial(surrogate =
+"remap")` (`dev/surrogate-remap-spec.md`; `EngineTask::remap` in `src/stc_engine.h`) and validated by
+`bench/calibrate-surrogates.R`, whose results and recommendation are in `bench/calibration-results.md`: remapped
+surrogates are calibrated for independent genes detected in 1 to 100 percent of the pixels on the kidney and
+brain grids (gaussian surrogates are anti-conservative below about 10 percent), have the same power on
+correlated fields, recover the published genes at least as well, and cost about 7 percent more per permutation.
+The maintainer made `"remap"` the default (2026-10-05); `minDetected = NULL` now means 0 pixels (no filter) with
+`"remap"` and `sqrt(N)` pixels with `"gaussian"`, which stays available for comparability with the legacy
+functions and the published analyses. The other two options were not pursued. The original note follows.
 
 The acceptance review of `compareSpatial()` found that independent sparse genes get p-values that are too
 small in the far tail: P(p ≤ 0.001) was 0.008–0.03 for genes with 3–150 nonzero pixels of 311, and 0.003–0.015 for
@@ -185,9 +195,9 @@ variogram, not the marginal distribution), not the adaptive scheme: the excess k
 distribution of r grows roughly as N / (kx·ky) for genes detected in kx and ky pixels, and the surrogates do
 not reproduce it. The legacy functions share the problem, hidden by their 100 permutations.
 
-What is done: `minDetected` (default √N pixels) skips the genes where the effect is largest, and the
-documentation says that the p-values of other sparse genes can still be somewhat too small. Options for the
-maintainers, each a method change to validate on the calibration tier:
+What was done first: `minDetected` (then √N pixels by default) skipped the genes where the effect is largest, and
+the documentation said that the p-values of other sparse genes can still be somewhat too small. Options for the
+maintainers, each a method change to validate on the calibration tier (the first one was adopted, see above):
 - **Amplitude adjustment.** Rank-remap the original values onto each surrogate (as in AAFT surrogates), so that
   every surrogate has exactly the marginal distribution of the data. For a gene without spatial structure this
   becomes the plain permutation test, which is exact.

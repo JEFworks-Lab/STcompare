@@ -36,6 +36,21 @@ void grow(std::vector<T>& v, std::size_t n) {
   if (v.size() < n) v.resize(n);
 }
 
+// Rank remapping of a surrogate s (n values) onto the sorted source values: s[order[r]] = sorted[r],
+// where order lists the pixels by increasing s, ties (of probability zero: the surrogate has Gaussian
+// noise) broken by pixel index. The surrogate keeps its spatial arrangement and takes exactly the
+// marginal distribution of the source. order is a work buffer of n ints. Returns false, leaving s as it
+// was, if s has a non-finite value: such a value has no rank, and remapping it would hide it.
+bool rank_remap(double* s, int n, const double* sorted, int* order) {
+  for (int i = 0; i < n; i++) {
+    if (!std::isfinite(s[i])) return false;
+  }
+  for (int i = 0; i < n; i++) order[i] = i;
+  std::sort(order, order + n, [s](int a, int b) { return s[a] < s[b] || (s[a] == s[b] && a < b); });
+  for (int r = 0; r < n; r++) s[order[r]] = sorted[r];
+  return true;
+}
+
 }  // namespace
 
 const char* engine_status_text(int status) {
@@ -204,12 +219,13 @@ void Engine::define(const double* pool_, int V, const std::vector<int>& task_sou
                     const std::vector<std::vector<int>>& task_targets,
                     const std::vector<std::vector<double>>& task_rabs,
                     const std::vector<int>& task_unit, const std::vector<int>& unit_fail_on_dir,
-                    const std::vector<std::uint64_t>& task_key) {
+                    const std::vector<std::uint64_t>& task_key, const std::vector<int>& task_remap) {
   if (tasks_defined) throw std::logic_error("the tasks of this session are already defined");
   const int nt = (int)task_source.size();
   const int nu = (int)unit_fail_on_dir.size();
   if ((int)task_grid.size() != nt || (int)task_targets.size() != nt ||
-      (int)task_rabs.size() != nt || (int)task_unit.size() != nt) {
+      (int)task_rabs.size() != nt || (int)task_unit.size() != nt ||
+      (!task_remap.empty() && (int)task_remap.size() != nt)) {
     throw std::invalid_argument("task arguments of different lengths");
   }
   if (opt.rng == RNG_STREAMS ? (int)task_key.size() != nt : !task_key.empty()) {
@@ -267,6 +283,7 @@ void Engine::define(const double* pool_, int V, const std::vector<int>& task_sou
     T.rabs = task_rabs[t];
     T.unit = task_unit[t];
     if (opt.rng == RNG_STREAMS) T.key = task_key[t];
+    T.remap = !task_remap.empty() && task_remap[t] != 0;
     T.dstar_count.assign(T.grid.size(), 0);
     kmax = std::max(kmax, (int)T.grid.size());
     T.dir_fail_b.assign(T.targets.size(), INT_MAX);
@@ -306,6 +323,11 @@ void Engine::define(const double* pool_, int V, const std::vector<int>& task_sou
       for (std::size_t r = 0; r < ids.size(); r++) z[r] = src[ids[r]];
       T.tvar.assign(vt.nbins, 0.0);
       variog_eval_tile(view, z.data(), 1, 1, T.tvar.data(), 1);
+      if (T.remap) {
+        // the values every remapped surrogate takes (finite: the pre-check passed)
+        T.sorted_source.assign(src, src + n);
+        std::sort(T.sorted_source.begin(), T.sorted_source.end());
+      }
     }
   }
 
@@ -401,6 +423,7 @@ void Engine::size_workspaces(const std::vector<int>& task_list, int n_workers) {
     grow(W.fail_k, C);
     grow(W.fail_st, C);
     grow(W.surr, (std::size_t)n);
+    grow(W.order, (std::size_t)n);
     if (opt.rng == RNG_STREAMS) {
       grow(W.perm, (std::size_t)n * C);
       grow(W.noise, (std::size_t)n * C);
@@ -541,7 +564,8 @@ void Engine::process_item(int ti, int p0, int p1, int b_from, Workspace& W) {
     }
   }
 
-  // 3. delta* (which.min()), the surrogate at all points, and the null correlations.
+  // 3. delta* (which.min()), the surrogate at all points (rank-remapped when the task asks for it), and
+  //    the null correlations.
   const int nT = (int)T.targets.size();
   for (int c = 0; c < C; c++) {
     const int b = b_from + p0 + c;
@@ -574,6 +598,14 @@ void Engine::process_item(int ti, int p0, int p1, int b_from, Workspace& W) {
     const double a0 = W.s0[(std::size_t)ks * ld + c];
     const double* e = item_noise(T, b, p0 + c, c, ks, W);
     for (int i = 0; i < n; i++) out[i] = out[i] * a1 + e[i] * a0;
+    // Rank remapping (optional): the surrogate takes the source values in its own rank order, so that it
+    // has exactly the source's marginal distribution; its spatial arrangement, and delta*, are unchanged.
+    if (T.remap && !rank_remap(out, n, T.sorted_source.data(), W.order.data())) {
+      record_task_failure(ti, b, ks, ENG_SURROGATE_NONFINITE);
+      T.dstar[slot] = -1;
+      for (int t = 0; t < nT; t++) nul[t] = nan_value();
+      continue;
+    }
 
     int nv = 0;
     for (int t = 0; t < nT; t++) {
@@ -633,7 +665,9 @@ void Engine::scan_unit(EngineUnit& U, int b_from, int b_to, double h, int n_max)
       const EngineTask& T = tasks[U.dir_task[d]];
       const int j = U.dir_target[d];
       const double v = T.nulls[(std::size_t)(b - 1 - T.base) * T.targets.size() + j];
-      if (std::fabs(v) >= T.rabs[j]) U.counts[d]++;  // NaN never counts
+      // |null| >= |r|, with the ties of a remapped task counted within rounding; NaN never counts
+      const double threshold = T.remap ? T.rabs[j] * (1.0 - kRemapTieRel) : T.rabs[j];
+      if (std::fabs(v) >= threshold) U.counts[d]++;
       if (U.counts[d] >= h) stop = true;
     }
     U.len = b;

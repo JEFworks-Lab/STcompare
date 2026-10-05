@@ -24,17 +24,40 @@
   * The default delta grid is `c(0.01, 0.05, seq(0.1, 0.9, 0.1))`, the grid of the authors' kidney and MERFISH
     analyses; deltas too small for the number of shared pixels (`floor(N * delta) < 2`) are dropped with a
     message. `deltaGridEdge` flags genes whose delta star is mostly at an end of the grid.
-  * Rarely detected genes are not tested for correlation (`minDetected`): by default, a gene must be detected
-    in at least `sqrt(N)` of the `N` shared pixels of each sample (18 of 311, 47 of 2170). The surrogates'
-    values are close to normally distributed, so for genes detected in a few pixels, whose correlation is
-    decided by the pixels where both samples detect them, they give p-values that are far too small (on the
-    whole AKI raster, genes detected in a single pixel of each section were significant). Sparse genes above
-    the threshold can still get p-values that are somewhat too small; the documentation says so.
+  * Rank-remapped surrogates (`surrogate = "remap"`, the default): the values of every surrogate are replaced by
+    the gene's own values in the surrogate's rank order (the amplitude adjustment of AAFT surrogates, Theiler et
+    al. 1992), so that each surrogate has exactly the gene's distribution of values, zeros included, and keeps
+    the spatial arrangement of the Viladomat surrogate. The Viladomat surrogates alone are smoothed and mixed with
+    Gaussian noise, so their values are close to normally distributed; for a gene detected in few pixels, whose
+    correlation is decided by the pixels where both samples detect it, they give p-values that are far too
+    small: in simulations on the kidney grid, independent genes detected in 10 of 311 pixels had
+    P(p <= 0.001) = 0.03, Benjamini-Hochberg found 9 false discoveries among 1800 independent sparse genes, and
+    on the whole AKI raster genes detected in a single pixel of each section were significant. For a gene
+    without spatial structure the remapped surrogates are plain permutations of its values, so the test is the
+    exact permutation test whatever the gene's distribution. On the kidney and brain grids, remapped surrogates
+    kept P(p <= alpha) at or below alpha for independent genes detected in 1 to 100 percent of the pixels, had
+    the same power on correlated fields, recovered the published genes at least as well (728 of the 731 kidney
+    genes against 723 with gaussian surrogates; 124 of the 128 brain genes against 122), and cost about 7 percent
+    more per permutation (`bench/calibrate-surrogates.R`, results in `bench/calibration-results.md`). In this
+    mode a null correlation that equals the observed one up to rounding (within a relative 1e-9) counts as an
+    exceedance, as in the exact test: many rearrangements of a sparse gene give exactly the observed
+    correlation, and `cor()` rounds each of them differently.
+  * `surrogate = "gaussian"` keeps the surrogates as the smoothing and the noise leave them: the surrogates of
+    the legacy functions and of the published analyses, for comparability with them.
+  * `minDetected`: a gene must be detected in at least this share of the shared pixels of each sample to be
+    tested for correlation (a gene is detected at a pixel where its value is above its lowest value; `0` tests
+    every gene that is not constant). The default `NULL` means 0, no filter, with `surrogate = "remap"`, whose
+    p-values were calibrated down to genes detected in a single pixel, and `sqrt(N)` of the `N` shared pixels
+    (18 of 311, 47 of 2170) with `surrogate = "gaussian"`, which removes the genes whose p-values are worst
+    (sparse genes above that filter can still get p-values that are somewhat too small). The number of pixels
+    asked for is recorded in `attr(result, "params")$minDetectedPixels`, and `print()` and `summary()` name
+    the surrogate mode.
 * Input checks with actionable errors: the shared pixels are matched by name and their coordinates must agree
   (pixels of samples rasterized separately are no longer silently mis-paired); gene names must be unique;
   genes are those present in both samples unless given. A gene with missing values or whose permutations fail
   gets a `"failed"` row with the reason in `message`, and one warning lists such genes. A gene that is constant
-  or rarely detected in a sample gets a `"skipped"` row (its similarity is still computed), and one message
+  in a sample (or detected in fewer pixels than `minDetected` asks for) gets a `"skipped"` row (its similarity
+  is still computed), and one message
   counts such genes, so comparing a whole transcriptome does not warn about the genes that are never detected.
 * The similarity of a gene with negative values is `NA`, with one warning that lists such genes: a fold change
   needs values that are not negative (`spatialSimilarity()` stops on them).
@@ -207,7 +230,7 @@
   (10x Visium)" and "Comparison of MERFISH and Visium for mouse brain" download and cache their inputs and run
   in one to two minutes on 8 threads.
 * New articles: "How STcompare works" (the tests step by step, with figures from the built-in data, and why
-  rarely detected genes are not tested) and "Parameters, performance and reproducibility" (choosing the
+  the surrogates take the gene's own values) and "Parameters, performance and reproducibility" (choosing the
   settings, run times, threads, seeds, and the legacy functions compared with `compareSpatial()`). Their
   formulas render offline (MathML), and the figures of all tutorials have alternative text.
 * The case studies no longer need MERINGUE or scatterbar. The spatially variable genes of the published

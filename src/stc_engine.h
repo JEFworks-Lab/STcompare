@@ -31,6 +31,19 @@
 //                          (key, b) (compareSpatial()).
 //             The numerics do not depend on the mode: process_item() reads the draws through
 //             item_perm() and item_noise() and computes the same operations either way.
+//   remap     an option of each task (EngineTask::remap, compareSpatial(surrogate = "remap")): the
+//             surrogate's values are replaced by the task's source values in the surrogate's rank
+//             order (the amplitude adjustment of AAFT surrogates, Theiler et al. 1992), so that every
+//             surrogate has exactly the marginal distribution of the source, zeros included, and keeps
+//             the spatial arrangement of the Viladomat surrogate. The remapped surrogate gives the
+//             null correlations and is the one kept with keep_surrogates. Without it (the legacy
+//             functions) the surrogates are used as the smoothing and the noise leave them. The
+//             nulls of a remapped task are correlations of rearrangements of the source values, so
+//             many of them can equal the observed correlation exactly (a gene detected in few pixels
+//             has few distinct rearrangements); such ties count as exceedances, as in the exact
+//             permutation test, within kRemapTieRel of |r| (cor() rounds each rearrangement
+//             differently; without the tolerance about half of the ties would be lost and the
+//             p-value of a sparse gene could be a few times too small).
 //
 // Every (task, permutation) result is computed by a fixed sequence of operations that does not depend
 // on which other permutations share its work item, so results do not depend on the number of threads,
@@ -76,6 +89,11 @@ enum EngineStatus {
 };
 
 const char* engine_status_text(int status);
+
+// Exceedance rule of a remapped task: |null| >= |r| (1 - kRemapTieRel), so that a null equal to r up to
+// the rounding of cor() counts (see "remap" above). Other tasks use |null| >= |r| exactly, as the legacy
+// functions do: their surrogates have continuous values and ties have probability zero.
+const double kRemapTieRel = 1e-9;
 
 enum UnitState {
   UNIT_ACTIVE = 0,      // more permutations can be added
@@ -124,9 +142,12 @@ struct EngineTask {
   int source = 0;                 // pool column that is permuted
   std::vector<int> grid;          // delta indices (into Engine::deltas); position k = noise block k
   std::vector<int> targets;       // pool columns the surrogates are correlated with
-  std::vector<double> rabs;       // |observed r| per target (exceedances: |null| >= rabs)
+  std::vector<double> rabs;       // |observed r| per target (exceedances: |null| >= rabs, with the
+                                  // ties of a remapped task counted within kRemapTieRel)
   int unit = 0;
   std::uint64_t key = 0;          // stream key (RNG_STREAMS)
+  bool remap = false;             // rank-remap every surrogate onto the source values
+  std::vector<double> sorted_source;  // the source values in increasing order (remap only)
   std::vector<double> tvar;       // target variogram: the source on ids
   double cost = 0.0;              // relative cost of one permutation (scheduling only)
   int status = ENG_OK;            // pre-check (before any permutation)
@@ -196,15 +217,16 @@ class Engine {
 
   // Tasks and units (once per session). pool: n x V column-major. For task t: task_source[t],
   // task_grid[t] (delta indices), task_targets[t] (pool columns), task_rabs[t] (one per target),
-  // task_unit[t], and with RNG_STREAMS task_key[t] (stream_key(); empty otherwise).
-  // unit_fail_on_dir: one per unit (units are numbered 0..n_units-1 and each needs a task). Runs the
-  // pre-checks and the target variograms; units with a failed pre-check are FAILED.
+  // task_unit[t], with RNG_STREAMS task_key[t] (stream_key(); empty otherwise), and task_remap[t]
+  // (non-zero: rank-remap its surrogates; empty: no task does). unit_fail_on_dir: one per unit (units
+  // are numbered 0..n_units-1 and each needs a task). Runs the pre-checks and the target variograms;
+  // units with a failed pre-check are FAILED.
   void define(const double* pool_, int V, const std::vector<int>& task_source,
               const std::vector<std::vector<int>>& task_grid,
               const std::vector<std::vector<int>>& task_targets,
               const std::vector<std::vector<double>>& task_rabs,
               const std::vector<int>& task_unit, const std::vector<int>& unit_fail_on_dir,
-              const std::vector<std::uint64_t>& task_key);
+              const std::vector<std::uint64_t>& task_key, const std::vector<int>& task_remap);
 
   // One batch: permutations b_from..b_to (1-based, inclusive) for the listed units, each of which must
   // have len == b_from - 1. perm: n x nb permutation indices, 0-based and validated by the caller
@@ -238,6 +260,7 @@ class Engine {
     std::vector<double> rss;      // kmax x C
     std::vector<int> fail_k, fail_st;  // C: first failing grid position and status, or -1
     std::vector<double> surr;     // n: one surrogate (when they are not kept)
+    std::vector<int> order;       // n: pixel indices in the order of the surrogate's values (remap)
     std::vector<int> perm;        // n x C: permutation indices (RNG_STREAMS)
     std::vector<double> noise;    // n x C: one noise block per column (RNG_STREAMS)
     std::vector<const double*> eptr;     // C: noise blocks of the current grid position

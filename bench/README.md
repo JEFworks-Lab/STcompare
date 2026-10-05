@@ -127,8 +127,9 @@ reproduce these two published analyses there either (see `data-raw/README.md`, "
 ## time-compareSpatial.R
 
 Times `compareSpatial()` with its defaults (adaptive p-values with `exceedances = 10` and `nPermutations = 10000`,
-the extended delta grid) and summarises the permutations per gene (the `nPermutations` column), how many genes
-stopped early or reached the limit, and how many have `padj < 0.05`. Datasets: the realistic test genes
+the extended delta grid, rank-remapped surrogates with no detection filter) and summarises the permutations per
+gene (the `nPermutations` column), how many genes stopped early or reached the limit, and how many have
+`padj < 0.05`. Datasets: the realistic test genes
 (`aki_fixture`: 35 genes on 311 pixels; `brain_fixture`: 30 genes on 2170 pixels) and, when the cache of
 `data-raw/` exists, the full inputs of the published AKI (1046 genes, control vs AKI, assay CPM) and brain
 (325 genes, MERFISH vs Visium, assay lognorm) analyses.
@@ -141,6 +142,8 @@ Rscript bench/time-compareSpatial.R --datasets=aki,brain --nPermutations=1000
 ```
 
 With the defaults, the run time is dominated by the significant genes, which run to 10000 permutations: on 16
-threads of an M1 Ultra the 1046 AKI genes took 106 s (454 genes reached the limit; median 3578 permutations per
-gene) and the 325 brain genes 125 s (70 at the limit; median 215). A smaller `nPermutations` is proportionally
-faster: with `nPermutations = 1000` they took 15 s and 22 s.
+threads of an M1 Ultra the 1046 AKI genes took 118 s (454 genes reached the limit; median 4626 permutations per
+gene; 752 significant) and the 325 brain genes 187 s (100 at the limit; median 512; 173 significant). A smaller
+`nPermutations` is proportionally faster: with `nPermutations = 1000` they took 18 s and 29 s, with the same
+significant genes. (With gaussian surrogates and their sqrt(N) detection filter, the defaults before the
+remapped surrogates, the same runs took 106 s and 125 s.)

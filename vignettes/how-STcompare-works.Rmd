@@ -26,12 +26,13 @@ step by step, with small examples from the data that ship with the package:
 2. [Pearson's correlation](#pearsons-correlation-and-why-the-naive-p-value-fails),
    and why its usual p-value fails for spatial data.
 3. [Spatially autocorrelated surrogates](#a-null-distribution-that-keeps-the-spatial-autocorrelation)
-   that give a valid null distribution.
+   with the gene's own values, which give a valid null distribution.
 4. [Sequential permutation p-values](#sequential-p-values-stop-early-when-the-answer-is-clear)
    that stop early when the answer is clear.
 5. [Both directions, one p-value per gene](#two-directions-one-p-value) and the
    adjustment for multiple testing.
-6. [Rarely detected genes](#rarely-detected-genes): where the surrogates fail.
+6. [Rarely detected genes](#rarely-detected-genes): why the surrogates take the
+   gene's own values.
 7. [Spatial similarity](#spatial-similarity): the expression levels at matched pixels.
 
 ```{r setup, message = FALSE}
@@ -130,8 +131,8 @@ autocorrelation.
 
 STcompare uses the method of Viladomat et al. (2014). To test the correlation
 of `x` with `y`, it generates surrogates of `x`: random patterns that have the
-same spatial autocorrelation as `x` but no relation to `y`. Each surrogate is
-made in four steps.
+same spatial autocorrelation as `x`, and the same values, but no relation to
+`y`. Each surrogate is made in five steps.
 
 **1. Shuffle** the values of `x` across the pixels. This keeps the values but
 destroys the spatial pattern, and with it the autocorrelation.
@@ -163,36 +164,57 @@ intercept (the nugget).
 surrogate's variogram is closest to the variogram of `x` (smallest residual sum
 of squares), delta star, gives the surrogate.
 
-The legacy function `viladomatCorrelation()` exposes these surrogates. With a
-single \(\delta\) it returns the surrogate for that bandwidth, and with the same
-seed it starts from the same shuffle as above:
+**5. Remap the values.** The smoothed, rescaled surrogate has values that are
+close to normally distributed, whatever the distribution of `x`. Its values are
+therefore replaced by the values of `x` themselves, placed in the surrogate's
+rank order: the pixel with the smallest surrogate value gets the smallest value
+of `x`, and so on (the amplitude adjustment of Theiler et al. 1992;
+`surrogate = "remap"`, the default). The surrogate keeps the spatial
+arrangement of step 3 and has exactly the distribution of values of `x`, zeros
+included. [Rarely detected genes](#rarely-detected-genes) shows why this
+matters; `surrogate = "gaussian"` skips this step and gives the surrogates of
+the legacy functions.
 
-```{r surrogates, fig.height = 2.6, fig.alt = "Maps of x, of its shuffled values, and of surrogates smoothed with increasing bandwidths: the shuffled values have no pattern, and larger bandwidths give smoother surrogates."}
+The legacy function `viladomatCorrelation()` exposes the surrogates of steps
+1 to 4. With a single \(\delta\) it returns the surrogate for that bandwidth,
+and with the same seed it starts from the same shuffle as above; step 5 is one
+line of R:
+
+```{r surrogates, fig.height = 2.6, fig.alt = "Maps of x, of its shuffled values, and of remapped surrogates smoothed with increasing bandwidths: the shuffled values have no pattern, and larger bandwidths give smoother surrogates, all with the values of x."}
 xyData <- cbind(x, y, coords)
 grid <- c(0.01, 0.05, seq(0.1, 0.9, 0.1))
-surrogate <- function(delta) {
+smoothed <- function(delta) {
   viladomatCorrelation(xyData, delta = delta, maxDistPrctile = 0.25,
                        nPermutations = 1, seed = 1)
 }
-deltaStar <- surrogate(grid)$deltaStar
+remap <- function(surrogate, values) {
+  remapped <- surrogate
+  remapped[order(surrogate)] <- sort(values)
+  remapped
+}
+deltaStar <- smoothed(grid)$deltaStar
 deltaStar
 shown <- unique(c(0.01, 0.05, deltaStar, 0.6))
+gaussian <- lapply(shown, function(d) smoothed(d)$permutations[, 1])
 fields <- c(list(x = x, shuffled = shuffled),
-            lapply(shown, function(d) surrogate(d)$permutations[, 1]))
+            lapply(gaussian, remap, values = x))
 names(fields)[-(1:2)] <- ifelse(shown == deltaStar, "delta* ", "delta ")
 names(fields)[-(1:2)] <- paste0(names(fields)[-(1:2)], shown)
-wrap_plots(Map(function(v, title) mapValues(as.numeric(scale(v)), title),
-               fields, names(fields)), nrow = 1)
+wrap_plots(Map(mapValues, fields, names(fields)), nrow = 1)
 ```
 
-(The maps show standardized values. The surrogates are not centred on the mean
-of `x`: the variogram and the correlation do not depend on the mean.)
+Every map has the same values, those of `x`, arranged differently: shuffled,
+or smoothed with increasing bandwidths.
 
-The variograms show why delta star is `r deltaStar` for this surrogate. We
-compute them with a small helper, in equal distance bins up to the 25% quantile
-of the distances (STcompare's own computation follows `geoR::variog()`):
+The variograms show why delta star is `r deltaStar` for this surrogate. Delta
+star is chosen in step 4, from the variograms of the smoothed, rescaled
+surrogates; the remapping is a monotone change of the amplitudes, which alters
+the variogram only a little, so the variograms of the remapped surrogates tell
+the same story. We compute them with a small helper, in equal distance bins up
+to the 25% quantile of the distances (STcompare's own computation follows
+`geoR::variog()`):
 
-```{r variograms, fig.height = 3.5, fig.alt = "Variograms of x (black points), of the shuffled values (flat) and of the surrogates: the surrogate at delta star follows the variogram of x most closely."}
+```{r variograms, fig.height = 3.5, fig.alt = "Variograms of x (black points), of the shuffled values (flat) and of the remapped surrogates: the surrogate at delta star follows the variogram of x most closely. A dashed line shows the surrogate at delta star before the remapping."}
 variogram <- function(values, coords, maxDist, nBins = 12) {
   d <- as.matrix(dist(coords))
   halfSq <- outer(values, values, function(a, b) (a - b)^2 / 2)
@@ -208,8 +230,10 @@ curves <- do.call(rbind, Map(function(v, label) {
 }, fields, names(fields)))
 curves$field <- factor(curves$field, levels = names(fields))
 target <- curves[curves$field == "x", ]
+beforeRemap <- variogram(gaussian[[which(shown == deltaStar)]], coords, maxDist)
 ggplot(curves, aes(distance, semivariance, colour = field)) +
   geom_line(linewidth = 0.8) +
+  geom_line(data = beforeRemap, colour = "black", linetype = "dashed") +
   geom_point(data = target, colour = "black", size = 2) +
   coord_cartesian(ylim = c(0, 1.5 * max(target$semivariance))) +
   scale_colour_manual(values = c("black", "grey60",
@@ -220,11 +244,11 @@ ggplot(curves, aes(distance, semivariance, colour = field)) +
 
 The variogram of `x` (black points) rises with distance: nearby pixels are
 similar. The shuffled values have a flat variogram. A small bandwidth leaves a
-rough pattern whose variogram cannot be matched (\(\delta\) = 0.01 is
-off the chart), a large one an over-smoothed pattern, and delta star follows the
-variogram of `x` closely.
+rough pattern whose variogram rises too fast and flattens, a large one an
+over-smoothed pattern whose variogram rises too slowly, and delta star follows
+the variogram of `x` closely, before the remapping (dashed) and after it.
 
-**5. Null correlations.** The correlation of each surrogate of `x` with `y` is
+**6. Null correlations.** The correlation of each surrogate of `x` with `y` is
 one draw from the null distribution of `r`. The same is done in the other
 direction, with surrogates of `y` correlated with `x`. `keepNulls = TRUE` keeps
 these null correlations:
@@ -271,9 +295,10 @@ observed correlation is distributed like the null correlations, as it is when
 the null hypothesis is true and the surrogates reproduce the null distribution,
 \(P(p \le \alpha) \le \alpha\) for every \(\alpha\), as for a fixed
 number of permutations, so it can be adjusted for multiple testing like any
-other p-value. (Where the surrogates do not reproduce the null distribution, no
-number of permutations helps; see
-[Rarely detected genes](#rarely-detected-genes).) Its relative precision is
+other p-value. (Where the surrogates do not reproduce the null distribution, as
+surrogates without step 5 do not for rarely detected genes, no number of
+permutations helps; see [Rarely detected genes](#rarely-detected-genes).) Its
+relative precision is
 about \(1 / \sqrt{h}\) (about 30% for \(h = 10\)), which is ample for p-values
 that are far from significance, while significant genes still get the full
 resolution of \(n\) permutations. An unrelated gene costs on average about
@@ -378,14 +403,17 @@ must be at most \(\alpha k / G\), so the smallest possible p-value,
 
 # Rarely detected genes
 
-The surrogates are smoothed and mixed with Gaussian noise, so their values are
-close to normally distributed. That suits a gene expressed over much of the
-tissue, but not a gene detected in a handful of pixels: the correlation of two
-such genes is decided by the few pixels where both are detected. Two unrelated
-genes that happen to share a detected pixel have a large correlation, and such
-coincidences happen far more often than the surrogates' nearly normal values
-produce extreme correlations. For example, two unrelated genes on the pixels
-of kidneys A and B, each detected in 3 pixels, one of which they share:
+Step 5 exists because of genes detected in a handful of pixels. Without it, the
+surrogates are smoothed and mixed with Gaussian noise, so their values are
+close to normally distributed (`surrogate = "gaussian"`, the surrogates of the
+legacy functions and of the published analyses). That suits a gene expressed
+over much of the tissue, but not a gene detected in a handful of pixels: the
+correlation of two such genes is decided by the few pixels where both are
+detected. Two unrelated genes that happen to share a detected pixel have a
+large correlation, and such coincidences happen far more often than the nearly
+normal values of gaussian surrogates produce extreme correlations. For
+example, two unrelated genes on the pixels of kidneys A and B, each detected in
+3 pixels, one of which they share:
 
 ```{r sparse}
 withValues <- function(values) {
@@ -397,45 +425,87 @@ withValues <- function(values) {
 sparseX <- sparseY <- numeric(length(shared))
 sparseX[c(10, 100, 200)] <- c(3, 8, 5)
 sparseY[c(100, 150, 250)] <- c(6, 2, 4)
-sparse <- compareSpatial(withValues(sparseX), withValues(sparseY),
-                         tests = "correlation", nPermutations = 999,
-                         minDetected = 0, nThreads = 2, verbose = FALSE)
-as.data.frame(sparse)[, c("r", "p", "nPermutations")]
+sparse <- list(withValues(sparseX), withValues(sparseY))
+gaussian <- compareSpatial(sparse, tests = "correlation", nPermutations = 999,
+                           surrogate = "gaussian", minDetected = 0,
+                           nThreads = 2, verbose = FALSE)
+as.data.frame(gaussian)[, c("r", "p", "nPermutations")]
 ```
 
-None of the 999 surrogate pairs comes close to this correlation, so p is the
-smallest possible value. These genes have no spatial pattern, so shuffling the
-pixels of one of them gives the exact null distribution, and it shows how often
-such a coincidence happens by chance:
+None of the 999 gaussian surrogate pairs comes close to this correlation, so p
+is the smallest possible value. These genes have no spatial pattern, so
+shuffling the pixels of one of them gives the exact null distribution, and it
+shows how often such a coincidence happens by chance:
 
 ```{r sparse-shuffle}
 set.seed(2)
-shuffled <- replicate(20000, cor(sample(sparseX), sparseY))
-exact <- mean(abs(shuffled) >= abs(sparse$r))
+shuffled <- replicate(1e5, cor(sample(sparseX), sparseY))
+exact <- mean(abs(shuffled) >= abs(gaussian$r) * (1 - 1e-9))
 exact
 ```
 
-A correlation this large happens by chance about once in
-`r round(1 / exact)` shuffles, so the surrogates' p-value,
-`r signif(sparse$p, 2)`, is `r round(exact / sparse$p)` times too small; with the
-default `nPermutations = 10000` it would be `r round(exact * 10001)` times too
-small. `compareSpatial()` therefore does not test genes detected in fewer than
-\(\sqrt{N}\) of the \(N\) shared pixels of either sample (argument
+(The tolerance counts the shuffles that give exactly the observed correlation,
+which `cor()` rounds differently for each arrangement of the values.) A
+correlation this large happens by chance about once in `r round(1 / exact)`
+shuffles, so the gaussian surrogates' p-value, `r signif(gaussian$p, 2)`, is
+`r round(exact / gaussian$p)` times too small; with the default
+`nPermutations = 10000` it would be `r round(exact * 10001)` times too small.
+Remapped surrogates have the gene's own values. For a gene without spatial
+structure the ranks of its surrogates are close to random, so its remapped
+surrogates are nearly plain shuffles of its values, and the test is close to
+the exact permutation test above, whatever the gene's distribution. The
+defaults give a p-value of the right size:
+
+```{r sparse-remap}
+remapped <- compareSpatial(sparse, tests = "correlation", nThreads = 2,
+                           verbose = FALSE)
+c(remapped = remapped$p, exact = exact)
+```
+
+```{r sparse-remap-text, include = FALSE}
+L <- remapped$nPermutations
+remapText <- if (remapped$stop == "exceedances") {
+  sprintf("stopped after %d permutations with 10 exceedances, so its p-value is 10 / %d",
+          L, L)
+} else {
+  sprintf("reached the limit of %d permutations with %d exceedances, so its p-value is (%d + 1) / %d",
+          L, round(remapped$p * (L + 1)) - 1, round(remapped$p * (L + 1)) - 1, L + 1)
+}
+```
+
+The remapped gene `r remapText`, where the exact value predicts
+`r round(exact * L, 1)` exceedances. The remapped p-value errs on the safe
+side: the surrogate of a gene without spatial structure keeps a little
+smoothness, because the variogram matching takes the absolute value of a slope
+that is pure noise, so its null correlations are spread slightly more widely
+than those of plain shuffles. (Many rearrangements of a sparse gene give
+exactly the observed correlation; as in the exact test, such ties count as
+exceedances, within the rounding of `cor()`.)
+
+With gaussian surrogates, `compareSpatial()` does not test genes detected in
+fewer than \(\sqrt{N}\) of the \(N\) shared pixels of either sample (argument
 `minDetected`), here `r ceiling(sqrt(length(shared)))` of `r length(shared)`
-pixels. With the default, the gene is skipped:
+pixels: the departure from the surrogates grows roughly as \(N / (k_x k_y)\)
+for genes detected in \(k_x\) and \(k_y\) pixels, and the filter removes the
+genes for which it is largest, although genes detected in more pixels but
+still mostly zero can get p-values that are somewhat too small.
 
 ```{r sparse-skipped}
-skipped <- compareSpatial(withValues(sparseX), withValues(sparseY),
-                          tests = "correlation", nThreads = 2, verbose = FALSE)
+skipped <- compareSpatial(sparse, tests = "correlation", surrogate = "gaussian",
+                          nThreads = 2, verbose = FALSE)
 as.data.frame(skipped)[, c("p", "status", "message")]
 ```
 
-The departure from the surrogates grows roughly as \(N / (k_x k_y)\) for genes
-detected in \(k_x\) and \(k_y\) pixels, so the default removes the genes for
-which it is largest. Genes detected in more pixels but still mostly zero can get
-p-values that are somewhat too small. To compare whole transcriptomes, test the
-genes that have a spatial pattern in both samples, as the case studies do with
-spatially variable genes, or raise `minDetected`, for example to 0.1.
+With remapped surrogates, the default, no such filter is needed. In
+simulations on the pixels of the kidney and brain case studies, remapped
+surrogates kept \(P(p \le \alpha) \le \alpha\) for independent genes detected
+in anywhere from 1% to 100% of the pixels, where gaussian surrogates were
+anti-conservative below about 10%, and they had the same power on correlated
+fields (`bench/calibration-results.md` in the source repository).
+`minDetected` therefore defaults to 0 with remapped surrogates: every gene
+that is not constant in a sample is tested, a gene without spatial structure
+costs about ten permutations, and the remapping itself, one sort of the
+\(N\) values per surrogate, adds about 7% to the run time.
 
 # Spatial similarity
 
@@ -486,11 +556,12 @@ million), not log-transformed values.
 For each gene, `compareSpatial()`:
 
 1. takes the gene's values on the pixels shared by the two samples, and skips
-   the correlation test if the gene is detected in too few of them;
+   the correlation test if the gene is constant in a sample (or, with
+   gaussian surrogates, detected in too few pixels);
 2. computes Pearson's `r` (and, for reference, the naive `pNaive`);
 3. draws surrogates of each sample that keep its spatial autocorrelation
-   (shuffle, smooth with each \(\delta\), match the variogram, keep delta star) and
-   correlates them with the other sample;
+   (shuffle, smooth with each \(\delta\), match the variogram, keep delta star)
+   and its values (remap), and correlates them with the other sample;
 4. stops when either direction has `exceedances` null correlations at least as
    extreme as `r`, or at `nPermutations`, and reports the larger of the two
    directions' sequential p-values as `p`;
@@ -512,6 +583,10 @@ All genes share the expensive parts that depend only on the pixel coordinates
   the significance of global and local correlations under spatial
   autocorrelation: a nonparametric approach. *Biometrics* 70(2):409-418.
   [doi:10.1111/biom.12139](https://doi.org/10.1111/biom.12139)
+- Theiler J, Eubank S, Longtin A, Galdrikian B, Farmer JD (1992). Testing for
+  nonlinearity in time series: the method of surrogate data. *Physica D*
+  58(1-4):77-94.
+  [doi:10.1016/0167-2789(92)90102-S](https://doi.org/10.1016/0167-2789(92)90102-S)
 - Besag J, Clifford P (1991). Sequential Monte Carlo p-values. *Biometrika*
   78(2):301-304. [doi:10.1093/biomet/78.2.301](https://doi.org/10.1093/biomet/78.2.301)
 - Benjamini Y, Hochberg Y (1995). Controlling the false discovery rate: a

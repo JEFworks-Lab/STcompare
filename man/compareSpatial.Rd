@@ -15,6 +15,7 @@ compareSpatial(
   delta = c(0.01, 0.05, seq(0.1, 0.9, 0.1)),
   maxDistPrctile = 0.25,
   minDetected = NULL,
+  surrogate = c("remap", "gaussian"),
   foldChange = 1,
   minQuantile = 0.05,
   minPixels = 0.1,
@@ -70,8 +71,21 @@ which the variograms are computed. Default 0.25.}
 \item{minDetected}{The smallest share of the shared pixels at which a gene
 must be detected, in each sample, to be tested for correlation (see
 \emph{Rarely detected genes} in Details); \code{0} tests every gene that
-is not constant. Default \code{NULL}: \eqn{\sqrt{N}}{sqrt(N)} of the
-\eqn{N} shared pixels.}
+is not constant. Default \code{NULL}, which depends on \code{surrogate}:
+\code{0} (no filter) with \code{"remap"}, whose p-values are calibrated
+for rarely detected genes, and \eqn{\sqrt{N}}{sqrt(N)} of the \eqn{N}
+shared pixels (18 of 311, 47 of 2170) with \code{"gaussian"}, whose
+p-values are far too small for such genes. The number of pixels asked
+for is recorded in \code{attr(result, "params")$minDetectedPixels}.}
+
+\item{surrogate}{How the surrogates of the correlation test take their
+values (see \emph{Rank-remapped surrogates} in Details): \code{"remap"}
+(the default) gives each surrogate the gene's own values, in the
+surrogate's rank order, so that it has exactly the gene's distribution
+of values, which calibrates the p-values of sparse and skewed genes;
+\code{"gaussian"} uses them as the smoothing and the added noise leave
+them, the surrogates of the legacy functions and of the published
+analyses.}
 
 \item{foldChange}{The similarity band: pixels with
 \eqn{|\log_2(y / x)| \le}{|log2(y / x)| <=} \code{foldChange} are
@@ -151,9 +165,11 @@ A data frame of class \code{"STcompareResult"} with one row per gene
   \item{\code{message}}{Why a gene was skipped or failed, or why its
   similarity is \code{NA} (negative values); empty otherwise.}
 }
-The attributes hold \code{params} (the arguments after defaults, the
-sample labels, the assays, the number of pixels and the delta grid actually
-used, \code{deltaGrid}), \code{call}, \code{runtime} and, with
+The attributes hold \code{params} (the arguments after defaults, among
+them the \code{surrogate} mode used and \code{minDetectedPixels}, the
+number of detected pixels asked for; the sample labels, the assays, the
+number of pixels and the delta grid actually used, \code{deltaGrid}),
+\code{call}, \code{runtime} and, with
 \code{keepNulls = TRUE}, \code{details}: one list per gene with the null
 correlations (\code{nullX}, \code{nullY}) and delta stars
 (\code{deltaStarX}, \code{deltaStarY}) of its permutations.
@@ -186,9 +202,11 @@ For every gene measured in two samples on one shared grid of
   whose window holds a share \eqn{\delta} of the pixels, and rescaled with
   added noise so that their variogram matches the variogram of \code{x}; the
   \eqn{\delta} of \code{delta} whose variogram matches best (delta star) is
-  kept, and the correlation of this surrogate with \code{y} is one null
-  correlation. The same is done with \code{y} permuted and correlated with
-  \code{x}. If there are more than 1000 shared pixels, the variograms use a
+  kept, the values of this surrogate are replaced by the gene's own values
+  in the surrogate's rank order (\code{surrogate = "remap"}, the default;
+  see \emph{Rank-remapped surrogates}), and its correlation with \code{y} is
+  one null correlation. The same is done with \code{y} permuted and
+  correlated with \code{x}. If there are more than 1000 shared pixels, the variograms use a
   random subsample of 1000 of them, drawn from \code{seed} with R's default
   random number generator whatever \code{RNGkind()} is set to. The smoother
   and the variogram are those of the other correlation functions of the
@@ -208,7 +226,8 @@ For every gene measured in two samples on one shared grid of
   observed correlation is distributed like the null correlations of either
   direction, \eqn{P(p \le \alpha) \le \alpha}{P(p <= alpha) <= alpha} at
   every \eqn{\alpha}. The surrogates approximate that null distribution;
-  for genes detected in few pixels the approximation fails (see below). A
+  with \code{surrogate = "gaussian"} the approximation fails for genes
+  detected in few pixels (see \emph{Rarely detected genes}). A
   gene that is clearly not significant stops after a few dozen
   permutations, and a significant gene runs to \code{nPermutations}, which
   sets the smallest possible p-value, \code{1 / (nPermutations + 1)}. With
@@ -216,25 +235,65 @@ For every gene measured in two samples on one shared grid of
   permutations and \code{p = max(pX, pY)}. The p-values are adjusted
   across the tested genes with \code{adjustMethod}.
 
-  \strong{Rarely detected genes.} The surrogates are smoothed and mixed
+  \strong{Rank-remapped surrogates.} With \code{surrogate = "remap"} (the
+  default), the values of each surrogate are replaced by the gene's own
+  values, placed in the rank order of the surrogate (the amplitude
+  adjustment of the AAFT surrogates of Theiler et al. 1992, in a single
+  step): the surrogate keeps the spatial arrangement of the smoothed,
+  rescaled permutation and has exactly the distribution of values of the
+  gene, zeros included. Delta star is chosen before the remapping, and for a
+  gene with a spatial pattern the remapping is a monotone distortion of the
+  surrogate's amplitudes, which changes its variogram a little. For a gene
+  without spatial structure the ranks of its surrogates are close to
+  uniformly random permutations, so its remapped surrogates are plain
+  random permutations of its values and the test is the exact permutation
+  test, whatever the gene's distribution (exactly so when the other gene has
+  no spatial structure either). Many rearrangements of a gene detected in
+  few pixels give exactly the observed correlation; as in the exact test,
+  such ties count as exceedances (a null correlation within a relative 1e-9
+  of \eqn{|r|} counts, because \code{cor()} rounds each rearrangement
+  differently). In simulations on the kidney and brain grids
+  (\code{bench/calibration-results.md} in the source repository), remapped
+  surrogates kept \eqn{P(p \le \alpha) \le \alpha}{P(p <= alpha) <= alpha}
+  for independent genes detected in 1 to 100 percent of the pixels, had
+  the same power as gaussian surrogates on correlated Gaussian fields,
+  recovered the published kidney and brain genes at least as well, and
+  cost about 7 percent more per permutation.
+  \code{surrogate = "gaussian"} uses the surrogates as the smoothing and
+  the added noise leave them. They are the surrogates of the other
+  correlation functions of the package and of the published analyses, and
+  are kept for comparability with them: their values are close to normally
+  distributed, which gives p-values that are far too small for genes
+  detected in few pixels (next paragraph) and conservative ones for skewed
+  genes with a spatial pattern.
+
+  \strong{Rarely detected genes.} Gaussian surrogates are smoothed and mixed
   with Gaussian noise, so their values are close to normally distributed.
   A gene detected in few pixels has a few high values among many zeros, and
   the correlation of two such genes is dominated by the few pixels where
   both are detected: chance coincidences give extreme correlations more
-  often than the surrogates do, so small p-values are too small. Genes
-  detected in fewer than a share \code{minDetected} of the shared pixels of
-  either sample are therefore not tested for correlation
-  (\code{status = "skipped"}). A gene is detected at a pixel where its
-  value is above its lowest value over the shared pixels (for counts and
-  normalized counts: where it is not zero). The default asks for
-  \eqn{\sqrt{N}}{sqrt(N)} of the \eqn{N} shared pixels (18 of 311, 47 of
-  2170): the departure from the surrogates grows roughly as
-  \eqn{N / (k_x k_y)}{N / (kx * ky)} for genes detected in \eqn{k_x}{kx} and
-  \eqn{k_y}{ky} pixels, and the default removes the genes for which it is
-  largest. Sparse or zero-inflated genes above it can still get p-values
-  that are somewhat too small: to compare whole transcriptomes, test the
-  genes with a spatial pattern in both samples, as the case studies do, or
-  raise \code{minDetected}.
+  often than gaussian surrogates do, so small p-values are too small, ten
+  times or more for genes detected in one or two pixels. With
+  \code{surrogate = "gaussian"}, genes detected in fewer than a share
+  \code{minDetected} of the shared pixels of either sample are therefore
+  not tested for correlation (\code{status = "skipped"}). A gene is
+  detected at a pixel where its value is above its lowest value over the
+  shared pixels (for counts and normalized counts: where it is not zero).
+  With gaussian surrogates the default asks for \eqn{\sqrt{N}}{sqrt(N)} of
+  the \eqn{N} shared pixels (18 of 311, 47 of 2170): the departure from the
+  surrogates grows roughly as \eqn{N / (k_x k_y)}{N / (kx * ky)} for genes
+  detected in \eqn{k_x}{kx} and \eqn{k_y}{ky} pixels, and this removes the
+  genes for which it is largest; sparse or zero-inflated genes above it can
+  still get p-values that are somewhat too small, so with gaussian
+  surrogates test the genes with a spatial pattern in both samples, or
+  raise \code{minDetected}. Remapped surrogates have the gene's own values,
+  and the problem disappears: in the simulations their p-values were
+  calibrated down to genes detected in a single pixel, so with
+  \code{surrogate = "remap"} the default \code{minDetected} is 0 and every
+  gene that is not constant in a sample is tested. Such genes cost little
+  (a gene without spatial structure stops after about ten permutations),
+  and a gene detected in a single pixel cannot get a p-value below
+  \eqn{1 / N}: the exact test is discrete.
 
   \strong{Spatial similarity.} The same computation as
   \code{\link{spatialSimilarity}()}: for each gene, pixels are kept when
@@ -271,7 +330,8 @@ For every gene measured in two samples on one shared grid of
 
   \strong{Skipped and failed genes.} A gene that is constant in a sample
   (for example never detected) or detected in fewer pixels than
-  \code{minDetected} asks for is not tested for correlation: it gets
+  \code{minDetected} asks for (by default only with
+  \code{surrogate = "gaussian"}) is not tested for correlation: it gets
   \code{status = "skipped"}, \code{NA} p-values and the reason in
   \code{message} (its similarity is still computed), and one message counts
   such genes. A gene that cannot be tested gets \code{status = "failed"},
@@ -305,6 +365,10 @@ Viladomat J, Mazumder R, McInturff A, McCauley DJ, Hastie T
 
   Besag J, Clifford P (1991). Sequential Monte Carlo p-values.
   \emph{Biometrika} 78(2):301-304. \doi{10.1093/biomet/78.2.301}
+
+  Theiler J, Eubank S, Longtin A, Galdrikian B, Farmer JD (1992). Testing
+  for nonlinearity in time series: the method of surrogate data.
+  \emph{Physica D} 58(1-4):77-94. \doi{10.1016/0167-2789(92)90102-S}
 }
 \seealso{
 \code{\link{spatialCorrelationGeneExp}()} and

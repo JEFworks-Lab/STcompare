@@ -245,12 +245,14 @@ Rcpp::List stc_engine_deltas(SEXP session) {
 // task_source (pool column), task_grid (list of delta indices), task_targets (list of pool columns),
 // task_rabs (list of |r| per target), task_unit. unit_fail_on_dir: one logical per unit. Sessions with
 // independent streams also take task_names and task_dirs (the name and direction of each task's stream
-// key; see src/stc_rng.h).
+// key; see src/stc_rng.h). task_remap: NULL, or one logical per task, TRUE for the tasks whose
+// surrogates are rank-remapped onto the source values (stc_engine.h).
 // [[Rcpp::export(name = ".stc_engine_define", rng = false)]]
 Rcpp::List stc_engine_define(SEXP session, Rcpp::NumericMatrix pool, Rcpp::IntegerVector task_source,
                              Rcpp::List task_grid, Rcpp::List task_targets, Rcpp::List task_rabs,
                              Rcpp::IntegerVector task_unit, Rcpp::LogicalVector unit_fail_on_dir,
-                             SEXP task_names = R_NilValue, SEXP task_dirs = R_NilValue) {
+                             SEXP task_names = R_NilValue, SEXP task_dirs = R_NilValue,
+                             SEXP task_remap = R_NilValue) {
   stc::Engine* e = get_engine(session);
   if (e->tasks_defined) Rcpp::stop("the tasks of this session are already defined");
   if (pool.nrow() != e->n) Rcpp::stop("nrow(pool) must equal the number of points");
@@ -279,8 +281,20 @@ Rcpp::List stc_engine_define(SEXP session, Rcpp::NumericMatrix pool, Rcpp::Integ
   } else if (!Rf_isNull(task_names) || !Rf_isNull(task_dirs)) {
     Rcpp::stop("task_names and task_dirs are only for sessions with independent streams");
   }
+  std::vector<int> remap;
+  if (!Rf_isNull(task_remap)) {
+    if (TYPEOF(task_remap) != LGLSXP || Rf_xlength(task_remap) != nt) {
+      Rcpp::stop("task_remap must be NULL or one logical per task");
+    }
+    remap.resize((std::size_t)nt);
+    for (int t = 0; t < nt; t++) {
+      const int v = LOGICAL(task_remap)[t];
+      if (v == NA_LOGICAL) Rcpp::stop("task_remap must not contain NA");
+      remap[(std::size_t)t] = v ? 1 : 0;
+    }
+  }
   // R_xlen_t-safe: pool has n * V values
-  e->define(pool.begin(), pool.ncol(), src, grid, targets, rabs, unit, fod, keys);
+  e->define(pool.begin(), pool.ncol(), src, grid, targets, rabs, unit, fod, keys, remap);
 
   Rcpp::IntegerVector status(nt);
   Rcpp::CharacterVector message(nt);

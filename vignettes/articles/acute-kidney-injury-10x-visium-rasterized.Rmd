@@ -236,13 +236,16 @@ head(svgGenes)
 
 Without such a selection, most genes of the transcriptome are detected in few
 pixels or not at all. `compareSpatial()` does not test a gene that is constant
-in a section, or detected in fewer than \(\sqrt{N}\) of the \(N\) shared
-pixels of either section (`minDetected`): the correlation of such a gene is
-decided by a few pixels, and its p-value would be too small (see
+in a section, for example never detected there. It does test the genes
+detected in a handful of pixels: its surrogates take each gene's own values,
+so their p-values are calibrated for such genes, and their permutations stop
+early (see
 [How STcompare works](https://jef.works/STcompare/articles/how-STcompare-works.html#rarely-detected-genes)).
-Here that means 18 of the 311 shared pixels. Counting the shared pixels in
-which each gene is detected in the section where it is detected least shows
-how many genes a comparison of the whole transcriptome would test:
+Counting the shared pixels in which each gene is detected in the section where
+it is detected least shows how many genes a comparison of the whole
+transcriptome would test, and how many of them are sparse (the genes detected
+in fewer than \(\sqrt{N}\) = 18 of the 311 shared pixels are those that
+`surrogate = "gaussian"`, the surrogates of the legacy functions, would skip):
 
 ```{r detected}
 shared <- intersect(colnames(rast$control), colnames(rast$AKI))
@@ -251,8 +254,8 @@ table(cut(pmin(detected[, "control"], detected[, "AKI"]), c(-1, 0, 17, Inf),
           labels = c("not detected", "1 to 17 pixels", "18 pixels or more")))
 ```
 
-Sparse genes above the threshold can still get p-values that are somewhat too
-small, which is another reason to test the spatially variable genes.
+A gene without a spatial pattern in a section has little to compare, however,
+which is why the published analysis tested the spatially variable genes.
 
 # Run the comparison
 
@@ -267,9 +270,22 @@ res <- compareSpatial(rast, assay = "CPM", genes = svgGenes,
 res
 ```
 
-`r sum(res$status == "skipped")` of the spatially variable genes are detected
-in fewer than 18 shared pixels of a section and are not tested (status
-`"skipped"`).
+```{r skipped-text, include = FALSE}
+nSkipped <- sum(res$status == "skipped")
+skippedText <- if (nSkipped == 0) {
+  paste("All of them are tested: with the default rank-remapped surrogates,",
+        "`compareSpatial()` skips only genes that are constant in a section,",
+        "and none of the spatially variable genes is.")
+} else {
+  sprintf(paste("%d of them %s constant in a section and %s not tested (status",
+                "`\"skipped\"`); with the default rank-remapped surrogates, no",
+                "other gene is skipped."),
+          nSkipped, if (nSkipped == 1) "is" else "are",
+          if (nSkipped == 1) "is" else "are")
+}
+```
+
+`r skippedText`
 
 **Why `nPermutations = 1000`?** The permutations of a gene stop early when its
 p-value is clearly not small (here `r sum(res$stop == "exceedances")` of

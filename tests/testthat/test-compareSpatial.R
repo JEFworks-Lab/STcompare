@@ -11,8 +11,10 @@ rf <- fx_read("realistic_fixture.rds")
 
 # AKI genes of the realistic fixture as a pair of SpatialExperiment objects (311 shared pixels; with the
 # default delta grid all 11 deltas are usable). With the shorter grid cs_delta (cheaper; delta star is then
-# often its smallest value), exceedances = 3 and 60 permutations, Upk2, Agt and Calm1 stop early (after 3, 40
-# and 47 permutations), and Gpx1 (no exceedance), Fxyd3 and Slc6a20b (2 exceedances) reach the limit.
+# often its smallest value), exceedances = 3 and 60 permutations, and the default rank-remapped surrogates,
+# Upk2, Agt, Calm1 and Fxyd3 stop early (after 3, 40, 47 and 59 permutations), and Gpx1 (no exceedance) and
+# Slc6a20b (2 exceedances) reach the limit. (With gaussian surrogates Fxyd3 reaches the limit with 2
+# exceedances; the other genes stop at the same permutations: test-surrogate-remap.R.)
 cs_genes <- c("Gpx1", "Upk2", "Agt", "Calm1", "Fxyd3", "Slc6a20b")
 cs_delta <- c(0.05, 0.1, 0.3, 0.6, 0.9)
 cs_input <- function(genes = cs_genes, P = rf$pairs$aki) fx_spe_pair(P, genes)
@@ -42,11 +44,16 @@ cs_with_schedule <- function(schedule, expr) {
   expr
 }
 
+# The exceedances of the default surrogate mode, "remap": |null| >= |r| within a relative 1e-9 (the ties of the
+# permutation distribution, which cor() rounds differently for each rearrangement; kRemapTieRel in
+# src/stc_engine.h). Gaussian surrogates count |null| >= |r| exactly (test-surrogate-remap.R).
+cs_exceedances <- function(null, r) sum(abs(null) >= abs(r) * (1 - 1e-9))
+
 # Besag-Clifford computed offline from complete sequences of nulls (h exceedances or n_max permutations,
-# both directions in lockstep), in compareSpatial()'s terms.
+# both directions in lockstep), in compareSpatial()'s terms and with the exceedance rule of the default mode.
 cs_bc_offline <- function(nullX, nullY, r, h, n_max) {
-  cx <- cumsum(abs(nullX) >= abs(r))
-  cy <- cumsum(abs(nullY) >= abs(r))
+  cx <- cumsum(abs(nullX) >= abs(r) * (1 - 1e-9))
+  cy <- cumsum(abs(nullY) >= abs(r) * (1 - 1e-9))
   hit <- which(cx >= h | cy >= h)
   early <- length(hit) > 0L
   L <- if (early) hit[1] else n_max
@@ -92,8 +99,8 @@ test_that("portable: one row per gene with the specified columns, attributes and
     L <- res[g, "nPermutations"]
     expect_length(d$nullX, L)
     expect_length(d$deltaStarY, L)
-    bX <- sum(abs(d$nullX) >= abs(res[g, "r"]))
-    bY <- sum(abs(d$nullY) >= abs(res[g, "r"]))
+    bX <- cs_exceedances(d$nullX, res[g, "r"])
+    bY <- cs_exceedances(d$nullY, res[g, "r"])
     expect_identical(res[g, "pX"], (bX + 1) / (L + 1), info = g)
     expect_identical(res[g, "pY"], (bY + 1) / (L + 1), info = g)
     expect_identical(res[g, "p"], if (res[g, "stop"] == "exceedances") max(bX, bY) / L else (max(bX, bY) + 1) / (L + 1),
@@ -109,6 +116,8 @@ test_that("portable: one row per gene with the specified columns, attributes and
   expect_identical(prm$samples, c("x", "y"))
   expect_identical(prm$nPixels, 311L)
   expect_identical(prm$exceedances, 3)
+  expect_identical(prm$surrogate, "remap")      # the default mode, with no detection filter
+  expect_identical(prm$minDetectedPixels, 0L)
   expect_true(is.call(attr(res, "call")))
   expect_s3_class(attr(res, "runtime"), "proc_time")
   # only the tests asked for
@@ -127,7 +136,8 @@ test_that("portable: results do not depend on threads, the batch schedule, gene 
     cs_table(cs_run(input, tests = "correlation", nPermutations = 60, exceedances = exceedances, delta = cs_delta, ...))
   }
   ref <- run()
-  expect_identical(ref$stop, c("limit", "exceedances", "exceedances", "exceedances", "limit", "limit"))
+  expect_identical(ref$stop, c("limit", "exceedances", "exceedances", "exceedances", "exceedances", "limit"))
+  expect_identical(ref$nPermutations, c(60L, 3L, 40L, 47L, 59L, 60L))
   expect_true(any(ref$deltaGridEdge) && !all(ref$deltaGridEdge))
   expect_identical(run(nThreads = 2L), ref)
   for (s in list(list(first_batch = 1, growth = 1, max_batch = 7, chunk = 3),
@@ -157,23 +167,27 @@ test_that("portable: results do not depend on threads, the batch schedule, gene 
 
 test_that("portable: compareSpatial() leaves the global RNG state alone and does not depend on the session's RNG kinds", {
   input <- cs_input(c("Gpx1", "Upk2"))
-  run <- function() cs_table(cs_run(input, nPermutations = 20, exceedances = 3, delta = cs_delta))
+  run <- function(seed = 0L) cs_run(input, nPermutations = 20, exceedances = 3, delta = cs_delta, seed = seed, keepNulls = TRUE)
+  same <- function(a, b) identical(cs_table(a), cs_table(b)) && identical(attr(a, "details"), attr(b, "details"))
   local_default_rng()
   if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) rm(".Random.seed", envir = globalenv())
   ref <- run()
   expect_false(exists(".Random.seed", envir = globalenv(), inherits = FALSE))
   set.seed(42)
   before <- .Random.seed
-  expect_identical(run(), ref)
+  expect_true(same(run(), ref))
   expect_identical(.Random.seed, before)
   suppressWarnings(RNGkind("L'Ecuyer-CMRG", "Box-Muller", "Rounding"))
   set.seed(7)
   before <- .Random.seed
-  expect_identical(run(), ref)
+  expect_true(same(run(), ref))
   expect_identical(.Random.seed, before)
   expect_identical(RNGkind(), c("L'Ecuyer-CMRG", "Box-Muller", "Rounding"))
-  # another seed gives other permutations
-  expect_false(identical(cs_table(cs_run(input, nPermutations = 20, exceedances = 3, delta = cs_delta, seed = 1L)), ref))
+  # another seed gives other permutations, hence other null correlations (with 20 permutations of these two
+  # genes the summary table can coincide: Gpx1 has no exceedance and Upk2 stops at the third permutation)
+  other <- run(1L)
+  expect_false(identical(attr(other, "details")$Gpx1$nullX, attr(ref, "details")$Gpx1$nullX))
+  expect_false(identical(attr(other, "details")$Upk2$nullY, attr(ref, "details")$Upk2$nullY))
 })
 
 test_that("portable: more than 1000 pixels: the variogram subsample depends on the seed only (default RNG kinds)", {
@@ -405,12 +419,13 @@ test_that("portable: constant and rarely detected genes are skipped with a messa
   genes <- c("Gpx1", "Ech1", "Upk2", "Tspan8", "Agt")
   P$X["Ech1", ] <- 3              # constant in x: not tested, the similarity is still computed
   P$Y["Tspan8", 12] <- NA         # a missing value: nothing is computed
-  P$X["Agt", ] <- 0               # detected in 5 pixels of x: fewer than sqrt(311), so not tested
+  P$X["Agt", ] <- 0               # detected in 5 pixels of x: fewer than sqrt(311), so not tested with gaussian surrogates
   P$X["Agt", 1:5] <- c(4, 1, 7, 2, 9)
   input <- fx_spe_pair(P, genes)
-  run <- function(...) cs_run(input, nPermutations = 30, exceedances = 3, delta = cs_delta, ...)
+  # the sqrt(N) filter is the default of gaussian surrogates (with remapped ones, the default, see below)
+  run <- function(...) cs_run(input, nPermutations = 30, exceedances = 3, delta = cs_delta, surrogate = "gaussian", ...)
   w <- fx_collect_warnings(cs_messages(compareSpatial(input, nPermutations = 30, exceedances = 3, delta = cs_delta,
-                                                      progress = FALSE, nThreads = 1L)))
+                                                      surrogate = "gaussian", progress = FALSE, nThreads = 1L)))
   expect_length(w$warnings, 1L)
   expect_match(w$warnings, "^compareSpatial: 1 of 5 genes failed .*: Tspan8 \\(missing or infinite values in y\\)$")
   expect_match(w$value$messages[1], paste0("^compareSpatial: 2 of 5 genes are not tested for correlation \\(status \"skipped\"\\): ",
@@ -429,11 +444,24 @@ test_that("portable: constant and rarely detected genes are skipped with a messa
   expect_false(is.na(res["Agt", "r"]))  # the observed correlation is still reported
   # the adjustment counts only the tested genes; the tested genes' results do not depend on the others
   expect_identical(res$padj[c(1, 3)], stats::p.adjust(res$p[c(1, 3)], "BH"))
-  ok <- cs_table(cs_run(input, genes = c("Gpx1", "Upk2"), nPermutations = 30, exceedances = 3, delta = cs_delta))
+  ok <- cs_table(cs_run(input, genes = c("Gpx1", "Upk2"), nPermutations = 30, exceedances = 3, delta = cs_delta,
+                        surrogate = "gaussian"))
   expect_identical(cs_table(res)[c("Gpx1", "Upk2"), ], ok)
   # minDetected = 0 tests every gene that is not constant; a larger share skips more genes
   expect_identical(suppressWarnings(run(minDetected = 0))$status, c("ok", "skipped", "ok", "failed", "ok"))
   expect_identical(attr(suppressWarnings(run(minDetected = 0.5)), "params")$minDetectedPixels, 156L)
+  # with remapped surrogates (the default) there is no detection filter: Agt is tested, the message counts only the
+  # constant gene, and the Agt row is the minDetected = 0 one
+  w <- fx_collect_warnings(cs_messages(compareSpatial(input, nPermutations = 30, exceedances = 3, delta = cs_delta,
+                                                      progress = FALSE, nThreads = 1L)))
+  expect_length(w$warnings, 1L)
+  expect_match(w$value$messages[1], "^compareSpatial: 1 of 5 genes are not tested for correlation \\(status \"skipped\"\\): 1 constant in a sample\n$")
+  dflt <- w$value$value
+  expect_identical(dflt$status, c("ok", "skipped", "ok", "failed", "ok"))
+  expect_identical(attr(dflt, "params")$minDetectedPixels, 0L)
+  expect_false(is.na(dflt["Agt", "p"]))
+  expect_identical(cs_table(dflt), cs_table(suppressWarnings(cs_run(input, nPermutations = 30, exceedances = 3,
+                                                                    delta = cs_delta, minDetected = 0))))
 })
 
 test_that("portable: invalid inputs and arguments give errors that say what to do", {

@@ -29,8 +29,9 @@ The usual test of Pearson's correlation assumes that observations are
 independent, but neighbouring locations in a tissue have similar expression,
 so its p-values are far too small for spatial data. STcompare computes the null
 distribution from surrogates of each sample that keep its spatial
-autocorrelation (Viladomat et al. 2014), with permutations that stop early for
-genes that are clearly not significant.
+autocorrelation (Viladomat et al. 2014) and the gene's own distribution of
+values, with permutations that stop early for genes that are clearly not
+significant.
 
 STcompare compares the same locations in the two samples, so the samples must
 be:

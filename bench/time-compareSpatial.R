@@ -2,8 +2,9 @@
 # bench/time-compareSpatial.R
 #
 # Run time of compareSpatial() with its defaults (adaptive p-values: exceedances = 10, nPermutations = 10000;
-# the extended delta grid) on the realistic test genes and on the full inputs of the published AKI and brain
-# analyses, and the number of permutations each gene used.
+# the extended delta grid; rank-remapped surrogates, surrogate = "remap", with no detection filter) on the
+# realistic test genes and on the full inputs of the published AKI and brain analyses, and the number of
+# permutations each gene used.
 #
 # Usage, from the repository root, with the package installed (R CMD INSTALL compiles the engine with R's
 # optimising flags; devtools::load_all() compiles it with -O0 by default, about 10 times slower):
@@ -96,14 +97,16 @@ for (id in datasets) {
     padj_05 = sum(res$padj < 0.05, na.rm = TRUE),
     us_per_perm_thread = signif(1e6 * wall * threads / (2 * sum(L, na.rm = TRUE)), 3))
   message(sprintf("%s: %d genes in %.1f s", id, nrow(res), wall))
+  mode <- attr(res, "params")$surrogate
 }
 tab <- do.call(rbind, rows)
-cat(sprintf("\ncompareSpatial() with exceedances = 10, nPermutations = %d, %d threads; %s, %s\n\n",
-            as.integer(n_perm), threads, R.version.string, Sys.info()[["machine"]]))
+cat(sprintf("\ncompareSpatial() with exceedances = 10, nPermutations = %d, %s surrogates, %d threads; %s, %s\n\n",
+            as.integer(n_perm), mode, threads, R.version.string, Sys.info()[["machine"]]))
 cat(paste0("| ", paste(names(tab), collapse = " | "), " |"), sep = "\n")
 cat(paste0("|", paste(rep("---", ncol(tab)), collapse = "|"), "|"), sep = "\n")
 for (i in seq_len(nrow(tab))) cat(paste0("| ", paste(format(unlist(tab[i, ]), scientific = FALSE), collapse = " | "), " |"), sep = "\n")
 cat("\nperms_*: permutations per gene (the nPermutations column; both directions run that many). early: stopped by\n",
-    "exceedances; limit: reached nPermutations; skipped: not tested (constant or rarely detected, minDetected).\n",
+    "exceedances; limit: reached nPermutations; skipped: not tested (constant in a sample, or detected in fewer\n",
+    "pixels than minDetected asks for).\n",
     "us_per_perm_thread: wall time x threads per permutation and direction (kept permutations only; the batches\n",
     "also compute a few that are discarded).\n", sep = "")

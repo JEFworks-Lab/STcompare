@@ -268,16 +268,37 @@ res <- compareSpatial(rast, assay = "lognorm", genes = analysed,
 res
 ```
 
-`compareSpatial()` does not test the `r sum(res$status == "skipped")` genes
-that are detected in fewer than \(\sqrt{N}\) of the \(N\) =
-`r res$nPixels[1]` shared pixels of a technology (here
-`r ceiling(sqrt(res$nPixels[1]))` pixels; `minDetected`), most of them rarely
-detected by Visium: the correlation of such genes is decided by a few pixels,
-and their p-values would be too small. The message about `deltaGridEdge` says
-that for a few genes, most surrogates chose the smallest (0.01) or the largest
-smoothing bandwidth of the grid. Their p-values are still valid, but the
-surrogates may match their spatial autocorrelation less well; a wider grid
-(`delta`) would test that.
+```{r rare-text, include = FALSE}
+detectedShared <- sapply(rast, function(r) {
+  Matrix::rowSums(assay(r, "pixelval")[analysed, shared] > 0)
+})
+sqrtN <- ceiling(sqrt(res$nPixels[1]))
+rare <- rownames(detectedShared)[apply(detectedShared, 1, min) < sqrtN]
+nSkipped <- sum(res$status == "skipped")
+skippedText <- if (nSkipped == 0) {
+  "none of the analysed genes is constant in a technology, so all of them are tested"
+} else {
+  sprintf("%d of the analysed genes %s constant in a technology and %s not tested (status `\"skipped\"`)",
+          nSkipped, if (nSkipped == 1) "is" else "are",
+          if (nSkipped == 1) "is" else "are")
+}
+```
+
+With the default rank-remapped surrogates, `compareSpatial()` skips only genes
+that are constant in a sample: `r skippedText`. That includes the `r length(rare)`
+genes detected in fewer than \(\sqrt{N}\) = `r sqrtN` of the \(N\) =
+`r res$nPixels[1]` shared pixels of a technology, most of them rarely detected
+by Visium (for example `r paste(head(rare[order(apply(detectedShared[rare, , drop = FALSE], 1, min))], 3), collapse = ", ")`):
+the correlation of such a gene is decided by a few pixels, and the surrogates of
+the legacy functions (`surrogate = "gaussian"`), whose values are nearly normal,
+would give it a p-value that is far too small, so that mode skips these genes
+(`minDetected`); the remapped surrogates have the gene's own values and give
+calibrated p-values (see
+[How STcompare works](https://jef.works/STcompare/articles/how-STcompare-works.html#rarely-detected-genes)).
+The message about `deltaGridEdge` says that for some genes, most surrogates
+chose the smallest (0.01) or the largest smoothing bandwidth of the grid. Their
+p-values are still valid, but the surrogates may match their spatial
+autocorrelation less well; a wider grid (`delta`) would test that.
 
 ```{r svg-summary}
 tab <- as.data.frame(res)
@@ -427,27 +448,36 @@ tabTypes[order(-tabTypes$matched, tabTypes$p),
 ```
 
 ```{r celltype-count, include = FALSE}
-matchedPositive <- sum(tabTypes$matched & tabTypes$padj < 0.05 & tabTypes$r > 0,
-                       na.rm = TRUE)
-skippedTypes <- tabTypes[tabTypes$matched & tabTypes$status == "skipped", ]
-one <- nrow(skippedTypes) == 1L
-skippedText <- if (nrow(skippedTypes)) {
-  sprintf(paste("%s %s in fewer than %d of the shared pixels of a technology, so",
-                "%s not tested (`minDetected`), although %s %s high (r = %s):",
-                "with so few pixels, the surrogates cannot give a reliable",
-                "p-value."),
-          if (one) "The other," else "The others,",
-          paste0(paste(skippedTypes$gene, collapse = " and "), if (one) ", is" else ", are"),
-          ceiling(sqrt(resTypes$nPixels[1])), if (one) "it is" else "they are",
-          if (one) "its correlation" else "their correlations", if (one) "is" else "are",
-          paste(round(skippedTypes$r, 2), collapse = " and "))
+matched <- tabTypes[tabTypes$matched, ]
+positive <- !is.na(matched$padj) & matched$padj < 0.05 & matched$r > 0
+matchedPositive <- sum(positive)
+others <- matched[!positive, ]
+one <- nrow(others) == 1L
+othersText <- if (nrow(others)) {
+  sprintf("The other%s, %s, %s not (r = %s; status %s).",
+          if (one) "" else "s", paste(others$gene, collapse = " and "),
+          if (one) "is" else "are", paste(round(others$r, 2), collapse = " and "),
+          paste(others$status, collapse = " and "))
+} else ""
+merfishPixels <- Matrix::rowSums(
+  assay(rastTypes$MERFISH, "pixelval")[best, sharedTypes] > 0)
+rarest <- names(which.min(merfishPixels))
+rarestText <- if (positive[matched$gene == rarest]) {
+  sprintf(paste("They include %s, which MERFISH labels in only %d of the %d",
+                "shared pixels (r = %s, adjusted p = %s): the surrogates take",
+                "the cell type's own values, so a type confined to few pixels",
+                "gets a calibrated p-value instead of being skipped (see",
+                "[How STcompare works](https://jef.works/STcompare/articles/how-STcompare-works.html#rarely-detected-genes))."),
+          rarest, merfishPixels[rarest], length(sharedTypes),
+          round(tabTypes[rarest, "r"], 2), signif(tabTypes[rarest, "padj"], 2))
 } else ""
 ```
 
 `r if (matchedPositive == length(best)) paste("All", length(best)) else paste(matchedPositive, "of the", length(best))`
 cell types with a mutual transcriptional match are significantly positively
 correlated between the technologies: their spatial patterns correspond, even
-though the patterns of many individual genes do not. `r skippedText`
+though the patterns of many individual genes do not. `r othersText`
+`r rarestText`
 
 # Session information
 

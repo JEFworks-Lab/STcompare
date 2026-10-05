@@ -43,8 +43,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // stc_engine_define
-Rcpp::List stc_engine_define(SEXP session, Rcpp::NumericMatrix pool, Rcpp::IntegerVector task_source, Rcpp::List task_grid, Rcpp::List task_targets, Rcpp::List task_rabs, Rcpp::IntegerVector task_unit, Rcpp::LogicalVector unit_fail_on_dir, SEXP task_names, SEXP task_dirs);
-RcppExport SEXP _STcompare_stc_engine_define(SEXP sessionSEXP, SEXP poolSEXP, SEXP task_sourceSEXP, SEXP task_gridSEXP, SEXP task_targetsSEXP, SEXP task_rabsSEXP, SEXP task_unitSEXP, SEXP unit_fail_on_dirSEXP, SEXP task_namesSEXP, SEXP task_dirsSEXP) {
+Rcpp::List stc_engine_define(SEXP session, Rcpp::NumericMatrix pool, Rcpp::IntegerVector task_source, Rcpp::List task_grid, Rcpp::List task_targets, Rcpp::List task_rabs, Rcpp::IntegerVector task_unit, Rcpp::LogicalVector unit_fail_on_dir, SEXP task_names, SEXP task_dirs, SEXP task_remap);
+RcppExport SEXP _STcompare_stc_engine_define(SEXP sessionSEXP, SEXP poolSEXP, SEXP task_sourceSEXP, SEXP task_gridSEXP, SEXP task_targetsSEXP, SEXP task_rabsSEXP, SEXP task_unitSEXP, SEXP unit_fail_on_dirSEXP, SEXP task_namesSEXP, SEXP task_dirsSEXP, SEXP task_remapSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< SEXP >::type session(sessionSEXP);
@@ -57,7 +57,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type unit_fail_on_dir(unit_fail_on_dirSEXP);
     Rcpp::traits::input_parameter< SEXP >::type task_names(task_namesSEXP);
     Rcpp::traits::input_parameter< SEXP >::type task_dirs(task_dirsSEXP);
-    rcpp_result_gen = Rcpp::wrap(stc_engine_define(session, pool, task_source, task_grid, task_targets, task_rabs, task_unit, unit_fail_on_dir, task_names, task_dirs));
+    Rcpp::traits::input_parameter< SEXP >::type task_remap(task_remapSEXP);
+    rcpp_result_gen = Rcpp::wrap(stc_engine_define(session, pool, task_source, task_grid, task_targets, task_rabs, task_unit, unit_fail_on_dir, task_names, task_dirs, task_remap));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -279,7 +280,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_STcompare_stc_engine_new", (DL_FUNC) &_STcompare_stc_engine_new, 13},
     {"_STcompare_stc_engine_deltas", (DL_FUNC) &_STcompare_stc_engine_deltas, 1},
-    {"_STcompare_stc_engine_define", (DL_FUNC) &_STcompare_stc_engine_define, 10},
+    {"_STcompare_stc_engine_define", (DL_FUNC) &_STcompare_stc_engine_define, 11},
     {"_STcompare_stc_engine_run", (DL_FUNC) &_STcompare_stc_engine_run, 9},
     {"_STcompare_stc_engine_units", (DL_FUNC) &_STcompare_stc_engine_units, 1},
     {"_STcompare_stc_engine_task_results", (DL_FUNC) &_STcompare_stc_engine_task_results, 3},
