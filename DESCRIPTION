@@ -32,6 +32,7 @@ Imports:
     geoR,
     ggplot2,
     locfit,
+    Rcpp,
     SEraster (>= 0.1.0),
     SpatialExperiment,
     SummarizedExperiment,
@@ -44,5 +45,7 @@ Suggests:
     rmarkdown, 
     reshape2,
     testthat (>= 3.1.7)
+LinkingTo: 
+    Rcpp
 VignetteBuilder: knitr
 Config/testthat/edition: 3

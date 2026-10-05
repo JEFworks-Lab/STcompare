@@ -1,1 +1,3 @@
 exportPattern("^[[:alpha:]]+")
+useDynLib(STcompare, .registration = TRUE)
+importFrom(Rcpp, sourceCpp)

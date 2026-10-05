@@ -114,21 +114,60 @@ The harness is already in the repo: `data-raw/` and `tests/testthat/`. See `data
 | Phase | Content | Exit criterion |
 |---|---|---|
 | 0 (done) | Investigation, test data (`data-raw/`, `tests/testthat/fixtures/`, 1.2 MB), legacy-reference tests | `devtools::test()` passes against the current R code: 1,618 expectations in about 55 s; slow tiers are opt-in with `STCOMPARE_SLOW_TESTS=true`; mutation testing caught 35 of 36 mutants |
-| 1 | Legacy-exact C++ engine behind `engine = "cpp"`, plus `bench/` scripts | Tiers 0 and 2 pass with `engine = "cpp"`; ≥ 50× single-thread speedup per gene; near-linear thread scaling |
-| 2 | Correctness fixes (see `investigation/09`), each with a NEWS entry and an updated test | No silent NA rows; no segfaults (validate δ·N ≥ 2); BH applied across genes; `BPPARAM`/`nThreads` honoured; global RNG untouched |
-| 3 | Usability: vectorised `spatialSimilarity` (85–90% faster just by hoisting accessors), input validation (pixel coordinates, not just names), tidy results, progress and ETA | Docs agree with code; examples run in < 5 s each |
+| 1 | Legacy-exact C++ engine behind `engine = "cpp"`, plus `bench/` scripts. The engine also supports adaptive stopping (§7): growing permutation batches, an active set of genes, and an exact stopping index | Tiers 0 and 2 pass with `engine = "cpp"`; ≥ 50× single-thread speedup per gene; near-linear thread scaling; adaptive mode with h = ∞ equals fixed B |
+| 2 | Correctness fixes (see `investigation/09`), each with a NEWS entry and an updated test. Already done (2026-10-04): (b+1)/(B+1) p-values everywhere; BH across genes in `spatialCorrelationGeneExp`; `BPPARAM` passed through | No silent NA rows; no segfaults (validate δ·N ≥ 2); `BPPARAM`/`nThreads` honoured; global RNG untouched |
+| 3 | A new main function with modern defaults: independent per-gene random streams, adaptive Besag–Clifford p-values (§7), a combined p = max(pX, pY) with BH, tidy results. Also: vectorised `spatialSimilarity` (85–90% faster just by hoisting accessors), input validation (pixel coordinates, not just names), progress and ETA | Docs agree with code; examples run in < 5 s each; adaptive p-values are super-uniform on the null calibration tier |
 | 4 | Documentation: "How it works", parameter guide, performance guide, FAQ, pkgdown reference groups | Every new user question in `investigation/06` §"What a new user can't find" has an answer |
 | 5 | Hygiene: roxygen-managed NAMESPACE (stop exporting helpers), declare dependencies, move about 32 MB of `inst/extdata` out of the tarball (now 48.6 MB), `R CMD check` clean, CI | 0 errors/warnings; tarball < 10 MB |
 
-## 6. Decisions needed
+## 6. Decisions (made 2026-10-04)
 
-1. **Default engine semantics.**
-   - Recommendation: the existing functions keep legacy-exact results, just faster.
-   - Statistical changes go in a new front door (for example `compareSpatial()`) with modern defaults.
-   - Alternative: change the old functions' outputs in a major version bump.
-2. **The p-value formula.** `extreme/B` gives p = 0 for 573 of 1,046 kidney genes, while the docs promise a minimum of 0.01.
-   - Switching to (b+1)/(B+1) changes every p-value.
-   - Fix it in the old functions, or only in the new front door?
-3. **The BH no-op in `spatialCorrelationGeneExp`.** Recommendation: fix it everywhere. The code contradicts its own documentation and the AKI vignette's text.
-4. **Independent random streams per gene** (new mode) versus the legacy shared streams. Shared streams make Monte Carlo errors correlated across genes.
-5. **Upstreaming.** Should this be developed as PRs to `JEFworks-Lab/STcompare`? That affects style, scope per PR, and whether behaviour changes need maintainer sign-off.
+1. **Default engine semantics.** The existing functions keep legacy-exact nulls and delta*, just faster. Statistical changes go into a new main function with modern defaults.
+2. **The p-value formula.** (b+1)/(B+1), with b counting |null| ≥ |r|, wherever a p-value is computed, including the old functions. Done.
+3. **The BH no-op in `spatialCorrelationGeneExp`.** Fixed everywhere. Done.
+4. **Random streams.**
+   - The old functions keep the legacy shared streams, so published results reproduce.
+   - The new main function gives each gene and direction an independent counter-based stream, keyed by gene name.
+5. **Upstreaming.** No pull requests yet. The work will go to `JEFworks-Lab/STcompare` as PRs later, so changes are kept separable by PR-sized unit.
+
+## 7. Adaptive permutation testing (added 2026-10-04)
+
+**The idea (Kamil's request).** Stop testing a gene once its p-value is clearly large. Keep testing genes with few exceedances so their small p-values are resolved.
+- With b = 90 of B = 100, there is no need to continue.
+- With b = 1 of 100, continue to about 1,000 to resolve p ≈ 0.01.
+- With b = 0 of 100, the strength is unknown, so push to 1,000 or 10,000.
+
+**The rule.** Besag & Clifford (1991), "Sequential Monte Carlo p-values", *Biometrika* 78:301–304.
+- **Stopping:** for each gene, draw permutations until h of them are at least as extreme as the observed statistic, or until a cap n_max.
+- **p-value:**
+  - if the h-th exceedance occurs at permutation L, then p = h / L;
+  - otherwise p = (b + 1) / (n_max + 1), which matches the fixed-B formula.
+- **Validity:** this p-value is exactly valid. Under the null, P(p ≤ α) ≤ α at every α, so BH remains applicable. A naive "continue while p looks small" rule that reports (b + 1)/(B + 1) at a data-dependent B does not have this guarantee at every α.
+- **Precision:** the relative standard error of p is about 1/√h, which is about 30% at h = 10 and 22% at h = 20.
+- **Cost:** a null gene uses on average about h·(1 + ln(n_max / h)) permutations. At h = 10 and n_max = 10⁴ that is about 80, against 100–1,000 today. Significant genes run to n_max.
+- **Proposed defaults:** h = 10 and n_max = 10,000, both user-settable. Setting h = ∞ gives fixed B = n_max.
+
+**Both directions in lockstep.** Run the permute-X and permute-Y directions on the same permutation indices b, and stop the gene when either direction reaches h.
+- The combined p-value max(pX, pY) is what the package's "both directions significant" rule uses.
+- It then equals the maximum of the two standalone Besag–Clifford p-values exactly. When X stops first at L, Y's standalone p is at most h/L.
+- It is therefore valid without assuming the directions are independent, and it stops non-significant genes as soon as either direction shows it.
+- Per-direction values are reported as descriptive: h/L for the direction that stopped, and an upper bound for the other.
+
+**Exact results with batched computation.**
+- The engine computes permutations in batches that grow geometrically (for example 64, 128, 256, …, up to n_max) over the set of still-active genes.
+- After each batch it finds each gene's stopping index L exactly from the ordered nulls (the position of the h-th exceedance) and retires stopped genes.
+- Permutations computed past L are discarded. Because surrogate b depends only on (seed, gene, direction, b), the results depend neither on the batch schedule nor on the number of threads.
+
+**Multiple testing.**
+- Apply BH to the combined p-values.
+- Flag genes that reached n_max with b = 0, whose p-value is limited by resolution.
+- Warn when 1/(n_max + 1) is too coarse for BH significance at the observed number of genes, and suggest a larger n_max. The minimum p must be at most α·k/G for the k-th ranked gene to be significant.
+
+**Where it lives.**
+- It is a statistical change, so it goes into the new main function (phase 3). There it replaces the legacy two-stage scheme of `spatialCorrelationGeneExpIterPermutations()`, which stays unchanged for reproducibility.
+- The engine support is built in phase 1, so no rework is needed: grouping tasks into stopping units (both directions of a gene), growing batches, an active set, and exact stopping indices. The engine spec, §6, gives the details.
+
+**Possible later refinements (opt-in):**
+- BH-aware allocation of permutations, spending effort only on genes whose BH decision is still uncertain (MMCTest and QuickMMCTest, Gandy & Hahn).
+- Anytime-valid confidence intervals for p.
+- Tail approximation for very small p (for example a generalised Pareto fit; Knijnenburg et al. 2009). This is a method change.
