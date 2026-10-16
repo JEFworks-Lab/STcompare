@@ -117,9 +117,10 @@
   similar pixels is `percentSimilarity`), and a scatter plot of the expression at matched pixels coloured by
   class with the line y = x, the fold-change band and the thresholds (the figure's caption is the key),
   subtitled with the gene's statistics: `correlationCoef`, `pValuePermute` (and the number of permutations),
-  `pValuePermuteAdj`, `pValueNaive` and `percentSimilarity`, with the reason when a statistic is `NA`. Every
-  map is a lettered panel with the sample name; the colour scales are viridis, the class colours are
-  distinguishable under colour-vision deficiencies, a pair of maps shares one colour scale
+  `pValuePermuteAdj`, `pValueNaive` and `percentSimilarity`, with the reason when a statistic is `NA`. The
+  panels are lettered A to D (one letter for each pair of maps, each map titled with the sample name), the
+  cells of the native maps are points sized for their number; the colour scales are viridis, the class
+  colours are distinguishable under colour-vision deficiencies, a pair of maps shares one colour scale
   (`sharedScale = FALSE` gives each map its own), `transform = "log1p"` puts the maps and the scatter axes on
   a log1p scale, pixels that one sample lacks are drawn in light grey in every map, and `nativeUnit` names
   the points of the native maps ("cells" or "spots"). Every text, legend key and point is scaled from

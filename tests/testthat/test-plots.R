@@ -33,6 +33,23 @@ pl_strip_geometry <- function(spe) {
                                        spatialCoords = SpatialExperiment::spatialCoords(spe))
 }
 
+# The letters a patchwork figure draws, in drawing order: the labels of the tag grobs (the gtable cells named
+# "tag") of its rendered gtable, blank ones left out.
+pl_tags <- function(fig) {
+  tags <- character(0)
+  walk <- function(x, in_tag) {
+    if (inherits(x, "gtable")) {
+      for (i in seq_along(x$grobs)) walk(x$grobs[[i]], in_tag || grepl("tag", x$layout$name[i]))
+    } else if (inherits(x, "titleGrob")) {
+      if (in_tag) tags <<- c(tags, as.character(x$children[[1]]$label))
+    } else if (inherits(x, "gTree")) {
+      for (ch in x$children) walk(ch, in_tag)
+    }
+  }
+  walk(patchwork::patchworkGrob(fig), FALSE)
+  tags[nzchar(tags)]
+}
+
 test_that("portable: plotGene() draws the four panels, or six with native maps, and every panel builds", {
   k <- pl_kidney()
   fig <- plotGene(k$res, "Gene", k$x, k$y)
@@ -41,6 +58,15 @@ test_that("portable: plotGene() draws the four panels, or six with native maps, 
   expect_length(panels, 4L)
   expect_identical(vapply(panels, function(p) p$labels$title, ""), c("A", "B", "Similarity classes", "Matched pixels"))
   pl_build(fig)
+  # one letter per pair of maps: the pair of pixel maps is A, the similarity map B and the scatter plot C
+  # (the second map of a pair has a blank tag, and a left margin as wide as the letter column instead, so
+  # that the maps of a pair keep their distance), and the figure draws exactly these, in bold
+  expect_identical(fig$patches$annotation$tag_levels, list(c("A", "", "B", "C")))
+  left <- function(p) as.numeric(ggplot2::calc_element("plot.margin", ggplot2::ggplot_build(p)$plot$theme)[4L])
+  expect_equal(left(panels[[2]]), left(panels[[1]]) + 12)
+  expect_equal(left(panels[[3]]), left(panels[[1]]))
+  expect_identical(pl_tags(fig), c("A", "B", "C"))
+  for (p in panels) expect_identical(ggplot2::calc_element("plot.tag", ggplot2::ggplot_build(p)$plot$theme)$face, "bold")
   # the figure is titled with the gene and the samples
   expect_identical(fig$patches$annotation$title, "Gene")
   expect_match(fig$patches$annotation$subtitle, "^A vs B, 273 shared pixels$")
@@ -62,6 +88,12 @@ test_that("portable: plotGene() draws the four panels, or six with native maps, 
   expect_length(panels6, 6L)
   expect_identical(panels6[[1]]$labels$subtitle, "1229 cells")
   expect_identical(panels6[[2]]$labels$subtitle, "1242 cells")
+  # lettered A (the native maps), B (the pixel maps), C and D; the second map of each pair has the margin
+  expect_identical(fig6$patches$annotation$tag_levels, list(c("A", "", "B", "", "C", "D")))
+  expect_equal(vapply(panels6[1:5], left, 0) - left(panels6[[1]]), c(0, 12, 0, 12, 0))
+  expect_identical(pl_tags(fig6), c("A", "B", "C", "D"))
+  # the letters can be removed
+  expect_length(pl_tags(fig6 + patchwork::plot_annotation(tag_levels = NULL)), 0L)
   rows <- fig6$patches$plots  # two rows, each a patchwork: the four maps, then the other two panels, taller
   expect_length(rows, 2L)
   expect_length(pl_panels(rows[[1]]), 4L)
@@ -74,6 +106,9 @@ test_that("portable: plotGene() draws the four panels, or six with native maps, 
   # the panels can be chosen, and their order is fixed
   fig2 <- plotGene(k$res, "Gene", k$x, k$y, panels = c("scatter", "raster"))
   expect_identical(vapply(pl_panels(fig2), function(p) p$labels$title, ""), c("A", "B", "Matched pixels"))
+  expect_identical(fig2$patches$annotation$tag_levels, list(c("A", "", "B")))
+  expect_identical(plotGene(k$res, "Gene", k$x, k$y, panels = c("similarity", "scatter"))$patches$annotation$tag_levels,
+                   list(c("A", "B")))
   # a native panel asked for without native objects is dropped silently; nothing left is an error
   expect_length(pl_panels(plotGene(k$res, "Gene", k$x, k$y, panels = c("native", "scatter"))), 1L)
   expect_error(plotGene(k$res, "Gene", k$x, k$y, panels = "native"), "no panel to draw")
@@ -226,14 +261,28 @@ test_that("portable: plotGene() scales every size from baseSize", {
       scatter_subtitle = ggplot2::calc_element("plot.subtitle", th[[6]])$size,
       figure_title = ggplot2::calc_element("plot.title", fig$patches$annotation$theme)$size,
       tag = ggplot2::calc_element("plot.tag", fig$patches$annotation$theme)$size,
+      panel_tag = ggplot2::calc_element("plot.tag", th[[1]])$size,
+      pair_margin = as.numeric(ggplot2::calc_element("plot.margin", th[[2]])[4L] - ggplot2::calc_element("plot.margin", th[[1]])[4L]),
       point = panels[[6]]$layers[[4]]$aes_params$size,
       native_point = panels[[1]]$layers[[1]]$aes_params$size)
   }
   s10 <- sizes(10)
   s7 <- sizes(7)
   expect_equal(s10[["map_title"]], 10)
+  # the points of the native maps: 30 / sqrt(cells), between 0.1 and 1.5, at baseSize = 10
+  expect_equal(s10[["native_point"]], 30 / sqrt(1229))
+  big <- speKidney$A[, rep(seq_len(ncol(speKidney$A)), 100)]
+  colnames(big) <- make.unique(colnames(big))
+  expect_equal(pl_panels(plotGene(k$res, "Gene", k$x, k$y, native = list(big, speKidney$B), panels = "native"))[[1]]$layers[[1]]$aes_params$size,
+               max(0.1, 30 / sqrt(122900)))
+  expect_equal(pl_panels(plotGene(k$res, "Gene", k$x, k$y, native = list(speKidney$A[, 1:50], speKidney$B),
+                                  panels = "native"))[[1]]$layers[[1]]$aes_params$size, 1.5)
+  expect_equal(pl_panels(plotGene(k$res, "Gene", k$x, k$y, native = speKidney[c("A", "B")], pointSize = 0.4,
+                                  panels = "native"))[[1]]$layers[[1]]$aes_params$size, 0.4)
   expect_equal(s10[["figure_title"]], 13)
   expect_equal(s10[["tag"]], 12)
+  expect_equal(s10[["panel_tag"]], 12)
+  expect_equal(s10[["pair_margin"]], 12)
   expect_equal(unname(s7 / s10), rep(0.7, length(s10)), tolerance = 1e-6)
   # patchwork's & operator rescales the figure too (the sizes are relative)
   fig <- plotGene(k$res, "Gene", k$x, k$y, baseSize = 10) & ggplot2::theme(text = ggplot2::element_text(size = 5))

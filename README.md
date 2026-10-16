@@ -96,9 +96,7 @@ explain every one of them.
 `ggplot2::ggsave()`, and `plotOverview(res)` the overview of all the genes of
 a result:
 
-<p align="center">
-  <img src="man/figures/plotGene.png" width="700" alt="The standard figure of Gene for the simulated kidneys A and B: the cells of each kidney coloured by expression, the shared pixels coloured by expression, the pixels coloured by similarity class, and a scatter plot of the values at matched pixels with the correlation, the p-values and the similarity">
-</p>
+<img src="man/figures/plotGene.png" width="100%" alt="The standard figure of Gene for the simulated kidneys A and B: the cells of each kidney coloured by expression (A), the shared pixels coloured by expression (B), the pixels coloured by similarity class (C), and a scatter plot of the values at matched pixels with the correlation, the p-values and the similarity (D)">
 
 ## Tutorials and articles
 

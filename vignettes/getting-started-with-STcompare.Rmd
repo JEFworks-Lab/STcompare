@@ -17,6 +17,7 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.width = 7,
   fig.height = 3.5,
+  fig.retina = 2,
   out.width = "100%"
 )
 ```
@@ -227,25 +228,25 @@ statistics. It takes the result, the gene and the two rasterized objects that
 `compareSpatial()` compared, in the same order; `native` gives the objects
 before rasterization, in the same order, for the native-resolution maps.
 
-```{r plot-ab, fig.width = 11, fig.height = 6.5, fig.alt = "The standard figure of Gene for A and B: the cells of A and B coloured by expression, the shared pixels coloured by expression, the pixels coloured by similarity class, and a scatter plot of the values at matched pixels with the statistics."}
+```{r plot-ab, fig.width = 7, fig.height = 6.5, fig.alt = "The standard figure of Gene for A and B: the cells of A and B coloured by expression, the shared pixels coloured by expression, the pixels coloured by similarity class, and a scatter plot of the values at matched pixels with the statistics."}
 plotGene(ab, "Gene", rast$A, rast$B, native = speKidney[c("A", "B")])
 ```
 
-The panels, each lettered for a figure legend:
+The panels, lettered for a figure legend, one letter for each pair of maps:
 
-- **A, B**: the cells of A and B coloured by the counts of the gene (the first
+- **A**: the cells of A and B coloured by the counts of the gene (the first
   assay of the `native` objects; `nativeAssay` chooses another).
-- **C, D**: the shared pixels coloured by the values that the tests compared,
+- **B**: the shared pixels coloured by the values that the tests compared,
   here the mean counts `pixelval`. The two maps of a pair share one colour
   scale, so that the colours of the two samples are comparable
   (`sharedScale = FALSE` gives each map its own). Pixels that one sample
   lacks, which the tests did not use, are light grey in every map.
-- **E**: the similarity class of every pixel: within two-fold in both samples
+- **C**: the similarity class of every pixel: within two-fold in both samples
   (blue), more than two-fold higher in A (orange) or in B (pink), or below
   the expression threshold in both (grey). The legend gives the share of each
   class among the pixels above the threshold, so the share of similar pixels
   is `percentSimilarity`.
-- **F**: the values at matched pixels, A horizontally and B vertically, in the
+- **D**: the values at matched pixels, A horizontally and B vertically, in the
   same colours; the solid line is y = x, the dashed lines bound the two-fold
   band and the dotted lines are the thresholds `t1` and `t2` (the figure's
   caption is the key). The subtitle gives the gene's row of the result:
@@ -253,19 +254,19 @@ The panels, each lettered for a figure legend:
   smallest value the permutations can give), `pValuePermuteAdj`,
   `pValueNaive`, the number of permutations and `percentSimilarity`.
 
-The anti-correlation of A and B is the falling band of points in F, and E
+The anti-correlation of A and B is the falling band of points in D, and C
 shows where the levels differ: around the edge of the kidney A is higher
 (orange), in its centre B is higher (pink). For A and C, the pattern is the
-same, so the points in F line up with a positive slope, but C is more than
+same, so the points in D line up with a positive slope, but C is more than
 two-fold higher at every pixel, so every point lies above the band and every
 pixel is pink:
 
-```{r plot-ac, fig.width = 11, fig.height = 6.5, fig.alt = "The standard figure of Gene for A and C: the same pattern in both, every pixel more than two-fold higher in C."}
+```{r plot-ac, fig.width = 7, fig.height = 6.5, fig.alt = "The standard figure of Gene for A and C: the same pattern in both, every pixel more than two-fold higher in C."}
 plotGene(ac, "Gene", rast$A, rast$C, native = speKidney[c("A", "C")])
 ```
 
-Without `native`, the figure has the four panels C to F in one row.
-`panels` selects panels, `transform = "log1p"` draws the maps and the scatter
+Without `native`, the figure has one row: the pixel maps (A), the similarity
+classes (B) and the matched pixels (C). `panels` selects panels, `transform = "log1p"` draws the maps and the scatter
 axes on a log scale (useful for counts that span orders of magnitude), and
 `?plotGene` describes every option. For a result with many genes,
 `plotOverview(result)` draws the overview of all of them: the correlation of
@@ -278,26 +279,28 @@ show it.
 
 The figure is a [patchwork](https://patchwork.data-imaginist.com/) of ggplot2
 panels, so `ggplot2::ggsave()` writes it in any format, with the size in
-inches: 11 by 6.5 suits the six-panel figure, and 11 by 3.5 the four panels of
-one row, with the default text size (`baseSize = 10` points). The maps keep
-the shape of the tissue, so a tissue that is taller than wide, like these
-kidneys, leaves margins at the sides; reduce the width to tighten them.
+inches. With the default text size (`baseSize = 10` points), a height of 6.5
+suits the two-row figure with the native maps and 3.5 the one row without
+them. The maps keep the shape of the tissue, so the tissue sets the width the
+figure needs, and a wider canvas only adds blank space at the sides: these
+kidneys, taller than wide, fill 7 by 6.5 and 8.5 by 3.5, while a square tissue
+needs about 10 by 6.5 and 11 by 3.5.
 
 ```{r save, eval = FALSE}
 fig <- plotGene(ab, "Gene", rast$A, rast$B, native = speKidney[c("A", "B")])
-ggsave("Gene-A-vs-B.pdf", fig, width = 11, height = 6.5)
-ggsave("Gene-A-vs-B.png", fig, width = 11, height = 6.5, dpi = 300)
+ggsave("Gene-A-vs-B.pdf", fig, width = 7, height = 6.5)
+ggsave("Gene-A-vs-B.png", fig, width = 7, height = 6.5, dpi = 300)
 ```
 
 Every text, legend key and point of the figure is scaled from `baseSize`, so
 a journal figure needs only a smaller base size: `baseSize = 7` for the full
-width of a page (180 mm), and `baseSize = 6` with `ncol = 2` for a single
-column (90 mm).
+width of a page (180 mm; these kidneys fill 125 mm of it at a height of
+115 mm), and `baseSize = 6` with `ncol = 2` for a single column (90 mm).
 
 ```{r save-journal, eval = FALSE}
 fig <- plotGene(ab, "Gene", rast$A, rast$B, native = speKidney[c("A", "B")],
                 baseSize = 7)
-ggsave("Gene-A-vs-B-180mm.pdf", fig, width = 180, height = 110, units = "mm")
+ggsave("Gene-A-vs-B-125mm.pdf", fig, width = 125, height = 115, units = "mm")
 ```
 
 Patchwork's `&` operator applies a ggplot2 theme to every panel, and `+`

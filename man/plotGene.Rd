@@ -54,9 +54,11 @@ cannot be computed (Details).}
 \item{sharedScale}{One colour scale for the two maps of a pair
 (default \code{TRUE}), or one per map (\code{FALSE}); see Details.}
 
-\item{pointSize}{The size of the points of the native maps. Default
-\code{NULL}: from the number of cells or spots, between 0.1 and 2 at
-\code{baseSize = 10}, scaled with \code{baseSize}.}
+\item{pointSize}{The size of the points of the native maps (ggplot2's
+\code{size}). Default \code{NULL}: \eqn{30 / \sqrt{n}}{30 / sqrt(n)}
+for \eqn{n} cells or spots, between 0.1 and 1.5 at \code{baseSize =
+10} (about 0.85 for a thousand cells, 0.3 for ten thousand) and scaled
+with \code{baseSize}, so that the points of a dense tissue stay apart.}
 
 \item{nativeUnit}{What the points of the native maps are, for their
 subtitles: \code{"cells"} (default), \code{"spots"} for Visium, or two
@@ -64,8 +66,9 @@ subtitles: \code{"cells"} (default), \code{"spots"} for Visium, or two
 
 \item{baseSize}{The base font size in points: the size of the axis titles,
 from which every other text, the legend keys and the points are scaled.
-Default 10, for a figure about 11 inches wide; 7 for a figure 180 mm
-wide (Details).}
+Default 10, for a figure about 7 to 11 inches wide, depending on the
+tissue; 7 for a journal page of up to 180 mm (Details, Layout and
+size).}
 
 \item{...}{Passed to \code{patchwork::wrap_plots()}: \code{ncol},
 \code{nrow}, \code{design}, \code{widths}, \code{heights}, \code{guides}.}
@@ -81,17 +84,20 @@ One figure for one gene of a \code{\link{compareSpatial}()}
   (the cells or spots, when the objects before rasterization are given),
   on the shared grid of pixels, the similarity class of every pixel, and
   the expression at matched pixels as a scatter plot labelled with the
-  gene's statistics. The panels are lettered and the figure is ready to
-  print, to save with \code{ggplot2::ggsave()} or to adjust with patchwork
-  and ggplot2.
+  gene's statistics. The panels are lettered, one letter for each pair of
+  maps, and the figure is ready to print, to save with
+  \code{ggplot2::ggsave()} or to adjust with patchwork and ggplot2.
 }
 \details{
 \strong{Panels.} In this order, each map with the sample name as
-  its title:
+  its title. The two maps of a pair share one letter (shown at the first
+  map), so the full figure is lettered A to D and the figure without native
+  maps A to C:
   \describe{
   \item{\code{"native"}}{Two maps of the cells or spots of \code{native},
-  coloured by the gene's expression in \code{nativeAssay}. Drawn only when
-  \code{native} is given.}
+  coloured by the gene's expression in \code{nativeAssay}, each cell or
+  spot a point (\code{pointSize}). Drawn only when \code{native} is
+  given.}
   \item{\code{"raster"}}{Two maps of the shared pixels (those the result
   used), coloured by the gene's expression in \code{assay}, the values the
   tests compared. The pixels are drawn with their geometry when the objects
@@ -139,14 +145,18 @@ One figure for one gene of a \code{\link{compareSpatial}()}
   \strong{Layout and size.} Without native maps the panels are in one row;
   with them, the four expression maps are in the first row and the
   similarity map and the scatter plot, larger, in a second row. The maps
-  keep the shape of the tissue, so the figure is as wide as the tissue
-  makes it and the panels are centred in the canvas. With the default
-  \code{baseSize = 10}, \code{ggplot2::ggsave(..., width = 11, height =
-  3.5)} suits one row and \code{width = 11, height = 6.5} two rows;
-  reduce the width for a tissue that is taller than wide. For a journal
-  figure 180 mm wide, use \code{baseSize = 7} with \code{ggsave(...,
-  width = 180, height = 110, units = "mm")} for two rows or
-  \code{height = 60} for one row; for a single column of 90 mm, use
+  keep the shape of the tissue, so the height of the figure sets the size
+  of the panels and the tissue sets the width the figure needs: a wider
+  canvas only adds blank space at the sides of a row. With the default
+  \code{baseSize = 10}, \code{ggplot2::ggsave(..., height = 6.5)} suits
+  two rows and \code{height = 3.5} one row; a tissue that is taller than
+  wide, like the kidneys of the examples, then fills \code{width = 7} (two
+  rows) or \code{width = 8.5} (one row), and a square tissue about
+  \code{width = 10} or \code{11}; a narrower canvas clips the statistics
+  of the scatter plot. For a journal figure 180 mm wide, use
+  \code{baseSize = 7} with \code{ggsave(..., width = 180, height = 110,
+  units = "mm")} for two rows or \code{height = 60} for one row, and
+  reduce the width for a taller tissue; for a single column of 90 mm, use
   \code{baseSize = 6} and \code{ncol = 2}. Every text size follows
   \code{baseSize}, and patchwork's \code{&} operator rescales the whole
   figure: \code{plotGene(...) & ggplot2::theme(text =
@@ -154,7 +164,9 @@ One figure for one gene of a \code{\link{compareSpatial}()}
   arguments of \code{patchwork::wrap_plots()} passed through \code{...},
   for example \code{ncol = 2}, and the figure with patchwork's operators,
   for example \code{plotGene(...) + patchwork::plot_annotation(tag_levels =
-  NULL)} to remove the letters.
+  NULL)} to remove the letters, or \code{tag_levels = list(c("a", "",
+  "b", "", "c", "d"))} for lower-case letters (one entry per map, the
+  second map of a pair blank).
 
   \strong{Colour scales.} The expression maps use the viridis palette.
   With \code{sharedScale = TRUE} the two native maps share one scale (one
@@ -192,14 +204,18 @@ plotGene(ab, "Gene", rast$A, rast$B)
 plotGene(ab, "Gene", rast$A, rast$B, native = speKidney[c("A", "B")],
          transform = "log1p")
 
-# save it: without native maps an 11 x 3.5 inch figure, with them 11 x 6.5;
-# for a journal figure 180 mm wide, baseSize = 7
+# save it: for these kidneys, taller than wide, 8.5 x 3.5 inches without
+# native maps and 7 x 6.5 with them; for a journal figure, baseSize = 7
 \dontrun{
 ggplot2::ggsave("Gene.pdf", plotGene(ab, "Gene", rast$A, rast$B),
-                width = 11, height = 3.5)
-ggplot2::ggsave("Gene-180mm.pdf",
+                width = 8.5, height = 3.5)
+ggplot2::ggsave("Gene-cells.png",
+                plotGene(ab, "Gene", rast$A, rast$B,
+                         native = speKidney[c("A", "B")]),
+                width = 7, height = 6.5, dpi = 300)
+ggplot2::ggsave("Gene-140mm.pdf",
                 plotGene(ab, "Gene", rast$A, rast$B, baseSize = 7),
-                width = 180, height = 60, units = "mm")
+                width = 140, height = 60, units = "mm")
 }
 }
 \seealso{
