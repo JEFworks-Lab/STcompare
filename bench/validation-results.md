@@ -9,8 +9,11 @@ parameters (`bench/published/scripts/`), and compared gene by gene with the stor
 - `δ*`: deltaStarX and deltaStarY identical for every stored permutation;
 - `nulls`: every stored null correlation within 1e-9 × the largest published |null| of that gene and direction;
 - `count >` / `count ≥`: identical numbers of |null| > |r| (the legacy count) and |null| ≥ |r| (the current one);
-- `BH p`: our final pValuePermuteX/Y equal p.adjust((b + 1) / (B + 1), "BH") recomputed from the published
-  nulls (relative tolerance 1e-12; the stored values used the legacy b / B and are not compared directly).
+- `raw p`: our unadjusted pValuePermuteX/Y equal (b + 1) / (B + 1) from the published nulls (relative tolerance
+  1e-12); `BH p`: our adjusted pValuePermuteXAdj/YAdj equal p.adjust((b + 1) / (B + 1), "BH") recomputed from
+  the published nulls (relative tolerance 1e-12). The published tables hold the adjusted values in
+  pValuePermuteX/Y (they had no raw columns), so published pValuePermuteX corresponds to our pValuePermuteXAdj;
+  the stored values used the legacy b / B and are not compared directly.
 
 On macOS arm64 the MERFISH correlationCoef differ from the stored ones by up to 2.6e-14 (10-11 of 483 are
 bit-identical) because R's cor() accumulates in long double, which is plain double there: the MERFISH analyses
@@ -26,6 +29,8 @@ code does not reproduce these two published analyses on Linux either.
 
 <!-- BEGIN validate-published:internal -->
 ## Mode `internal` — pre-integration: frozen snapshot, engine called directly
+
+(Before the `raw p` check existed, and before the gene-wise functions returned raw p-values; `BH p` then compared the adjusted values that the functions returned as pValuePermuteX/Y.)
 
 Re-reported 2026-10-04 14:01 EDT (`--reuse`) from results computed 2026-10-04 13:52 to 13:53 EDT on DIMKC6JP7VQP1 (Darwin 24.6.0, aarch64-apple-darwin20), R version 4.5.2 (2025-10-31); 16 threads.
 Package: STcompare 0.1.0 from /private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/final-validate/mirror/STcompare, installed with R CMD INSTALL (engine compiled with -g -O2); engine/R source fingerprint `37e045c7a01d`.
@@ -73,39 +78,39 @@ No mismatches.
 <!-- END validate-published:internal -->
 
 <!-- BEGIN validate-published:exported -->
-## Mode `exported` — remap default (compareSpatial surrogate = "remap", minDetected = NULL -> 0 pixels); legacy functions unchanged
+## Mode `exported` — legacy gene-wise functions return raw pValuePermuteX/Y and adjusted pValuePermuteXAdj/YAdj
 
-Run 2026-10-05 11:43 EDT on DIMKC6JP7VQP1 (Darwin 24.6.0, aarch64-apple-darwin20), R version 4.5.2 (2025-10-31); 16 threads.
-Package: STcompare 0.1.0.9000 from /private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/remap-default/mirror/STcompare, installed with R CMD INSTALL (engine compiled with -g -O2); engine/R source fingerprint `19f18547621d`.
-Call: `Rscript bench/validate-published.R --mode=exported --threads=16 --label="remap default (compareSpatial surrogate = "remap", minDetected = NULL -> 0 pixels); legacy functions unchanged"`. Per-gene tables: `/Users/ks38/Library/Caches/org.R-project.R/R/STcompare/bench/validate-published` (outside the repository).
+Run 2026-10-16 18:02 EDT on DIMKC6JP7VQP1 (Darwin 24.6.0, aarch64-apple-darwin20), R version 4.5.2 (2025-10-31); 16 threads.
+Package: STcompare 2.0.0 from /private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/legacy-adj/validate/STcompare, installed with R CMD INSTALL (engine compiled with -g -O2); engine/R source fingerprint `ddbe8b1bc1ea`.
+Call: `Rscript bench/validate-published.R --mode=exported --threads=16 --label="legacy gene-wise functions return raw pValuePermuteX/Y and adjusted pValuePermuteXAdj/YAdj"`. Per-gene tables: `/private/tmp/claude-502/-Volumes-Crucial-SSD-Dropbox--Personal--work-github-com-slowkow-STcompare/d28687f8-19db-4d98-9d9d-f548807d4dba/scratchpad/legacy-adj/validate/out` (outside the repository).
 
 Mismatching genes by check (0 everywhere = the published analysis is reproduced). Genes = genes compared;
 "(+k)": rows of `merfishCorrelation.RData` whose stored p-values do not follow from its stored nulls
 (the table was patched with rows of an earlier run; see below). They are compared but counted separately.
 
-| Analysis | Genes | N | B 100/1000 pub | B 100/1000 ours | r | naive p | B | δ* | nulls | count > | count ≥ | BH p | NA rows | max rel null diff | max abs null diff | max abs Δr | max Δr / r |
-|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|---|
-| AKI kidney Visium, iterative (`kidneyCorrelation.RData`) | 1046 | 311 | 289/757 | 289/757 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3e-14 | 1.2e-14 | 5e-16 | 1.2e-15 |
-| AKI kidney Visium, fixed B = 100 (`kidneyCorrelationNoIter.RData`) | 1046 | 311 | 1046/- | 1046/- | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2.6e-14 | 6.9e-15 | 5e-16 | 1.2e-15 |
-| MERFISH replicates, affine (`merfishCorrelation_affine.RData`) | 483 | 1299 | 97/386 | 97/386 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9.5e-14 | 2.3e-14 | 2.6e-14 | 1.9e-13 |
-| MERFISH replicates, STalign (`merfishCorrelation.RData`) | 361 (+122) | 1371 | 86/397 | 86/397 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8.8e-14 | 8.1e-15 | 2e-14 | 1.6e-12 |
-| Brain MERFISH vs Visium (`brainCorrelation.RData`) | 325 | 2170 | 178/147 | 178/147 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7.8e-14 | 2.8e-14 | 1e-15 | 2.9e-14 |
-| Brain cell types (`ctCorrelation.RData`) | 16 | 2174 | 6/10 | 6/10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 6e-15 | 2.4e-15 | 1.1e-16 | 2.6e-16 |
+| Analysis | Genes | N | B 100/1000 pub | B 100/1000 ours | r | naive p | B | δ* | nulls | count > | count ≥ | raw p | BH p | NA rows | max rel null diff | max abs null diff | max abs Δr | max Δr / r |
+|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|---|
+| AKI kidney Visium, iterative (`kidneyCorrelation.RData`) | 1046 | 311 | 289/757 | 289/757 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3e-14 | 1.2e-14 | 5e-16 | 1.2e-15 |
+| AKI kidney Visium, fixed B = 100 (`kidneyCorrelationNoIter.RData`) | 1046 | 311 | 1046/- | 1046/- | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2.6e-14 | 6.9e-15 | 5e-16 | 1.2e-15 |
+| MERFISH replicates, affine (`merfishCorrelation_affine.RData`) | 483 | 1299 | 97/386 | 97/386 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9.5e-14 | 2.3e-14 | 2.6e-14 | 1.9e-13 |
+| MERFISH replicates, STalign (`merfishCorrelation.RData`) | 361 (+122) | 1371 | 86/397 | 86/397 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8.8e-14 | 8.1e-15 | 2e-14 | 1.6e-12 |
+| Brain MERFISH vs Visium (`brainCorrelation.RData`) | 325 | 2170 | 178/147 | 178/147 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7.8e-14 | 2.8e-14 | 1e-15 | 2.9e-14 |
+| Brain cell types (`ctCorrelation.RData`) | 16 | 2174 | 6/10 | 6/10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 6e-15 | 2.4e-15 | 1.1e-16 | 2.6e-16 |
 
 | Analysis | Genes | Wall time | Threads | s / gene | Authors' time | Authors' workers | Speedup | RNG state unchanged |
 |---|---:|---|---:|---|---|---|---|---|
-| AKI kidney Visium, iterative | 1046 | 13.7 s | 16 | 0.013 | not recorded | 22 |  | yes |
-| AKI kidney Visium, fixed B = 100 | 1046 | 1.9 s | 16 | 0.002 | not recorded | 22 |  | yes |
-| MERFISH replicates, affine | 483 | 39.2 s | 16 | 0.081 | 7.65 h | 20 (MulticoreParam()) | 704× | yes |
-| MERFISH replicates, STalign | 483 | 38.8 s | 16 | 0.080 | 16.8 h | 20 (MulticoreParam()) | 1558× | yes |
-| Brain MERFISH vs Visium | 325 | 12.7 s | 16 | 0.039 | 1.78 h | 22 | 506× | yes |
-| Brain cell types | 16 | 0.9 s | 16 | 0.058 | 6.95 min | 22 | 451× | yes |
+| AKI kidney Visium, iterative | 1046 | 14.3 s | 16 | 0.014 | not recorded | 22 |  | yes |
+| AKI kidney Visium, fixed B = 100 | 1046 | 2.0 s | 16 | 0.002 | not recorded | 22 |  | yes |
+| MERFISH replicates, affine | 483 | 40.3 s | 16 | 0.083 | 7.65 h | 20 (MulticoreParam()) | 684× | yes |
+| MERFISH replicates, STalign | 483 | 39.5 s | 16 | 0.082 | 16.8 h | 20 (MulticoreParam()) | 1532× | yes |
+| Brain MERFISH vs Visium | 325 | 12.8 s | 16 | 0.039 | 1.78 h | 22 | 500× | yes |
+| Brain cell types | 16 | 1.0 s | 16 | 0.060 | 6.95 min | 22 | 436× | yes |
 
 Speedup = the authors' reported wall time / ours (their 20-22 workers on an unrecorded machine, our threads here).
 
 Stored p-values that do not follow from the stored nulls:
 
-- `merfish_stalign`: the stored p-values of 122 rows are not BH(b / B) of the published nulls: 116 through pValuePermuteX (the number in dev/investigation/04) and 6 more through pValuePermuteY only (their raw pX is 0). They are 122 of the 123 rows whose stored p-values can show this at all: the other 360 rows have no exceedance in either direction, so their stored p is 0 under any adjustment, and Cxcr2 has the largest raw p-values, which BH leaves unchanged. The stored values therefore cannot tell which rows were copied from the earlier run (`bench/published/scripts/biological-replicates-example.R`, lines 210-217); they show that the stored BH adjustment was computed over other raw p-values than the published nulls give. These rows are compared like the others but not counted in the table: 122 match on every check (r, naive p, permutations, deltaStar, nulls, both counts, BH p), 0 differ; max relative null difference 1.1e-13.
+- `merfish_stalign`: the stored p-values of 122 rows are not BH(b / B) of the published nulls: 116 through pValuePermuteX (the number in dev/investigation/04) and 6 more through pValuePermuteY only (their raw pX is 0). They are 122 of the 123 rows whose stored p-values can show this at all: the other 360 rows have no exceedance in either direction, so their stored p is 0 under any adjustment, and Cxcr2 has the largest raw p-values, which BH leaves unchanged. The stored values therefore cannot tell which rows were copied from the earlier run (`bench/published/scripts/biological-replicates-example.R`, lines 210-217); they show that the stored BH adjustment was computed over other raw p-values than the published nulls give. These rows are compared like the others but not counted in the table: 122 match on every check (r, naive p, permutations, deltaStar, nulls, both counts, raw p, BH p), 0 differ; max relative null difference 1.1e-13.
 
 No mismatches.
 

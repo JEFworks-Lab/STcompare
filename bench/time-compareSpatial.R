@@ -94,7 +94,7 @@ for (id in datasets) {
     perms_total = sum(L, na.rm = TRUE), perms_min = min(L, na.rm = TRUE), perms_q1 = q[1], perms_median = q[2],
     perms_q3 = q[3], perms_max = max(L, na.rm = TRUE), early = sum(res$stop == "exceedances"),
     limit = sum(res$stop == "limit"), skipped = sum(res$status == "skipped"), failed = sum(res$status == "failed"),
-    padj_05 = sum(res$padj < 0.05, na.rm = TRUE),
+    padj_05 = sum(res$pValuePermuteAdj < 0.05, na.rm = TRUE),
     us_per_perm_thread = signif(1e6 * wall * threads / (2 * sum(L, na.rm = TRUE)), 3))
   message(sprintf("%s: %d genes in %.1f s", id, nrow(res), wall))
   mode <- attr(res, "params")$surrogate

@@ -58,9 +58,13 @@
 #   nullCorrelationsX/Y max |difference| <= 1e-9 x max |published| per gene and direction (every stored null)
 #   exceedances         identical counts of |null| > |r| (the legacy count) and |null| >= |r| (the current
 #                       count), our nulls against our r, published nulls against the published r
-#   adjusted p          ours equal p.adjust((b + 1) / (B + 1), "BH") recomputed from the PUBLISHED nulls,
-#                       b = #(|null| >= |r|), across the genes of the analysis (relative tolerance 1e-12;
-#                       any count difference moves a p-value by at least 1e-4 relative)
+#   raw p               our pValuePermuteX/Y (unadjusted since 2.0.0) equal (b + 1) / (B + 1) from the
+#                       PUBLISHED nulls, b = #(|null| >= |r|) (relative tolerance 1e-12; any count difference
+#                       moves a p-value by at least 1e-4 relative)
+#   adjusted p          our pValuePermuteXAdj/YAdj equal p.adjust((b + 1) / (B + 1), "BH") recomputed from the
+#                       PUBLISHED nulls across the genes of the analysis (relative tolerance 1e-12). The
+#                       published tables keep the adjusted values in pValuePermuteX/Y (there were no raw
+#                       columns), so published pValuePermuteX maps to our pValuePermuteXAdj, and likewise for Y.
 # The stored p-values themselves were computed with the legacy definition b / B (strict >) and, in the
 # iterative analyses, BH-adjusted across genes (in kidneyCorrelationNoIter.RData never adjusted: the legacy
 # spatialCorrelationGeneExp() adjusted one gene at a time). They are checked for consistency with the
@@ -184,7 +188,8 @@ engine_correlate <- get(".stc_engine_correlate", envir = ns)
 # A fingerprint of the engine sources, so that the results file says which build was tested.
 engine_fingerprint <- local({
   if (is.na(pkg_root)) return(NA_character_)
-  f <- sort(c(Sys.glob(file.path(pkg_root, "src", "stc_*")), Sys.glob(file.path(pkg_root, "R", "*.R"))))
+  f <- sort(c(Sys.glob(file.path(pkg_root, "src", "stc_*.cpp")), Sys.glob(file.path(pkg_root, "src", "stc_*.h")),
+              Sys.glob(file.path(pkg_root, "R", "*.R"))))
   tf <- tempfile()
   on.exit(unlink(tf))
   writeLines(paste(basename(f), unname(tools::md5sum(f))), tf)
@@ -328,7 +333,8 @@ run_exported <- function(spec, input, genes) {
   list(r = unname(as.numeric(res$correlationCoef)), rY = unname(as.numeric(res$correlationCoef)),
        pnaive = as.numeric(res$pValueNaive), B = B, nullX = nullX, nullY = nullY,
        dsX = lapply(res$deltaStarX, as_num), dsY = lapply(res$deltaStarY, as_num),
-       adjX = as.numeric(res$pValuePermuteX), adjY = as.numeric(res$pValuePermuteY),
+       rawX = as.numeric(res$pValuePermuteX), rawY = as.numeric(res$pValuePermuteY),
+       adjX = as.numeric(res$pValuePermuteXAdj), adjY = as.numeric(res$pValuePermuteYAdj),
        bX_engine = rep(NA_integer_, G), bY_engine = rep(NA_integer_, G),
        status = ifelse(is.na(B), "failed", "ok"), message = rep("", G),
        rounds = NULL, elapsed = elapsed, rng_ok = rng_ok)
@@ -394,7 +400,7 @@ run_internal <- function(spec, input, genes) {
   list(r = r, rY = rY, pnaive = pnaive, B = ifelse(cur$status == "ok", cur$L, NA_integer_),
        nullX = lapply(cur$nullX, as_num), nullY = lapply(cur$nullY, as_num),
        dsX = lapply(cur$dsX, as_num), dsY = lapply(cur$dsY, as_num),
-       adjX = stats::p.adjust(pX, "BH"), adjY = stats::p.adjust(pY, "BH"),
+       rawX = pX, rawY = pY, adjX = stats::p.adjust(pX, "BH"), adjY = stats::p.adjust(pY, "BH"),
        bX_engine = cur$bX, bY_engine = cur$bY, status = cur$status, message = cur$message,
        rounds = rounds, elapsed = elapsed, rng_ok = rng_ok, N = length(shared))
 }
@@ -471,11 +477,15 @@ compare <- function(spec, ref, ours) {
     rows[[i]] <- row
   }
   d <- do.call(rbind, lapply(rows, function(r) as.data.frame(r, stringsAsFactors = FALSE)))
-  # p-values: the current definition from the published nulls, BH across genes; the stored legacy values
+  # p-values: the current definition from the published nulls, raw and BH across genes; ours (raw
+  # pValuePermuteX/Y, adjusted pValuePermuteXAdj/YAdj); the stored legacy values (adjusted, in the published
+  # tables' pValuePermuteX/Y)
   d$pX_raw_pub <- (d$bgeX_pub + 1) / (d$B_pub + 1)
   d$pY_raw_pub <- (d$bgeY_pub + 1) / (d$B_pub + 1)
   d$pX_adj_pub <- stats::p.adjust(d$pX_raw_pub, "BH")
   d$pY_adj_pub <- stats::p.adjust(d$pY_raw_pub, "BH")
+  d$pX_raw_ours <- ours$rawX
+  d$pY_raw_ours <- ours$rawY
   d$pX_adj_ours <- ours$adjX
   d$pY_adj_ours <- ours$adjY
   d$pX_stored <- as.numeric(ref$pValuePermuteX)
@@ -504,10 +514,12 @@ compare <- function(spec, ref, ours) {
   d$ok_count_gt <- !both | (d$bgtX_ours == d$bgtX_pub & d$bgtY_ours == d$bgtY_pub)
   d$ok_count_ge <- !both | (d$bgeX_ours == d$bgeX_pub & d$bgeY_ours == d$bgeY_pub &
                               (is.na(d$bX_engine) | (d$bX_engine == d$bgeX_ours & d$bY_engine == d$bgeY_ours)))
+  d$ok_praw <- rel_ok(d$pX_raw_ours, d$pX_raw_pub, TOL_PADJ) & rel_ok(d$pY_raw_ours, d$pY_raw_pub, TOL_PADJ)
   d$ok_padj <- rel_ok(d$pX_adj_ours, d$pX_adj_pub, TOL_PADJ) & rel_ok(d$pY_adj_ours, d$pY_adj_pub, TOL_PADJ)
   d$padj_identical <- (d$pX_adj_ours == d$pX_adj_pub | (is.na(d$pX_adj_ours) & is.na(d$pX_adj_pub))) &
     (d$pY_adj_ours == d$pY_adj_pub | (is.na(d$pY_adj_ours) & is.na(d$pY_adj_pub)))
-  checks <- c("ok_na", "ok_r", "ok_pnaive", "ok_B", "ok_deltaStar", "ok_nulls", "ok_count_gt", "ok_count_ge", "ok_padj")
+  checks <- c("ok_na", "ok_r", "ok_pnaive", "ok_B", "ok_deltaStar", "ok_nulls", "ok_count_gt", "ok_count_ge", "ok_praw",
+              "ok_padj")
   for (cc in checks) d[[cc]][is.na(d[[cc]])] <- FALSE
   d$ok <- Reduce(`&`, d[checks])
   d
@@ -528,7 +540,7 @@ summarise <- function(id, spec, d, ours, N) {
     our_B = paste(sapply(spec$nPermutations, function(b) sum(d$B_ours == b, na.rm = TRUE)), collapse = "/"),
     mm_na = cnt("ok_na"), mm_r = cnt("ok_r"), mm_pnaive = cnt("ok_pnaive"), mm_B = cnt("ok_B"),
     mm_deltaStar = cnt("ok_deltaStar"), mm_nulls = cnt("ok_nulls"), mm_count_gt = cnt("ok_count_gt"),
-    mm_count_ge = cnt("ok_count_ge"), mm_padj = cnt("ok_padj"), mm_any = cnt("ok"),
+    mm_count_ge = cnt("ok_count_ge"), mm_praw = cnt("ok_praw"), mm_padj = cnt("ok_padj"), mm_any = cnt("ok"),
     padj_identical = sum(d$padj_identical[main], na.rm = TRUE),
     max_null_rel = mx(pmax(d$nullX_reldiff[main], d$nullY_reldiff[main])),
     max_null_abs = mx(pmax(d$nullX_absdiff[main], d$nullY_absdiff[main])),
@@ -546,7 +558,7 @@ details_lines <- function(id, d, max_genes = 10L) {
   if (!length(bad)) return(character(0))
   checks <- c(ok_na = "NA status", ok_r = "r", ok_pnaive = "naive p", ok_B = "permutations",
               ok_deltaStar = "deltaStar", ok_nulls = "nulls", ok_count_gt = "count >", ok_count_ge = "count >=",
-              ok_padj = "BH p")
+              ok_praw = "raw p", ok_padj = "BH p")
   out <- sprintf("- `%s`: %d gene(s) with a mismatch%s", id, length(bad),
                  if (length(bad) > max_genes) sprintf(" (first %d listed)", max_genes) else "")
   for (i in head(bad, max_genes)) {
@@ -627,7 +639,7 @@ for (id in analyses) {
       "were copied from the earlier run (`bench/published/scripts/biological-replicates-example.R`, lines 210-217); they show",
       "that the stored BH adjustment was computed over other raw p-values than the published nulls give. These rows",
       "are compared like the others but not counted in the table: %d match on every check (r, naive p, permutations,",
-      "deltaStar, nulls, both counts, BH p), %d differ%s; max relative null difference %.2g."),
+      "deltaStar, nulls, both counts, raw p, BH p), %d differ%s; max relative null difference %.2g."),
       id, nrow(cm), sum(!cm$stored_consistent_X, na.rm = TRUE), sum(cm$stored_consistent_X, na.rm = TRUE),
       nrow(cm), sum(!zero), sum(zero),
       if (sum(!zero) > nrow(cm)) sprintf(", and %s %s the largest raw p-values, which BH leaves unchanged",
@@ -637,10 +649,10 @@ for (id in analyses) {
       if (any(!cm$ok)) paste0(" (", paste(head(cm$gene[!cm$ok], 10), collapse = ", "), ")") else "",
       max(pmax(cm$nullX_reldiff, cm$nullY_reldiff), na.rm = TRUE)))
   }
-  cat(sprintf("   compared %d genes%s: mismatches NA %d, r %d, naive p %d, permutations %d, deltaStar %d, nulls %d, count> %d, count>= %d, BH p %d (any %d); max rel null diff %.2g; BH p bit-identical %d/%d\n",
+  cat(sprintf("   compared %d genes%s: mismatches NA %d, r %d, naive p %d, permutations %d, deltaStar %d, nulls %d, count> %d, count>= %d, raw p %d, BH p %d (any %d); max rel null diff %.2g; BH p bit-identical %d/%d\n",
               s$compared, if (s$composite) sprintf(" (+%d composite rows reported separately)", s$composite) else "",
               s$mm_na, s$mm_r, s$mm_pnaive, s$mm_B, s$mm_deltaStar, s$mm_nulls, s$mm_count_gt, s$mm_count_ge,
-              s$mm_padj, s$mm_any, s$max_null_rel, s$padj_identical, s$compared))
+              s$mm_praw, s$mm_padj, s$mm_any, s$max_null_rel, s$padj_identical, s$compared))
   cat(sprintf("   per-gene table: %s\n", csv))
 }
 S <- do.call(rbind, summaries)
@@ -663,7 +675,7 @@ tab1 <- data.frame(
   `B 100/1000 pub` = ifelse(grepl("/", S$schedule), S$pub_B, paste0(S$pub_B, "/-")),
   `B 100/1000 ours` = ifelse(grepl("/", S$schedule), S$our_B, paste0(S$our_B, "/-")),
   r = S$mm_r, `naive p` = S$mm_pnaive, B = S$mm_B, `δ*` = S$mm_deltaStar, nulls = S$mm_nulls,
-  `count >` = S$mm_count_gt, `count ≥` = S$mm_count_ge, `BH p` = S$mm_padj, NA. = S$mm_na,
+  `count >` = S$mm_count_gt, `count ≥` = S$mm_count_ge, `raw p` = S$mm_praw, `BH p` = S$mm_padj, NA. = S$mm_na,
   `max rel null diff` = f2(S$max_null_rel), `max abs null diff` = f2(S$max_null_abs),
   `max abs Δr` = f2(S$max_r_abs), `max Δr / r` = f2(S$max_r_rel),
   check.names = FALSE, stringsAsFactors = FALSE)
@@ -726,8 +738,11 @@ header <- c(
   "- `δ*`: deltaStarX and deltaStarY identical for every stored permutation;",
   "- `nulls`: every stored null correlation within 1e-9 × the largest published |null| of that gene and direction;",
   "- `count >` / `count ≥`: identical numbers of |null| > |r| (the legacy count) and |null| ≥ |r| (the current one);",
-  "- `BH p`: our final pValuePermuteX/Y equal p.adjust((b + 1) / (B + 1), \"BH\") recomputed from the published",
-  "  nulls (relative tolerance 1e-12; the stored values used the legacy b / B and are not compared directly).",
+  "- `raw p`: our unadjusted pValuePermuteX/Y equal (b + 1) / (B + 1) from the published nulls (relative tolerance",
+  "  1e-12); `BH p`: our adjusted pValuePermuteXAdj/YAdj equal p.adjust((b + 1) / (B + 1), \"BH\") recomputed from",
+  "  the published nulls (relative tolerance 1e-12). The published tables hold the adjusted values in",
+  "  pValuePermuteX/Y (they had no raw columns), so published pValuePermuteX corresponds to our pValuePermuteXAdj;",
+  "  the stored values used the legacy b / B and are not compared directly.",
   "",
   "On macOS arm64 the MERFISH correlationCoef differ from the stored ones by up to 2.6e-14 (10-11 of 483 are",
   "bit-identical) because R's cor() accumulates in long double, which is plain double there: the MERFISH analyses",

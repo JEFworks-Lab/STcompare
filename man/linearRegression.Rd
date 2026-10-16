@@ -51,3 +51,7 @@ s <- spatialSimilarity(list(A = rastKidney$A, C = rastKidney$C))
 linearRegression(s, "Gene")
 
 }
+\seealso{
+\code{\link{plotGene}()}, the standardized figure of a gene in a
+  \code{\link{compareSpatial}()} result, which includes this scatter plot.
+}

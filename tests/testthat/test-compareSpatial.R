@@ -71,10 +71,12 @@ test_that("portable: one row per gene with the specified columns, attributes and
   input <- cs_input(genes)
   res <- cs_run(input, nPermutations = 60, exceedances = 3, keepNulls = TRUE)
   expect_s3_class(res, c("STcompareResult", "data.frame"), exact = TRUE)
-  expect_identical(names(res), c("gene", "nPixels", "r", "pNaive", "p", "padj", "pX", "pY", "nPermutations", "stop",
-                                 "deltaStarMedianX", "deltaStarMedianY", "deltaGridEdge", "similarity",
-                                 "dissimilarityX", "dissimilarityY", "nPixelsSimilarity", "thresholdX", "thresholdY",
-                                 "status", "message"))
+  # the column names of the legacy functions where the quantity is the same (spatialCorrelationGeneExp() and
+  # spatialSimilarity()), plus the combined and adjusted p-values
+  expect_identical(names(res), c("gene", "nPixels", "correlationCoef", "pValueNaive", "pValuePermuteX", "pValuePermuteY",
+                                 "pValuePermute", "pValuePermuteAdj", "nPermutations", "stop", "deltaStarMedianX",
+                                 "deltaStarMedianY", "deltaGridEdge", "percentSimilarity", "percentDissimilarityX",
+                                 "percentDissimilarityY", "numPixelInThresh", "t1", "t2", "status", "message"))
   expect_identical(res$gene, genes)
   expect_identical(rownames(res), genes)
   expect_false(any(vapply(res, is.list, NA)))
@@ -85,10 +87,10 @@ test_that("portable: one row per gene with the specified columns, attributes and
   P <- rf$pairs$aki
   for (g in genes) {
     ct <- stats::cor.test(P$X[g, ], P$Y[g, ])
-    expect_identical(res[g, "r"], unname(ct$estimate), info = g)
-    expect_identical(res[g, "pNaive"], ct$p.value, info = g)
+    expect_identical(res[g, "correlationCoef"], unname(ct$estimate), info = g)
+    expect_identical(res[g, "pValueNaive"], ct$p.value, info = g)
   }
-  expect_identical(res$padj, stats::p.adjust(res$p, "BH"))
+  expect_identical(res$pValuePermuteAdj, stats::p.adjust(res$pValuePermute, "BH"))
   # the details hold the permutations behind every summary column
   det <- attr(res, "details")
   expect_identical(names(det), genes)
@@ -99,17 +101,21 @@ test_that("portable: one row per gene with the specified columns, attributes and
     L <- res[g, "nPermutations"]
     expect_length(d$nullX, L)
     expect_length(d$deltaStarY, L)
-    bX <- cs_exceedances(d$nullX, res[g, "r"])
-    bY <- cs_exceedances(d$nullY, res[g, "r"])
-    expect_identical(res[g, "pX"], (bX + 1) / (L + 1), info = g)
-    expect_identical(res[g, "pY"], (bY + 1) / (L + 1), info = g)
-    expect_identical(res[g, "p"], if (res[g, "stop"] == "exceedances") max(bX, bY) / L else (max(bX, bY) + 1) / (L + 1),
-                     info = g)
+    bX <- cs_exceedances(d$nullX, res[g, "correlationCoef"])
+    bY <- cs_exceedances(d$nullY, res[g, "correlationCoef"])
+    expect_identical(res[g, "pValuePermuteX"], (bX + 1) / (L + 1), info = g)
+    expect_identical(res[g, "pValuePermuteY"], (bY + 1) / (L + 1), info = g)
+    expect_identical(res[g, "pValuePermute"],
+                     if (res[g, "stop"] == "exceedances") max(bX, bY) / L else (max(bX, bY) + 1) / (L + 1), info = g)
     expect_identical(res[g, "deltaStarMedianX"], stats::median(d$deltaStarX), info = g)
     expect_identical(res[g, "deltaStarMedianY"], stats::median(d$deltaStarY), info = g)
     at_edge <- function(ds) 2 * sum(ds %in% range(grid)) > length(ds)
     expect_identical(res[g, "deltaGridEdge"], at_edge(d$deltaStarX) || at_edge(d$deltaStarY), info = g)
   }
+  # a selection of rows keeps the details of the selected genes only
+  sub <- res[genes[2:3], ]
+  expect_identical(names(attr(sub, "details")), genes[2:3])
+  expect_identical(attr(sub, "details")[[1]], det[[genes[2]]])
   # without the details, the table is the same (the engine then keeps only the current batch's nulls)
   expect_identical(cs_table(cs_run(input, nPermutations = 60, exceedances = 3)), cs_table(res))
   prm <- attr(res, "params")
@@ -122,10 +128,10 @@ test_that("portable: one row per gene with the specified columns, attributes and
   expect_s3_class(attr(res, "runtime"), "proc_time")
   # only the tests asked for
   expect_identical(names(cs_run(input, tests = "similarity")),
-                   c("gene", "nPixels", "similarity", "dissimilarityX", "dissimilarityY", "nPixelsSimilarity",
-                     "thresholdX", "thresholdY", "status", "message"))
+                   c("gene", "nPixels", "percentSimilarity", "percentDissimilarityX", "percentDissimilarityY",
+                     "numPixelInThresh", "t1", "t2", "status", "message"))
   cor_only <- cs_run(input[[1]], input[[2]], genes = "Agt", tests = "correlation", nPermutations = 9)
-  expect_identical(names(cor_only)[c(1:3, 13:15)], c("gene", "nPixels", "r", "deltaGridEdge", "status", "message"))
+  expect_identical(names(cor_only)[c(1:3, 13:15)], c("gene", "nPixels", "correlationCoef", "deltaGridEdge", "status", "message"))
 })
 
 # --- invariance -----------------------------------------------------------------------------------
@@ -154,11 +160,11 @@ test_that("portable: results do not depend on threads, the batch schedule, gene 
   rev_input <- lapply(input, function(s) s[rev_genes, ])
   expect_identical(cs_table(cs_run(rev_input, tests = "correlation", nPermutations = 60, exceedances = 3,
                                    delta = cs_delta))[cs_genes, ], ref)
-  # a subset of the genes: the same rows except padj (adjusted over fewer genes)
+  # a subset of the genes: the same rows except pValuePermuteAdj (adjusted over fewer genes)
   sub <- run(genes = c("Upk2", "Gpx1"))
-  cols <- setdiff(names(ref), "padj")
+  cols <- setdiff(names(ref), "pValuePermuteAdj")
   expect_identical(sub[, cols], ref[c("Upk2", "Gpx1"), cols])
-  expect_identical(sub$padj, stats::p.adjust(sub$p, "BH"))
+  expect_identical(sub$pValuePermuteAdj, stats::p.adjust(sub$pValuePermute, "BH"))
   # the pixels of y in another order (they are matched to the pixels of x by name): the same results
   shuffled <- list(input[[1]], input[[2]][, c(2:ncol(input[[2]]), 1L)])
   expect_identical(cs_table(cs_run(shuffled, tests = "correlation", nPermutations = 60, exceedances = 3,
@@ -221,20 +227,20 @@ test_that("portable: adaptive stopping equals Besag-Clifford computed offline on
   fixed <- cs_run(input, tests = "correlation", nPermutations = n_max, exceedances = Inf, keepNulls = TRUE,
                   delta = cs_delta, nThreads = 2L)
   ad <- cs_run(input, tests = "correlation", nPermutations = n_max, exceedances = h, keepNulls = TRUE, delta = cs_delta)
-  # exceedances = Inf is fixed B: every gene at n_max, p = max(pX, pY)
+  # exceedances = Inf is fixed B: every gene at n_max, pValuePermute = max(pValuePermuteX, pValuePermuteY)
   expect_identical(fixed$stop, rep("limit", length(cs_genes)))
   expect_identical(fixed$nPermutations, rep(n_max, length(cs_genes)))
-  expect_identical(fixed$p, pmax(fixed$pX, fixed$pY))
+  expect_identical(fixed$pValuePermute, pmax(fixed$pValuePermuteX, fixed$pValuePermuteY))
   expect_true(all(c("exceedances", "limit") %in% ad$stop))
   df <- attr(fixed, "details")
   da <- attr(ad, "details")
   for (g in cs_genes) {
-    o <- cs_bc_offline(df[[g]]$nullX, df[[g]]$nullY, fixed[g, "r"], h, n_max)
+    o <- cs_bc_offline(df[[g]]$nullX, df[[g]]$nullY, fixed[g, "correlationCoef"], h, n_max)
     L <- o$L
     expect_identical(ad[g, "nPermutations"], L, info = g)
     expect_identical(ad[g, "stop"], o$stop, info = g)
-    expect_identical(ad[g, "p"], o$p, info = g)
-    expect_identical(c(ad[g, "pX"], ad[g, "pY"]), c(o$pX, o$pY), info = g)
+    expect_identical(ad[g, "pValuePermute"], o$p, info = g)
+    expect_identical(c(ad[g, "pValuePermuteX"], ad[g, "pValuePermuteY"]), c(o$pX, o$pY), info = g)
     # the adaptive run's permutations are the first L of the fixed run's
     for (k in names(da[[g]])) expect_identical(da[[g]][[k]], df[[g]][[k]][seq_len(L)], info = paste(g, k))
   }
@@ -350,14 +356,14 @@ test_that("portable, slow: calibration: on independent simulated fields the shar
   res <- do.call(rbind, lapply(seq_len(nrow(jobs)), function(k) cbind(cs_table(run1(k)), rho = jobs$rho[k])))
   null <- res[res$rho == 0, ]
   message(sprintf("calibration: %d compareSpatial() calls in %.1f s; null: p < 0.05 in %d of %d (median %d permutations); rho = 0.6: %d of %d",
-                  nrow(res), as.numeric(difftime(Sys.time(), t0, units = "secs")), sum(null$p < 0.05), nrow(null),
-                  as.integer(stats::median(null$nPermutations)), sum(res$p[res$rho != 0] < 0.05), sum(res$rho != 0)))
-  expect_lte(sum(null$p < 0.05), stats::qbinom(0.999, nrow(null), 0.05))
+                  nrow(res), as.numeric(difftime(Sys.time(), t0, units = "secs")), sum(null$pValuePermute < 0.05), nrow(null),
+                  as.integer(stats::median(null$nPermutations)), sum(res$pValuePermute[res$rho != 0] < 0.05), sum(res$rho != 0)))
+  expect_lte(sum(null$pValuePermute < 0.05), stats::qbinom(0.999, nrow(null), 0.05))
   expect_true(all(null$status == "ok"))
   expect_lt(stats::median(null$nPermutations), 200)  # null genes stop early
   # the naive test is anti-conservative on these fields; correlated fields (rho = 0.6) are mostly detected
-  expect_gt(mean(null$pNaive < 0.05), 0.05)
-  expect_gte(mean(res$p[res$rho != 0] < 0.05), 0.7)
+  expect_gt(mean(null$pValueNaive < 0.05), 0.05)
+  expect_gte(mean(res$pValuePermute[res$rho != 0] < 0.05), 0.7)
 })
 
 test_that("portable: speKidney: A vs B (negative) and A vs C (positive) are significant with 99 permutations", {
@@ -365,15 +371,15 @@ test_that("portable: speKidney: A vs B (negative) and A vs C (positive) are sign
   ab <- cs_run(list(A = rk$A, B = rk$B), nPermutations = 99)
   ac <- cs_run(list(A = rk$A, C = rk$C), nPermutations = 99)
   expect_identical(attr(ab, "params")$samples, c("A", "B"))
-  expect_lt(ab$r, -0.9)
-  expect_gt(ac$r, 0.9)
+  expect_lt(ab$correlationCoef, -0.9)
+  expect_gt(ac$correlationCoef, 0.9)
   for (res in list(ab, ac)) {
-    expect_identical(res$p, 1 / 100)
+    expect_identical(res$pValuePermute, 1 / 100)
     expect_identical(res$stop, "limit")
-    expect_lt(res$padj, 0.05)
+    expect_lt(res$pValuePermuteAdj, 0.05)
   }
   # opposite patterns are dissimilar, similar patterns at another level are dissimilar too: C is higher
-  expect_gt(ac$dissimilarityY, 0.9)
+  expect_gt(ac$percentDissimilarityY, 0.9)
 })
 
 # --- errors, dropped deltas and failed genes ---------------------------------------------------------------
@@ -436,14 +442,15 @@ test_that("portable: constant and rarely detected genes are skipped with a messa
   expect_identical(res$message[2], "constant in x (zero variance): not tested")
   kY <- sum(P$Y["Agt", ] > min(P$Y["Agt", ]))
   expect_identical(res$message[5], sprintf("detected in 5 (x) and %d (y) of the 311 shared pixels; minDetected asks for 18 in each: not tested", kY))
-  for (col in c("p", "padj", "pX", "pY", "nPermutations", "deltaStarMedianX", "deltaGridEdge")) {
+  for (col in c("pValuePermuteX", "pValuePermuteY", "pValuePermute", "pValuePermuteAdj", "nPermutations", "deltaStarMedianX",
+                "deltaGridEdge")) {
     expect_true(all(is.na(res[c("Ech1", "Tspan8", "Agt"), col])), info = col)
   }
-  expect_true(is.na(res["Tspan8", "r"]) && is.na(res["Tspan8", "similarity"]))
-  expect_false(is.na(res["Ech1", "similarity"]))
-  expect_false(is.na(res["Agt", "r"]))  # the observed correlation is still reported
+  expect_true(is.na(res["Tspan8", "correlationCoef"]) && is.na(res["Tspan8", "percentSimilarity"]))
+  expect_false(is.na(res["Ech1", "percentSimilarity"]))
+  expect_false(is.na(res["Agt", "correlationCoef"]))  # the observed correlation is still reported
   # the adjustment counts only the tested genes; the tested genes' results do not depend on the others
-  expect_identical(res$padj[c(1, 3)], stats::p.adjust(res$p[c(1, 3)], "BH"))
+  expect_identical(res$pValuePermuteAdj[c(1, 3)], stats::p.adjust(res$pValuePermute[c(1, 3)], "BH"))
   ok <- cs_table(cs_run(input, genes = c("Gpx1", "Upk2"), nPermutations = 30, exceedances = 3, delta = cs_delta,
                         surrogate = "gaussian"))
   expect_identical(cs_table(res)[c("Gpx1", "Upk2"), ], ok)
@@ -459,7 +466,7 @@ test_that("portable: constant and rarely detected genes are skipped with a messa
   dflt <- w$value$value
   expect_identical(dflt$status, c("ok", "skipped", "ok", "failed", "ok"))
   expect_identical(attr(dflt, "params")$minDetectedPixels, 0L)
-  expect_false(is.na(dflt["Agt", "p"]))
+  expect_false(is.na(dflt["Agt", "pValuePermute"]))
   expect_identical(cs_table(dflt), cs_table(suppressWarnings(cs_run(input, nPermutations = 30, exceedances = 3,
                                                                     delta = cs_delta, minDetected = 0))))
 })
@@ -506,12 +513,12 @@ test_that("portable: invalid inputs and arguments give errors that say what to d
 test_that("portable: the similarity columns equal spatialSimilarity()'s on the fixtures and on random inputs", {
   cmp <- function(res, ss, info) {
     ss <- ss$similarityTable
-    expect_identical(res$similarity, as.double(ss$percentSimilarity), info = info)
-    expect_identical(res$dissimilarityX, as.double(ss$percentDissimilarityX), info = info)
-    expect_identical(res$dissimilarityY, as.double(ss$percentDissimilarityY), info = info)
-    expect_identical(res$thresholdX, as.double(ss$t1), info = info)
-    expect_identical(res$thresholdY, as.double(ss$t2), info = info)
-    expect_identical(res$nPixelsSimilarity, ss$numPixelInThresh, info = info)
+    expect_identical(res$percentSimilarity, as.double(ss$percentSimilarity), info = info)
+    expect_identical(res$percentDissimilarityX, as.double(ss$percentDissimilarityX), info = info)
+    expect_identical(res$percentDissimilarityY, as.double(ss$percentDissimilarityY), info = info)
+    expect_identical(res$t1, as.double(ss$t1), info = info)
+    expect_identical(res$t2, as.double(ss$t2), info = info)
+    expect_identical(res$numPixelInThresh, ss$numPixelInThresh, info = info)
   }
   P <- rf$pairs$aki
   input <- fx_spe_pair(P)
@@ -542,8 +549,8 @@ test_that("portable: the similarity columns equal spatialSimilarity()'s on the f
   # the helper also takes fixed thresholds, as spatialSimilarity(t1, t2)
   h <- .stc_similarity(X, Y, t1 = 2, t2 = 3)
   ss2 <- spatialSimilarity(list(spe(X), spe(Y)), t1 = 2, t2 = 3)$similarityTable
-  expect_identical(h$similarity, as.double(ss2$percentSimilarity))
-  expect_identical(h$dissimilarityY, as.double(ss2$percentDissimilarityY))
+  expect_identical(h$percentSimilarity, as.double(ss2$percentSimilarity))
+  expect_identical(h$percentDissimilarityY, as.double(ss2$percentDissimilarityY))
   # negative values: spatialSimilarity() stops; compareSpatial() gives NA similarity with one warning, and the
   # other genes and the correlation test are not affected
   X[, 5] <- X[, 5] - 2
@@ -552,11 +559,13 @@ test_that("portable: the similarity columns equal spatialSimilarity()'s on the f
   expect_length(w$warnings, 1L)
   expect_match(w$warnings, "the similarity compares fold changes, .* it is NA for 1 gene with negative values: g05$")
   res <- w$value
-  expect_true(all(is.na(unlist(res["g05", c("similarity", "dissimilarityX", "dissimilarityY", "nPixelsSimilarity")]))))
+  expect_true(all(is.na(unlist(res["g05", c("percentSimilarity", "percentDissimilarityX", "percentDissimilarityY",
+                                             "numPixelInThresh")]))))
   expect_identical(res$message, c("", "negative values in x: no similarity"))
   expect_identical(res$status, c("ok", "ok"))
-  expect_false(is.na(res["g05", "p"]))
-  expect_identical(res["g01", "similarity"], cs_run(spe(X), spe(Y), genes = "g01", tests = "similarity")$similarity)
+  expect_false(is.na(res["g05", "pValuePermute"]))
+  expect_identical(res["g01", "percentSimilarity"],
+                   cs_run(spe(X), spe(Y), genes = "g01", tests = "similarity")$percentSimilarity)
 })
 
 # --- methods and progress --------------------------------------------------------------------------------
@@ -567,7 +576,8 @@ test_that("portable: print(), summary(), [ and as.data.frame() work; progress = 
   out <- utils::capture.output(print(res))
   expect_match(out[1], "^STcompareResult: 3 genes on 311 shared pixels; x vs y \\(assay counts\\)")
   expect_match(out[2], "adaptive permutation p-values \\(stop at 3 exceedances, at most 30 permutations\\); 5 deltas from 0.05 to 0.9")
-  expect_true(any(grepl("padj < 0.05: [0-9]+ genes? \\([0-9]+ with r > 0, [0-9]+ with r < 0\\)", out)))
+  expect_true(any(grepl("pValuePermuteAdj < 0.05: [0-9]+ genes? \\([0-9]+ with correlationCoef > 0, [0-9]+ with correlationCoef < 0\\)",
+                        out)))
   expect_true(any(grepl("stopped early: [0-9]+; reached nPermutations: [0-9]+; skipped: 0; failed: 0", out)))
   expect_true(any(grepl("Gpx1", out)))
   s <- summary(res)
@@ -575,7 +585,7 @@ test_that("portable: print(), summary(), [ and as.data.frame() work; progress = 
   expect_identical(s$genes, 3L)
   expect_identical(s$permutations[["total"]], as.double(sum(res$nPermutations)))
   expect_output(print(s), "3 ok, 0 skipped, 0 failed")
-  expect_output(print(s), "permutations per gene: median")
+  expect_output(print(s), "nPermutations per gene: median")
   df <- as.data.frame(res)
   expect_identical(class(df), "data.frame")
   expect_null(attr(df, "params"))
@@ -586,10 +596,10 @@ test_that("portable: print(), summary(), [ and as.data.frame() work; progress = 
   expect_s3_class(rows, "STcompareResult")
   expect_identical(attr(rows, "params"), attr(res, "params"))
   expect_output(print(rows), "STcompareResult: 2 genes on 311 shared pixels")
-  expect_identical(class(res[, c("gene", "p")]), "data.frame")
-  expect_identical(class(res["p"]), "data.frame")
-  expect_identical(res[, "p"], res$p)
-  expect_identical(summary(res[, c("gene", "p")]), summary(df[, c("gene", "p")]))
+  expect_identical(class(res[, c("gene", "pValuePermute")]), "data.frame")
+  expect_identical(class(res["pValuePermute"]), "data.frame")
+  expect_identical(res[, "pValuePermute"], res$pValuePermute)
+  expect_identical(summary(res[, c("gene", "pValuePermute")]), summary(df[, c("gene", "pValuePermute")]))
   # a result whose essential columns were removed is printed as a data frame
   res2 <- res
   res2$status <- NULL

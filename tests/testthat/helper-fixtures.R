@@ -210,8 +210,9 @@ fx_spe_pair <- function(P, genes = P$genes, flip = FALSE) {
   list(mk(P$X[genes, , drop = FALSE]), mk(Y))
 }
 
-# spatialCorrelationGeneExp() (unadjusted p-values) on genes of the realistic fixture at B permutations,
-# computed once per session. flip: Y -> max(Y) - Y per gene (the engineered negatives).
+# spatialCorrelationGeneExp() on genes of the realistic fixture at B permutations, computed once per session,
+# with adjustMethod = "none" (pValuePermuteX/Y are unadjusted in any case; the Adj columns then equal them).
+# flip: Y -> max(Y) - Y per gene (the engineered negatives).
 fx_genes_run <- function(pair, genes, B, flip = FALSE) {
   fx_memo(sprintf("genes:%s:%s:%d:%s", pair, paste(genes, collapse = ","), B, flip), {
     P <- fx_read("realistic_fixture.rds")$pairs[[pair]]

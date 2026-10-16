@@ -45,3 +45,7 @@ s <- spatialSimilarity(list(A = rastKidney$A, B = rastKidney$B))
 pixelClass(s, "Gene")
 
 }
+\seealso{
+\code{\link{plotGene}()}, the standardized figure of a gene in a
+  \code{\link{compareSpatial}()} result, which includes this map.
+}

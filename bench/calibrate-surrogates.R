@@ -25,7 +25,7 @@
 #   power   Mixed fields with population correlation rho in {0.2, 0.4, 0.6} (the stc_mix recipe of the calibration
 #           fixture) on random pairs of the simulated fields, at the same settings and seeds for both modes.
 #   real    The published AKI (1046 genes, CPM) and brain (325 genes, lognorm) inputs from the cache: significant
-#           genes (padj < 0.05) per mode, their overlap, the overlap with the published results (both BH-adjusted
+#           genes (pValuePermuteAdj < 0.05) per mode, their overlap, the overlap with the published results (both BH-adjusted
 #           direction p-values below 0.05), and the wall time of each mode (the cost). Then the whole AKI raster
 #           (all genes, minDetected = 0, nPermutations = 1000): tested and significant genes by number of
 #           detected pixels, per mode.
@@ -182,7 +182,7 @@ run_pair <- function(i, j, rho, seed) {
   do.call(rbind, lapply(modes, function(m) {
     r <- compareSpatial(x, y, tests = "correlation", surrogate = m, minDetected = sqrt_share(x, y), nThreads = 1L,
                         progress = FALSE, verbose = FALSE, seed = seed)
-    data.frame(i = i, j = j, rho = rho, mode = m, N = r$nPixels, r = r$r, p = r$p, L = r$nPermutations, stop = r$stop,
+    data.frame(i = i, j = j, rho = rho, mode = m, N = r$nPixels, r = r$correlationCoef, p = r$pValuePermute, L = r$nPermutations, stop = r$stop,
                status = r$status)
   }))
 }
@@ -245,14 +245,14 @@ if ("sparse" %in% parts) {
     do.call(rbind, lapply(modes, function(m) {
       d <- as.data.frame(res_a[[m]]$value)[kk == k, ]
       data.frame(`detected pixels` = k, mode = m, genes = nrow(d), failed = sum(d$status == "failed"),
-                 `median L` = stats::median(d$nPermutations, na.rm = TRUE), t(stats::setNames(rates(d$p), rate_names)),
+                 `median L` = stats::median(d$nPermutations, na.rm = TRUE), t(stats::setNames(rates(d$pValuePermute), rate_names)),
                  check.names = FALSE)
     }))
   }))
   disc <- vapply(modes, function(m) {
     d <- as.data.frame(res_a[[m]]$value)
-    sprintf("%s: %d BH false discoveries (padj < 0.05) among %d genes, %d p-values at the floor 1 / 10001, %s permutations in %s",
-            m, sum(d$padj < 0.05, na.rm = TRUE), nrow(d), sum(d$p == 1 / 10001, na.rm = TRUE),
+    sprintf("%s: %d BH false discoveries (pValuePermuteAdj < 0.05) among %d genes, %d p-values at the floor 1 / 10001, %s permutations in %s",
+            m, sum(d$pValuePermuteAdj < 0.05, na.rm = TRUE), nrow(d), sum(d$pValuePermute == 1 / 10001, na.rm = TRUE),
             format(sum(d$nPermutations, na.rm = TRUE), big.mark = ","), fmt_s(res_a[[m]]$seconds))
   }, "")
   section("## Null, sparse genes without spatial structure (the acceptance review's setting)", "",
@@ -296,7 +296,7 @@ if ("sparse" %in% parts) {
                    `detected pixels (min of x, y), median` = stats::median(detected[frac == f]), mode = m, genes = nrow(d),
                    `skipped (constant)` = sum(d$status == "skipped"), failed = sum(d$status == "failed"),
                    `median L` = stats::median(d$nPermutations, na.rm = TRUE),
-                   `BH < 0.05` = sum(d$padj < 0.05, na.rm = TRUE), t(stats::setNames(rates(d$p), rate_names)),
+                   `BH < 0.05` = sum(d$pValuePermuteAdj < 0.05, na.rm = TRUE), t(stats::setNames(rates(d$pValuePermute), rate_names)),
                    check.names = FALSE)
       }))
     })))
@@ -307,7 +307,7 @@ if ("sparse" %in% parts) {
                         "span) turned into Poisson counts with the mean chosen so that the given share of pixels is",
                         "detected (nonzero); 100%% is the Gaussian field itself. %d genes per fraction on the AKI",
                         "coordinates and %d on the brain coordinates, both modes on the same genes, default settings,",
-                        "minDetected = 0, seed 5, %d threads. padj is adjusted within each run (all fractions together)."),
+                        "minDetected = 0, seed 5, %d threads. pValuePermuteAdj is adjusted within each run (all fractions together)."),
                   sparse_per_bin[["aki"]], sparse_per_bin[["brain"]], threads), "",
           md_table(tab_b))
   print(tab_b, row.names = FALSE)
@@ -376,12 +376,12 @@ if ("real" %in% parts) {
       d <- lapply(res, function(w) as.data.frame(w$value))
       res_r[[id]] <- d
       pub <- rownames(s$ref)[s$ref$pValuePermuteX < 0.05 & s$ref$pValuePermuteY < 0.05]
-      sig <- lapply(d, function(t) t$gene[!is.na(t$padj) & t$padj < 0.05])
+      sig <- lapply(d, function(t) t$gene[!is.na(t$pValuePermuteAdj) & t$pValuePermuteAdj < 0.05])
       both <- intersect(sig$gaussian, sig$remap)
       real <- rbind(real, do.call(rbind, lapply(modes, function(m) {
         t <- d[[m]]
         data.frame(dataset = id, mode = m, genes = nrow(t), tested = sum(t$status == "ok"), skipped = sum(t$status == "skipped"),
-                   failed = sum(t$status == "failed"), `padj < 0.05` = length(sig[[m]]),
+                   failed = sum(t$status == "failed"), `pValuePermuteAdj < 0.05` = length(sig[[m]]),
                    `in both modes` = length(both), `also published` = length(intersect(sig[[m]], pub)),
                    `published only` = length(setdiff(pub, sig[[m]])), `published total` = length(pub),
                    `median L` = stats::median(t$nPermutations, na.rm = TRUE),
@@ -394,7 +394,7 @@ if ("real" %in% parts) {
     saveRDS(res_r, file.path(out_dir, "real.rds"))
     section("## The published inputs: significant genes and cost", "",
             sprintf(paste("compareSpatial() with the default settings on the inputs of the published analyses (seed 0, %d",
-                          "threads). Significant: padj < 0.05. Published: both BH-adjusted direction p-values below 0.05 in",
+                          "threads). Significant: pValuePermuteAdj < 0.05. Published: both BH-adjusted direction p-values below 0.05 in",
                           "bench/published (100 then 1000 permutations). The last column is the wall time per permutation",
                           "and direction, times the threads, over the permutations kept."), threads), "",
             md_table(real))
@@ -422,10 +422,10 @@ if ("real" %in% parts) {
     tab_all <- do.call(rbind, lapply(levels(bins), function(b) {
       do.call(rbind, lapply(modes, function(m) {
         t <- d_all[[m]][bins == b, ]
-        sig <- !is.na(t$padj) & t$padj < 0.05
+        sig <- !is.na(t$pValuePermuteAdj) & t$pValuePermuteAdj < 0.05
         data.frame(`detected pixels (min of x, y)` = b, mode = m, genes = nrow(t), tested = sum(t$status == "ok"),
-                   `padj < 0.05` = sum(sig), `of them published genes` = sum(sig & t$gene %in% aki$genes),
-                   `P(p <= 0.001)` = if (any(t$status == "ok")) rate(t$p, 0.001) else "",
+                   `pValuePermuteAdj < 0.05` = sum(sig), `of them published genes` = sum(sig & t$gene %in% aki$genes),
+                   `P(p <= 0.001)` = if (any(t$status == "ok")) rate(t$pValuePermute, 0.001) else "",
                    `median L` = if (any(t$status == "ok")) stats::median(t$nPermutations, na.rm = TRUE) else NA,
                    check.names = FALSE)
       }))

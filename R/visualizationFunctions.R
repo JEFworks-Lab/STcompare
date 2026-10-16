@@ -32,6 +32,9 @@
 #'   \item{\strong{Dashed lines:}}{Fold-change similarity thresholds (upper and lower bounds).}
 #' }
 #'
+#' @seealso \code{\link{plotGene}()}, the standardized figure of a gene in a
+#'   \code{\link{compareSpatial}()} result, which includes this scatter plot.
+#'
 #' @export
 #'
 #' @examples
@@ -141,6 +144,9 @@ linearRegression <- function (input, gene, assayName = NULL) {
 #'   \item{\strong{grey}}{Pixels with gene expression below the threshold in both experiments.}
 #' }
 #'   The plot title includes the gene name and its similarity score.
+#'
+#' @seealso \code{\link{plotGene}()}, the standardized figure of a gene in a
+#'   \code{\link{compareSpatial}()} result, which includes this map.
 #'
 #' @export
 #'
@@ -314,6 +320,10 @@ assignFill <- function (input, gene, df) {
 #' @details If \code{filePath} is a directory, each gene's figure is saved there
 #' as a PDF file named after the gene (\code{<gene>.pdf}), 17 inches wide by 5
 #' inches tall.
+#'
+#' @seealso \code{\link{plotGene}()}, the standardized figure of a gene in a
+#'   \code{\link{compareSpatial}()} result (the same panels, plus the native
+#'   resolution and the statistics).
 #'
 #' @export
 #'

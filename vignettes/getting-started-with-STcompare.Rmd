@@ -35,8 +35,8 @@ For every gene it answers two questions:
 
 | Question | Test | Output |
 |---|---|---|
-| Is the gene's spatial **pattern** the same in both samples? | Spatial correlation: Pearson's correlation of the two samples over matched pixels, with a permutation p-value that accounts for spatial autocorrelation | `r`, `p`, `padj` |
-| Is the gene's expression **level** the same at matched locations? | Spatial similarity: the share of matched pixels where the two values are within a fold change of each other | `similarity` (descriptive, no p-value) |
+| Is the gene's spatial **pattern** the same in both samples? | Spatial correlation: Pearson's correlation of the two samples over matched pixels, with a permutation p-value that accounts for spatial autocorrelation | `correlationCoef`, `pValuePermute`, `pValuePermuteAdj` |
+| Is the gene's expression **level** the same at matched locations? | Spatial similarity: the share of matched pixels where the two values are within a fold change of each other | `percentSimilarity` (descriptive, no p-value) |
 
 The two tests are complementary: a gene can have the same pattern at a
 different level (high correlation, low similarity), or the same level with a
@@ -142,38 +142,51 @@ depend on it, and `options(STcompare.nThreads = 8)` sets it for a whole
 session. In an interactive session, `compareSpatial()` also shows a progress
 line with an estimate of the remaining time while the permutations run.
 
-A and B are strongly negatively correlated (r = `r round(ab$r, 3)`): none of
-the `r ab$nPermutations` null correlations was as extreme, so p is the smallest
-possible value, 1/`r sprintf("%d", ab$nPermutations + 1L)`. `r round(100 * ab$similarity)`% of
-their matched pixels are within two-fold of each other. Now A and C:
+A and B are strongly negatively correlated (`correlationCoef` =
+`r round(ab$correlationCoef, 3)`): none of the `r ab$nPermutations` null
+correlations was as extreme, so the permutation p-value `pValuePermute` is the
+smallest possible value, 1/`r sprintf("%d", ab$nPermutations + 1L)`.
+`r round(100 * ab$percentSimilarity)`% of their matched pixels are within
+two-fold of each other (`percentSimilarity`). Now A and C:
 
 ```{r ac}
 ac <- compareSpatial(rast[c("A", "C")], nThreads = 2)
-as.data.frame(ac)[, c("gene", "r", "p", "padj", "nPermutations",
-                      "similarity", "dissimilarityX", "dissimilarityY")]
+as.data.frame(ac)[, c("gene", "correlationCoef", "pValuePermute",
+                      "pValuePermuteAdj", "nPermutations", "percentSimilarity",
+                      "percentDissimilarityX", "percentDissimilarityY")]
 ```
 
-A and C are positively correlated (r = `r round(ac$r, 3)`), yet none of their
-pixels are within two-fold: in `r round(100 * ac$dissimilarityY)`% of the
-pixels kept for the similarity, C is more than twice as high as A.
+A and C are positively correlated (`correlationCoef` =
+`r round(ac$correlationCoef, 3)`), yet none of their pixels are within
+two-fold: in `r round(100 * ac$percentDissimilarityY)`% of the pixels kept for
+the similarity, C is more than twice as high as A.
 
 ## Reading the result
 
 | Column | Meaning |
 |---|---|
 | `gene`, `nPixels` | The gene and the number of shared pixels. |
-| `r` | Pearson's correlation of the gene's values in the two samples over the shared pixels. |
-| `pNaive` | The p-value of `cor.test()`, which assumes that pixels are independent. Neighbouring pixels are not independent, so this value is far too small; it is shown for reference only (see below). |
-| `p` | The permutation p-value of the spatial correlation test. It accounts for the spatial autocorrelation of both samples: the null correlations come from surrogates of one sample that keep its spatial autocorrelation but are unrelated to the other sample. Use this p-value. |
-| `padj` | `p` adjusted for multiple testing across the genes of the call (Benjamini-Hochberg by default, `adjustMethod`). |
-| `pX`, `pY` | Descriptive p-values of the two directions: surrogates of the first sample (X) correlated with the second, and surrogates of the second (Y) correlated with the first. `p` combines them. |
+| `correlationCoef` | Pearson's correlation of the gene's values in the two samples over the shared pixels. |
+| `pValueNaive` | The p-value of `cor.test()`, which assumes that pixels are independent. Neighbouring pixels are not independent, so this value is far too small; it is shown for reference only (see below). |
+| `pValuePermuteX`, `pValuePermuteY` | The permutation p-value of each direction: surrogates of the first sample (X) correlated with the second, and surrogates of the second (Y) correlated with the first; each is (b + 1) / (L + 1) for b null correlations at least as extreme as the observed one among the gene's L permutations. Not adjusted, and descriptive: when a gene stops early, the direction that did not reach `exceedances` has an inflated value. |
+| `pValuePermute` | The permutation p-value of the gene: the larger of the two directions' sequential p-values (`exceedances` / L for the direction that stopped the gene, (b + 1) / (L + 1) at the limit), which is valid whatever the dependence between the two directions. It equals the larger of `pValuePermuteX` and `pValuePermuteY` for a gene that reached `nPermutations`, and is slightly smaller for a gene that stopped early. It accounts for the spatial autocorrelation of both samples: the null correlations come from surrogates of one sample that keep its spatial autocorrelation but are unrelated to the other sample. Not adjusted; its smallest possible value is 1 / (`nPermutations` + 1). |
+| `pValuePermuteAdj` | `pValuePermute` adjusted for multiple testing across the genes of the call (Benjamini-Hochberg by default, `adjustMethod`). Use this column to call a gene significant. |
 | `nPermutations`, `stop` | How many permutations the gene used, and why it stopped: `"exceedances"` when it stopped early because its p-value is clearly not small, `"limit"` when it reached the `nPermutations` argument. |
 | `deltaStarMedianX`, `deltaStarMedianY` | The median smoothing bandwidth (delta star) chosen for the surrogates of each sample. |
 | `deltaGridEdge` | `TRUE` when most surrogates chose the smallest or the largest bandwidth of the grid, a hint to extend the `delta` argument. |
-| `similarity` | The share of the kept pixels whose values are within a fold change of each other, \|log2(y / x)\| <= `foldChange` (1, two-fold, by default). |
-| `dissimilarityX`, `dissimilarityY` | The share of kept pixels more than `foldChange` higher in the first sample (X) and in the second (Y). The three shares add up to 1. The similarity compares fold changes, so it needs values that are not negative: it is `NA` for genes with negative values. |
-| `nPixelsSimilarity`, `thresholdX`, `thresholdY` | The number of pixels kept for the similarity: those above the gene's expression threshold in either sample, `thresholdX` or `thresholdY` (its 5% quantile by default). |
+| `percentSimilarity` | The share (a proportion between 0 and 1, despite the name) of the kept pixels whose values are within a fold change of each other, \|log2(y / x)\| <= `foldChange` (1, two-fold, by default). |
+| `percentDissimilarityX`, `percentDissimilarityY` | The shares of kept pixels more than `foldChange` higher in the first sample (X) and in the second (Y), also proportions. The three shares add up to 1. The similarity compares fold changes, so it needs values that are not negative: it is `NA` for genes with negative values. |
+| `numPixelInThresh`, `t1`, `t2` | The number of pixels kept for the similarity: those above the gene's expression threshold in either sample, `t1` in the first and `t2` in the second (its 5% quantile by default, `minQuantile`). |
 | `status`, `message` | `"ok"`; `"skipped"`, with the reason, for a gene that is not tested for correlation because it is constant in a sample (or, with `surrogate = "gaussian"`, detected in few pixels of a sample; see `minDetected` in `?compareSpatial`); or `"failed"`, with the reason, for a gene that could not be tested (for example because of missing values). |
+
+The columns have the names of the legacy functions
+`spatialCorrelationGeneExp()` and `spatialSimilarity()` where both report the
+same quantity, and a p-value column carries the suffix `Adj` exactly when it is
+adjusted across genes: `compareSpatial()` adjusts its combined p-value
+(`pValuePermuteAdj`), and the legacy function adjusts each direction on its own
+(`pValuePermuteXAdj`, `pValuePermuteYAdj`; see
+[Migrating from the legacy functions](#migrating-from-the-legacy-functions)).
+`?compareSpatial` documents every column.
 
 `as.data.frame()` turns the result into a plain data frame, and `summary()`
 gives the counts:
@@ -196,43 +209,105 @@ patterns from `simRanPatternRasts`:
 data(simRanPatternRasts)
 indep <- compareSpatial(simRanPatternRasts[[1]], simRanPatternRasts[[2]],
                         nThreads = 2)
-as.data.frame(indep)[, c("r", "p", "nPermutations", "stop")]
+as.data.frame(indep)[, c("correlationCoef", "pValuePermute", "nPermutations",
+                         "stop")]
 ```
 
-This gene stopped after `r indep$nPermutations` permutations, with p =
-`r signif(indep$p, 2)`, while A and B used all `r ab$nPermutations`. The
-article [How STcompare works](how-STcompare-works.html) explains why the
-p-value stays valid when genes stop at different times.
+This gene stopped after `r indep$nPermutations` permutations, with
+`pValuePermute` = `r signif(indep$pValuePermute, 2)`, while A and B used all
+`r ab$nPermutations`. The article [How STcompare works](how-STcompare-works.html)
+explains why the p-value stays valid when genes stop at different times.
 
-# Visualize a comparison
+# Visualizing results
 
-The rasterized maps show the patterns. `plotCorrelationGeneExp()` plots the
-values of a gene in the two samples at the shared pixels, with its correlation
-and adjusted p-value:
+`plotGene()` draws one standard figure for a gene of a result: the gene at
+native resolution in both samples, on the shared pixels, the similarity class
+of every pixel, and the expression at matched pixels with the gene's
+statistics. It takes the result, the gene and the two rasterized objects that
+`compareSpatial()` compared, in the same order; `native` gives the objects
+before rasterization, in the same order, for the native-resolution maps.
 
-```{r correlation-plots, fig.height = 3.5, fig.alt = "Scatter plots of the values of Gene at the shared pixels: A against B falls along a line with negative slope, A against C along a line with positive slope."}
-plotCorrelationGeneExp(rast[c("A", "B")], ab, "Gene") +
-  plotCorrelationGeneExp(rast[c("A", "C")], ac, "Gene")
+```{r plot-ab, fig.width = 11, fig.height = 6.5, fig.alt = "The standard figure of Gene for A and B: the cells of A and B coloured by expression, the shared pixels coloured by expression, the pixels coloured by similarity class, and a scatter plot of the values at matched pixels with the statistics."}
+plotGene(ab, "Gene", rast$A, rast$B, native = speKidney[c("A", "B")])
 ```
 
-For the pixel-level view of the similarity, `spatialSimilarity()` computes the
-same similarity as `compareSpatial()` and also returns the class of every
-pixel, which `linearRegression()` and `pixelClass()` plot:
+The panels, each lettered for a figure legend:
 
-```{r similarity, fig.height = 3.5, message = FALSE, warning = FALSE, fig.alt = "Left: values of Gene in A against B at each pixel, coloured by whether they are within two-fold. Right: map of the pixels coloured by the same classes."}
-simAB <- spatialSimilarity(rast[c("A", "B")])
-simAC <- spatialSimilarity(rast[c("A", "C")])
-linearRegression(simAB, "Gene") + pixelClass(simAB, "Gene")
+- **A, B**: the cells of A and B coloured by the counts of the gene (the first
+  assay of the `native` objects; `nativeAssay` chooses another).
+- **C, D**: the shared pixels coloured by the values that the tests compared,
+  here the mean counts `pixelval`. The two maps of a pair share one colour
+  scale, so that the colours of the two samples are comparable
+  (`sharedScale = FALSE` gives each map its own). Pixels that one sample
+  lacks, which the tests did not use, are light grey in every map.
+- **E**: the similarity class of every pixel: within two-fold in both samples
+  (blue), more than two-fold higher in A (orange) or in B (pink), or below
+  the expression threshold in both (grey). The legend gives the share of each
+  class among the pixels above the threshold, so the share of similar pixels
+  is `percentSimilarity`.
+- **F**: the values at matched pixels, A horizontally and B vertically, in the
+  same colours; the solid line is y = x, the dashed lines bound the two-fold
+  band and the dotted lines are the thresholds `t1` and `t2` (the figure's
+  caption is the key). The subtitle gives the gene's row of the result:
+  `correlationCoef` (r), `pValuePermute` (p, marked "minimum" when it is the
+  smallest value the permutations can give), `pValuePermuteAdj`,
+  `pValueNaive`, the number of permutations and `percentSimilarity`.
+
+The anti-correlation of A and B is the falling band of points in F, and E
+shows where the levels differ: around the edge of the kidney A is higher
+(orange), in its centre B is higher (pink). For A and C, the pattern is the
+same, so the points in F line up with a positive slope, but C is more than
+two-fold higher at every pixel, so every point lies above the band and every
+pixel is pink:
+
+```{r plot-ac, fig.width = 11, fig.height = 6.5, fig.alt = "The standard figure of Gene for A and C: the same pattern in both, every pixel more than two-fold higher in C."}
+plotGene(ac, "Gene", rast$A, rast$C, native = speKidney[c("A", "C")])
 ```
 
-In the scatter plot (left), each point is a pixel, with its value in A on the
-x axis and in B on the y axis. Pixels between the dashed lines are within
-two-fold (blue); the others are higher in A (yellow) or in B (red). The map
-(right) shows where these pixels are. For A and C, every kept pixel is higher
-in C:
+Without `native`, the figure has the four panels C to F in one row.
+`panels` selects panels, `transform = "log1p"` draws the maps and the scatter
+axes on a log scale (useful for counts that span orders of magnitude), and
+`?plotGene` describes every option. For a result with many genes,
+`plotOverview(result)` draws the overview of all of them: the correlation of
+every gene against its adjusted p-value, the distribution of the similarity,
+and the two against each other, with the significant genes coloured. The
+[case studies](https://jef.works/STcompare/articles/acute-kidney-injury-10x-visium-rasterized.html)
+show it.
 
-```{r similarityAC, fig.height = 3.5, message = FALSE, warning = FALSE, fig.alt = "The same plots for A and C: every kept pixel is more than two-fold higher in C."}
-linearRegression(simAC, "Gene") + pixelClass(simAC, "Gene")
+## Saving and customizing a figure
+
+The figure is a [patchwork](https://patchwork.data-imaginist.com/) of ggplot2
+panels, so `ggplot2::ggsave()` writes it in any format, with the size in
+inches: 11 by 6.5 suits the six-panel figure, and 11 by 3.5 the four panels of
+one row, with the default text size (`baseSize = 10` points). The maps keep
+the shape of the tissue, so a tissue that is taller than wide, like these
+kidneys, leaves margins at the sides; reduce the width to tighten them.
+
+```{r save, eval = FALSE}
+fig <- plotGene(ab, "Gene", rast$A, rast$B, native = speKidney[c("A", "B")])
+ggsave("Gene-A-vs-B.pdf", fig, width = 11, height = 6.5)
+ggsave("Gene-A-vs-B.png", fig, width = 11, height = 6.5, dpi = 300)
+```
+
+Every text, legend key and point of the figure is scaled from `baseSize`, so
+a journal figure needs only a smaller base size: `baseSize = 7` for the full
+width of a page (180 mm), and `baseSize = 6` with `ncol = 2` for a single
+column (90 mm).
+
+```{r save-journal, eval = FALSE}
+fig <- plotGene(ab, "Gene", rast$A, rast$B, native = speKidney[c("A", "B")],
+                baseSize = 7)
+ggsave("Gene-A-vs-B-180mm.pdf", fig, width = 180, height = 110, units = "mm")
+```
+
+Patchwork's `&` operator applies a ggplot2 theme to every panel, and `+`
+changes the figure's annotation; for example, to draw only the similarity
+panels in a larger serif font, without the panel letters:
+
+```{r customize, fig.width = 7, fig.height = 3.5, fig.alt = "The similarity map and the scatter plot of Gene for A and B, in a serif font and without panel letters."}
+plotGene(ab, "Gene", rast$A, rast$B, panels = c("similarity", "scatter")) +
+  plot_annotation(tag_levels = NULL) &
+  theme(text = element_text(family = "serif", size = 12))
 ```
 
 # Why permutation p-values? A calibration check
@@ -263,27 +338,28 @@ seconds. The null hypothesis is true for every pair, so a calibrated test
 gives p < 0.05 for about 5% of them:
 
 ```{r calibration-counts}
-c(naive = sum(calibration$pNaive < 0.05),
-  permutation = sum(calibration$p < 0.05))
-c(naive = sum(p.adjust(calibration$pNaive, "BH") < 0.05),
-  permutation = sum(p.adjust(calibration$p, "BH") < 0.05))
+c(naive = sum(calibration$pValueNaive < 0.05),
+  permutation = sum(calibration$pValuePermute < 0.05))
+c(naive = sum(p.adjust(calibration$pValueNaive, "BH") < 0.05),
+  permutation = sum(p.adjust(calibration$pValuePermute, "BH") < 0.05))
 ```
 
-`r sum(calibration$pNaive < 0.05)` of 50 naive p-values are below 0.05, and
-`r sum(p.adjust(calibration$pNaive, "BH") < 0.05)` pairs remain "significant"
+`r sum(calibration$pValueNaive < 0.05)` of 50 naive p-values are below 0.05, and
+`r sum(p.adjust(calibration$pValueNaive, "BH") < 0.05)` pairs remain "significant"
 after the Benjamini-Hochberg adjustment. The permutation test gives
-`r sum(calibration$p < 0.05)` of 50, in line with the 2.5 expected by chance:
+`r sum(calibration$pValuePermute < 0.05)` of 50, in line with the 2.5 expected by chance:
 the one-sided binomial p-value of seeing at least that many is
-`r format.pval(binom.test(sum(calibration$p < 0.05), 50, 0.05, alternative = "greater")$p.value, digits = 2)`,
+`r format.pval(binom.test(sum(calibration$pValuePermute < 0.05), 50, 0.05, alternative = "greater")$p.value, digits = 2)`,
 against
-`r format.pval(binom.test(sum(calibration$pNaive < 0.05), 50, 0.05, alternative = "greater")$p.value, digits = 2)`
+`r format.pval(binom.test(sum(calibration$pValueNaive < 0.05), 50, 0.05, alternative = "greater")$p.value, digits = 2)`
 for the naive test. After the adjustment, the permutation test gives
-`r sum(p.adjust(calibration$p, "BH") < 0.05)`.
+`r sum(p.adjust(calibration$pValuePermute, "BH") < 0.05)`.
 
 ```{r calibration-plot, fig.height = 3, fig.alt = "Histograms of the p-values of 50 unrelated pairs: the naive p-values pile up near 0, the permutation p-values do not."}
 pvalues <- rbind(
-  data.frame(test = "naive (cor.test)", p = calibration$pNaive),
-  data.frame(test = "permutation (compareSpatial)", p = calibration$p))
+  data.frame(test = "naive (cor.test)", p = calibration$pValueNaive),
+  data.frame(test = "permutation (compareSpatial)",
+             p = calibration$pValuePermute))
 ggplot(pvalues, aes(p)) +
   geom_histogram(breaks = seq(0, 1, 0.05), colour = "white") +
   geom_hline(yintercept = 50 * 0.05, linetype = "dashed") +
@@ -310,15 +386,15 @@ for new analyses.
 | `spatialCorrelationGeneExp(list(A = a, B = b))` | `compareSpatial(list(A = a, B = b), tests = "correlation")` |
 | `spatialCorrelationGeneExpIterPermutations()` (100, then 1000 permutations for promising genes) | adaptive permutations, the default (`exceedances = 10`, `nPermutations = 10000`) |
 | `spatialSimilarity(list(a, b))` | `compareSpatial(a, b, tests = "similarity")` |
-| `correlationCoef`, `pValueNaive` | `r`, `pNaive` |
-| `pValuePermuteX`, `pValuePermuteY` (each adjusted across genes); significant when both are below 0.05 | `p` = the larger of the two directions' p-values, and `padj`; significant when `padj` < 0.05 |
+| `correlationCoef`, `pValueNaive` | the same |
+| `pValuePermuteX`, `pValuePermuteY`: the raw p-value of each direction; `pValuePermuteXAdj`, `pValuePermuteYAdj`: each adjusted across genes; significant when both adjusted values are below 0.05 (before version 2.0.0 there were no `Adj` columns: `spatialCorrelationGeneExpIterPermutations()` returned the adjusted values as `pValuePermuteX` and `pValuePermuteY`, and `spatialCorrelationGeneExp()`, which adjusted one gene at a time, returned unadjusted values under these names) | `pValuePermuteX`, `pValuePermuteY`: the raw p-value of each direction; `pValuePermute` = the gene's p-value, the larger of the two directions' sequential p-values; `pValuePermuteAdj` = `pValuePermute` adjusted across genes; significant when `pValuePermuteAdj` < 0.05 |
 | `deltaStarMedianX`, `deltaStarMedianY` | the same |
-| `percentSimilarity`, `percentDissimilarityX`, `percentDissimilarityY` | `similarity`, `dissimilarityX`, `dissimilarityY` |
-| `numPixelInThresh`, `t1`, `t2` | `nPixelsSimilarity`, `thresholdX`, `thresholdY` |
+| `percentSimilarity`, `percentDissimilarityX`, `percentDissimilarityY` | the same |
+| `numPixelInThresh`, `t1`, `t2` | the same |
 
 The differences in the results:
 
-- `r`, `pNaive` and the similarity scores are identical.
+- `correlationCoef`, `pValueNaive` and the similarity scores are identical.
 - The permutation p-values differ: `compareSpatial()` draws independent
   permutations for each gene and direction (the earlier functions share one
   set across genes), stops early for genes that are clearly not significant,
@@ -337,6 +413,19 @@ The differences in the results:
 - `compareSpatial()` checks that the shared pixels have the same coordinates,
   uses the genes present in both samples, and reports genes that are skipped or
   cannot be tested in its `status` and `message` columns instead of stopping.
+
+The plotting functions of earlier versions are also unchanged:
+`plotCorrelationGeneExp()` draws the scatter plot of a gene from the
+rasterized objects and a correlation result, and `linearRegression()` and
+`pixelClass()` draw the scatter plot and the map of the similarity classes
+from a `spatialSimilarity()` result, which `savePlots()` writes to files.
+`plotGene()` draws all of this, and more, from one `compareSpatial()` result.
+
+```{r legacy-plots, fig.height = 6, message = FALSE, warning = FALSE, fig.alt = "The legacy plots of Gene for A and B: the scatter plot of plotCorrelationGeneExp() above, and the scatter plot and the map of the similarity classes of linearRegression() and pixelClass() below."}
+simAB <- spatialSimilarity(rast[c("A", "B")])
+plotCorrelationGeneExp(rast[c("A", "B")], ab, "Gene") /
+  (linearRegression(simAB, "Gene") + pixelClass(simAB, "Gene"))
+```
 
 # Next steps
 

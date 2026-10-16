@@ -394,7 +394,7 @@ test_that("portable: continuing a session for some genes equals a single longer 
   expect_identical(ext3, strip(run(21)))
 })
 
-test_that("portable: spatialCorrelationGeneExpIterPermutations() extends the promoted genes (= fresh runs at the larger B), never promotes NA rows, and adjusts at the end", {
+test_that("portable: spatialCorrelationGeneExpIterPermutations() extends the promoted genes (= fresh runs at the larger B), never promotes NA rows, and adjusts at the end into the Adj columns", {
   P <- rf$pairs$aki
   genes <- c("Gpx1", "Ech1", "Upk2", "Tspan8", "Rbp4", "Igf1", "Dcn")
   P$Y["Upk2", ] <- 7  # constant: an NA row (the R implementation crashed on it in round 2)
@@ -417,10 +417,21 @@ test_that("portable: spatialCorrelationGeneExpIterPermutations() extends the pro
   expect_identical(it[promoted, ], f25[promoted, ])
   expect_identical(it[!promoted, ], f10[!promoted, ])
   expect_identical(lengths(it$nullCorrelationsX), ifelse(promoted, 25L, ifelse(is.na(f10$pValuePermuteX), 1L, 10L)))
-  # the final adjustment is applied across all genes, to each column separately
+  # the screening used the raw p-values: pValuePermuteX/Y are (b + 1) / (B + 1) of each gene's own nulls at its
+  # final B, and with adjustMethod = "none" the Adj columns equal them
+  for (dir in c("X", "Y")) {
+    expect_equal(it[[paste0("pValuePermute", dir)]],
+                 mapply(stc_empirical_p, it[[paste0("nullCorrelations", dir)]], it$correlationCoef), info = dir)
+    expect_identical(it[[paste0("pValuePermute", dir, "Adj")]], it[[paste0("pValuePermute", dir)]], info = dir)
+  }
+  # the final adjustment is applied across all genes, to each direction separately, into the Adj columns
+  # (after pValuePermuteY); the raw columns and everything else are unchanged
   bh <- run(spatialCorrelationGeneExpIterPermutations, nPermutations = c(10, 25), alpha = 0.04)
-  expect_identical(bh$pValuePermuteX, stats::p.adjust(it$pValuePermuteX, method = "BH"))
-  expect_identical(bh$pValuePermuteY, stats::p.adjust(it$pValuePermuteY, method = "BH"))
+  expect_identical(names(bh)[3:6], c("pValuePermuteX", "pValuePermuteY", "pValuePermuteXAdj", "pValuePermuteYAdj"))
+  expect_identical(bh$pValuePermuteXAdj, stats::p.adjust(it$pValuePermuteX, method = "BH"))
+  expect_identical(bh$pValuePermuteYAdj, stats::p.adjust(it$pValuePermuteY, method = "BH"))
+  keep <- setdiff(names(bh), c("pValuePermuteXAdj", "pValuePermuteYAdj"))  # (it also has the permutations)
+  expect_identical(bh[keep], it[keep])
   expect_identical(bh$nullCorrelationsY, it$nullCorrelationsY)
   # a single round equals spatialCorrelationGeneExp()
   one <- run(spatialCorrelationGeneExpIterPermutations, nPermutations = 10)

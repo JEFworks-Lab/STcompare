@@ -304,14 +304,25 @@ these data it finds exactly the same significant genes. See
 
 # Interpret the results
 
-We classify the tested genes by the sign of their correlation and their
-adjusted p-value:
+`plotOverview()` draws the overview of a result: the correlation of every gene
+against its adjusted permutation p-value (A), the distribution of the
+similarity (B), and the correlation against the similarity (C), with the
+significant genes coloured by the sign of their correlation.
+
+```{r overview, fig.width = 11, fig.height = 4, fig.alt = "Overview of the result: the correlation of every gene against its adjusted p-value, a histogram of the similarity, and the similarity against the correlation, with the significantly positively and negatively correlated genes coloured."}
+plotOverview(res)
+```
+
+The genes along the top of A are those whose p-value reached the floor of the
+permutations, 1/1001. We classify the tested genes by the sign of their
+correlation (`correlationCoef`) and their adjusted permutation p-value
+(`pValuePermuteAdj`):
 
 ```{r classes}
 tab <- as.data.frame(res)
 tab <- tab[tab$status == "ok", ]
-tab$class <- factor(ifelse(tab$padj < 0.05,
-                           ifelse(tab$r > 0, "positive", "negative"),
+tab$class <- factor(ifelse(tab$pValuePermuteAdj < 0.05,
+                           ifelse(tab$correlationCoef > 0, "positive", "negative"),
                            "not significant"),
                     levels = c("positive", "negative", "not significant"))
 table(tab$class)
@@ -324,29 +335,10 @@ anti-correlated patterns. (The published analysis, with the legacy two-stage
 permutations, found 707 and 24.) Most of these genes keep their pattern after
 the injury; a small group has the opposite pattern.
 
-```{r violin, fig.height = 3.5, fig.alt = "Violin plots of the correlation between the control and AKI sections for significantly positive, significantly negative and not significant genes."}
-ggplot(tab, aes(class, r, colour = class)) +
-  geom_violin() +
-  geom_jitter(width = 0.2, alpha = 0.2, size = 0.6) +
-  scale_colour_manual(values = c(positive = "forestgreen", negative = "blue",
-                                 "not significant" = "grey50")) +
-  labs(x = NULL, y = "Correlation (control vs AKI)") +
-  theme_classic() +
-  theme(legend.position = "none")
-```
-
-Correlation describes the pattern; the similarity describes the levels. Among
-the significantly correlated genes, positively and negatively correlated genes
-cover the whole range of similarity: the two tests answer different questions.
-
-```{r correlation-vs-similarity, fig.height = 3.5, fig.alt = "Similarity against correlation for the significantly correlated genes: positively and negatively correlated genes cover the whole range of similarity."}
-ggplot(subset(tab, class != "not significant"),
-       aes(r, similarity, colour = class)) +
-  geom_point(alpha = 0.4, size = 1) +
-  scale_colour_manual(values = c(positive = "forestgreen", negative = "blue")) +
-  labs(x = "Correlation", y = "Similarity", colour = NULL) +
-  theme_classic()
-```
+Correlation describes the pattern; the similarity describes the levels. Panel
+C shows that among the significantly correlated genes, positively and
+negatively correlated genes cover the whole range of similarity: the two
+tests answer different questions.
 
 # Example genes
 
@@ -360,56 +352,60 @@ Two examples illustrate the combinations:
 
 ```{r examples}
 positive <- tab[tab$class == "positive", ]
-gene1 <- positive$gene[order(positive$similarity, -positive$r)][1]
+gene1 <- positive$gene[order(positive$percentSimilarity,
+                             -positive$correlationCoef)][1]
 negative <- tab[tab$class == "negative", ]
-gene2 <- negative$gene[order(abs(negative$dissimilarityX -
-                                 negative$dissimilarityY))][1]
-tab[c(gene1, gene2), c("gene", "r", "padj", "similarity",
-                       "dissimilarityX", "dissimilarityY")]
+gene2 <- negative$gene[order(abs(negative$percentDissimilarityX -
+                                 negative$percentDissimilarityY))][1]
+tab[c(gene1, gene2), c("gene", "correlationCoef", "pValuePermuteAdj",
+                       "percentSimilarity", "percentDissimilarityX",
+                       "percentDissimilarityY")]
 ```
 
-`dissimilarityX` is the share of pixels more than two-fold higher in the
-control (x), and `dissimilarityY` in the AKI section (y). We plot the CPM of
-the two genes on the shared pixels, and the classes of the pixels from
-`spatialSimilarity()`, which `linearRegression()` and `pixelClass()` draw:
+`percentDissimilarityX` is the share of pixels more than two-fold higher in the
+control (x), and `percentDissimilarityY` in the AKI section (y). `plotGene()`
+draws the standard figure of a gene from the result and the rasterized
+objects: with `native`, the spots of the two sections (`control` and `aki`,
+whose assay holds the counts; `nativeUnit` names them) at native resolution
+(A, B), then the CPM of
+the shared pixels (C, D), the similarity class of every pixel (E) and the CPM
+at matched pixels with the gene's statistics (F). The CPM of `r gene1` spans
+orders of magnitude, so its maps and scatter axes are drawn on a log scale
+(`transform = "log1p"`).
 
-```{r example-plots, fig.height = 6.5, message = FALSE, warning = FALSE, fig.alt = "For each of the two example genes: maps of its CPM in the control and AKI sections, a scatter plot of the two at each pixel coloured by similarity class, and a map of the classes."}
-shared <- intersect(colnames(rast$control), colnames(rast$AKI))
-sim <- spatialSimilarity(list(control = rast$control[c(gene1, gene2), ],
-                              AKI = rast$AKI[c(gene1, gene2), ]),
-                         assayName = "CPM")
-genePanels <- function(gene) {
-  (SEraster::plotRaster(rast$control[, shared], assay_name = "CPM",
-                        feature_name = gene, plotTitle = paste(gene, "control"),
-                        name = "CPM") |
-     SEraster::plotRaster(rast$AKI[, shared], assay_name = "CPM",
-                          feature_name = gene, plotTitle = paste(gene, "AKI"),
-                          name = "CPM")) /
-    (linearRegression(sim, gene, assayName = "CPM") |
-       pixelClass(sim, gene, assayName = "CPM"))
-}
-genePanels(gene1)
-genePanels(gene2)
+```{r example-gene1, fig.width = 11, fig.height = 6.5, fig.alt = "The standard figure of the first example gene: its counts in the spots of both sections, its CPM on the shared pixels, the similarity classes of the pixels, all higher after the injury, and the scatter plot of the CPM at matched pixels."}
+plotGene(res, gene1, rast$control, rast$AKI, native = list(control, aki),
+         nativeUnit = "spots", transform = "log1p")
+```
+
+```{r example-gene2, fig.width = 11, fig.height = 6.5, fig.alt = "The standard figure of the second example gene: its counts in the spots of both sections, its CPM on the shared pixels, the similarity classes of the pixels, mostly within two-fold, and the scatter plot of the CPM at matched pixels."}
+plotGene(res, gene2, rast$control, rast$AKI, native = list(control, aki),
+         nativeUnit = "spots")
 ```
 
 ```{r example-text, include = FALSE}
-higher1 <- if (tab[gene1, "dissimilarityY"] > tab[gene1, "dissimilarityX"]) {
-  list(share = tab[gene1, "dissimilarityY"], where = "after the injury")
+higher1 <- if (tab[gene1, "percentDissimilarityY"] >
+               tab[gene1, "percentDissimilarityX"]) {
+  list(share = tab[gene1, "percentDissimilarityY"], where = "after the injury")
 } else {
-  list(share = tab[gene1, "dissimilarityX"], where = "in the control")
+  list(share = tab[gene1, "percentDissimilarityX"], where = "in the control")
 }
 ```
 
 `r gene1` has the same pattern in both sections
-(r = `r round(tab[gene1, "r"], 2)`), but in
+(r = `r round(tab[gene1, "correlationCoef"], 2)`), but in
 `r round(100 * higher1$share)`% of the kept pixels it is more than two-fold
 higher `r higher1$where`. `r gene2` is anti-correlated
-(r = `r round(tab[gene2, "r"], 2)`) although
-`r round(100 * tab[gene2, "similarity"])`% of its pixels are within two-fold:
+(r = `r round(tab[gene2, "correlationCoef"], 2)`) although
+`r round(100 * tab[gene2, "percentSimilarity"])`% of its pixels are within two-fold:
 its overall level did not change, but where it is highest did. The pixels more
 than two-fold higher in the control
-(`r round(100 * tab[gene2, "dissimilarityX"])`%, yellow) and after the injury
-(`r round(100 * tab[gene2, "dissimilarityY"])`%, red) lie in different regions.
+(`r round(100 * tab[gene2, "percentDissimilarityX"])`%, orange) and after the injury
+(`r round(100 * tab[gene2, "percentDissimilarityY"])`%, pink) lie in different
+regions (E). `ggplot2::ggsave()` saves either figure, for example
+`ggsave("gene1.pdf", plotGene(res, gene1, ...), width = 11, height = 6.5)`; see
+[Getting started](https://jef.works/STcompare/articles/getting-started-with-STcompare.html#visualizing-results)
+for the panels and how to customize them.
 
 # Session information
 

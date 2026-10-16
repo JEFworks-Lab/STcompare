@@ -45,7 +45,7 @@ rast <- SEraster::rasterizeGeneExpression(speKidney, assay_name = "counts",
 | `maxDistPrctile` | 0.25 | The range of distances over which the variograms are matched | Rarely |
 | `foldChange` | 1 | The similarity band, \|log2(y / x)\| <= `foldChange` (1 is two-fold) | `log2(1.5)` for 1.5-fold |
 | `minQuantile`, `minPixels` | 0.05, 0.1 | Which pixels count for the similarity, and the least share of pixels kept | For genes expressed in a small part of the tissue |
-| `adjustMethod` | `"BH"` | The adjustment of `p` across the genes of the call | Any method of `p.adjust()` |
+| `adjustMethod` | `"BH"` | The adjustment of `pValuePermute` across the genes of the call, which gives `pValuePermuteAdj` | Any method of `p.adjust()` |
 | `seed` | 0 | The random permutations | To check that a conclusion does not depend on the random draws |
 | `nThreads` | `getOption("STcompare.nThreads", 1)` | The number of threads | Set it to the number of cores available |
 
@@ -153,7 +153,8 @@ gene whose patterns are unrelated costs on average about
 \(h (1 + \ln(n / h))\) permutations, around 80 for the defaults, instead of
 \(n\). A larger `exceedances` gives more precise large p-values at a
 proportional cost; `exceedances = Inf` gives every gene exactly
-`nPermutations` permutations and \(p = \max(p_X, p_Y)\).
+`nPermutations` permutations and \(p = \max(p_X, p_Y)\), that is
+`pValuePermute = max(pValuePermuteX, pValuePermuteY)`.
 
 # The variogram range: `maxDistPrctile`
 
@@ -170,8 +171,8 @@ few pixel pairs fall in the range to compute a variogram.
 
 `foldChange` is on the log2 scale: 1 means within two-fold, `log2(1.5)` within
 1.5-fold. Each gene gets a threshold in each sample, its `minQuantile`
-quantile over the shared pixels (or `t1` and `t2` in `spatialSimilarity()`), and
-a pixel counts when it is above the threshold in either sample. If fewer than
+quantile over the shared pixels (the columns `t1` and `t2`), and a pixel
+counts when it is above the threshold in either sample. If fewer than
 a share `minPixels` of the pixels count, the similarity is `NA`. For a gene
 expressed in a small region, lower `minPixels`; to ignore background levels, raise
 `minQuantile`.
@@ -246,9 +247,10 @@ the other messages.
 direction has its own random stream, determined by the seed, the gene name,
 the direction and the permutation number. A gene therefore gets the same
 permutations whatever the number of threads, the order of the genes, or the
-other genes in the call; only `padj`, which adjusts across the genes of the
-call, depends on the other genes. The permutations are drawn over the shared
-pixels in the column order of the first sample, as in the legacy functions:
+other genes in the call; only `pValuePermuteAdj`, which adjusts across the
+genes of the call, depends on the other genes. The permutations are drawn over
+the shared pixels in the column order of the first sample, as in the legacy
+functions:
 reordering its pixels, or swapping the two samples, gives other permutations.
 A different seed does too: the null correlations are other draws, and the
 p-values agree within Monte Carlo error (here two unrelated patterns, with
@@ -263,7 +265,7 @@ unrelated <- function(seed) {
 }
 runs <- list(seed0 = unrelated(0), seed1 = unrelated(1))
 t(sapply(runs, function(res) {
-  c(p = res$p, nPermutations = res$nPermutations,
+  c(pValuePermute = res$pValuePermute, nPermutations = res$nPermutations,
     firstNulls = round(attr(res, "details")[[1]]$nullX[1:3], 3))
 }))
 ```
@@ -300,8 +302,12 @@ The functions of earlier versions remain available with their interface and
 semantics. They are computed by the same compiled engine as `compareSpatial()`,
 much faster than before, and reproduce the published analyses: the same delta
 stars, the same null correlations up to rounding, and the same p-values, except
-that p-values are now \((b + 1) / (B + 1)\), never 0, and adjusted across genes
-as documented.
+that p-values are now \((b + 1) / (B + 1)\), never 0, and that the gene-wise
+functions return them raw in `pValuePermuteX` and `pValuePermuteY` and adjusted
+across genes in `pValuePermuteXAdj` and `pValuePermuteYAdj` (earlier versions
+had no `Adj` columns: the iterative function returned the adjusted values under
+the first two names, and `spatialCorrelationGeneExp()`, which adjusted one gene
+at a time, returned unadjusted values under them).
 
 | Function | What it does | Use it to |
 |---|---|---|
@@ -310,7 +316,8 @@ as documented.
 | `spatialCorrelationGeneExpIterPermutations()` | The same, with a second round of more permutations for genes that look significant | Reproduce published results |
 | `spatialCorrelationGeneExpWithinSample()` | The correlation test for pairs of genes within one sample | Compare genes with each other |
 | `spatialCorrelation()`, `viladomatCorrelation()` | The correlation test for vectors of values and coordinates | Use the test outside of `SpatialExperiment` objects |
-| `spatialSimilarity()` | The similarity, with the class of every pixel | Plot pixel classes with `linearRegression()` and `pixelClass()` |
+| `spatialSimilarity()` | The similarity, with the class of every pixel | Get the classes as a table; `linearRegression()` and `pixelClass()` plot them |
+| `plotGene()`, `plotOverview()` | The standard figures of a `compareSpatial()` result: one gene, and all genes | Inspect and publish results |
 
 Re-running the six published analyses with the legacy functions on macOS
 (arm64), where they were computed, gives identical delta stars and null
@@ -335,7 +342,8 @@ values, and reports one p-value per gene. On the published analyses, with its
 default settings (no gene is skipped; `nPermutations = 1000` gives the same
 significant genes), the two agree on the significance of 98% of the kidney
 genes and 86% of the brain genes, counting a gene as significant with the
-legacy function when both of its adjusted p-values are below 0.05:
+legacy function when both of its adjusted p-values (`pValuePermuteXAdj` and
+`pValuePermuteYAdj`) are below 0.05:
 
 | Analysis | Significant with both | Legacy function only | `compareSpatial()` only |
 |---|---:|---:|---:|
@@ -343,10 +351,10 @@ legacy function when both of its adjusted p-values are below 0.05:
 | Brain, 325 genes | 128 | 0 | 45 |
 
 The kidney genes classified differently are near the significance threshold
-(adjusted p-values between 0.02 and 0.08 with `compareSpatial()`, and a larger
-of the two legacy p-values between 0.04 and 0.14), where Monte Carlo error and
-the different adjustments (one p-value per gene rather than one per direction)
-decide. The 45 brain genes that only `compareSpatial()` finds are all
+(`pValuePermuteAdj` between 0.02 and 0.08 with `compareSpatial()`, and a larger
+of the two adjusted legacy p-values between 0.04 and 0.14), where Monte Carlo
+error and the different adjustments (one p-value per gene rather than one per
+direction) decide. The 45 brain genes that only `compareSpatial()` finds are all
 positively correlated (\(r\) = 0.06 to 0.24), and they come from the remapped
 surrogates: with `surrogate = "gaussian"`, the surrogates of the legacy
 function, and its \(\sqrt{N}\) filter (which skips 28 of the brain genes),

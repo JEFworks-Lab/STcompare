@@ -38,13 +38,16 @@
 #'   directions (\code{x} permuted, \code{y} permuted) run in lockstep, and a
 #'   gene stops at the first permutation \eqn{L} at which either direction
 #'   has \code{exceedances} null correlations whose absolute value is at least
-#'   \eqn{|r|}, or at \code{nPermutations}. Its p-value is
-#'   \code{exceedances / L} if it stopped early, and otherwise
+#'   \eqn{|r|}, or at \code{nPermutations}. Its p-value
+#'   (\code{pValuePermute}) is \code{exceedances / L} if it stopped early, and
+#'   otherwise
 #'   \eqn{(\max(b_x, b_y) + 1) / (L + 1)}{(max(bX, bY) + 1) / (L + 1)}, where
 #'   \eqn{b_x}{bX} and \eqn{b_y}{bY} count the exceedances of each direction.
-#'   This equals the larger of the two directions' own sequential p-values, so
-#'   it needs no assumption about how the two directions are related: if the
-#'   observed correlation is distributed like the null correlations of either
+#'   This is the larger of the two directions' sequential p-values, each
+#'   \eqn{h / L} when the direction stopped the gene (\eqn{b = h}) and
+#'   \eqn{(b + 1) / (L + 1)} at the limit, so it needs no
+#'   assumption about how the two directions are related: if the observed
+#'   correlation is distributed like the null correlations of either
 #'   direction, \eqn{P(p \le \alpha) \le \alpha}{P(p <= alpha) <= alpha} at
 #'   every \eqn{\alpha}. The surrogates approximate that null distribution;
 #'   with \code{surrogate = "gaussian"} the approximation fails for genes
@@ -53,8 +56,33 @@
 #'   permutations, and a significant gene runs to \code{nPermutations}, which
 #'   sets the smallest possible p-value, \code{1 / (nPermutations + 1)}. With
 #'   \code{exceedances = Inf} every gene gets exactly \code{nPermutations}
-#'   permutations and \code{p = max(pX, pY)}. The p-values are adjusted
-#'   across the tested genes with \code{adjustMethod}.
+#'   permutations. The columns \code{pValuePermuteX} and
+#'   \code{pValuePermuteY} always hold \eqn{(b + 1) / (L + 1)}, so
+#'   \code{pValuePermute} equals their maximum for a gene that reached
+#'   \code{nPermutations} and is slightly smaller, \eqn{h / L} instead of
+#'   \eqn{(h + 1) / (L + 1)}, for a gene that stopped early.
+#'   \code{pValuePermute} is adjusted across the tested
+#'   genes with \code{adjustMethod}, which gives \code{pValuePermuteAdj}.
+#'
+#'   \strong{Which p-value should I report?} \code{pValuePermuteAdj}: the
+#'   permutation p-value of the gene, adjusted for the number of genes tested.
+#'   A gene with \code{pValuePermuteAdj < 0.05} has spatial expression
+#'   patterns that are correlated between the samples beyond what the spatial
+#'   autocorrelation of each pattern explains, at a false discovery rate of 5
+#'   percent (with the default \code{adjustMethod = "BH"}). The unadjusted
+#'   \code{pValuePermute} is the per-gene p-value to report next to it, and
+#'   its smallest possible value is \code{1 / (nPermutations + 1)}.
+#'   \code{pValuePermuteX} and \code{pValuePermuteY} are descriptive: they are
+#'   not adjusted, and when a gene stops early the direction that did not
+#'   reach \code{exceedances} has an inflated value. \code{pValueNaive}
+#'   ignores the spatial autocorrelation and is far too small; it is reported
+#'   only to show how much the permutation test matters. The legacy
+#'   \code{\link{spatialCorrelationGeneExp}()} returns the same unadjusted
+#'   \code{pValuePermuteX} and \code{pValuePermuteY} (for a fixed number of
+#'   permutations), plus each of them adjusted across genes,
+#'   \code{pValuePermuteXAdj} and \code{pValuePermuteYAdj}; all four are per
+#'   direction, and there is no combined p-value: the published analyses
+#'   called a gene significant when both adjusted p-values were below 0.05.
 #'
 #'   \strong{Rank-remapped surrogates.} With \code{surrogate = "remap"} (the
 #'   default), the values of each surrogate are replaced by the gene's own
@@ -119,8 +147,8 @@
 #'   \strong{Spatial similarity.} The same computation as
 #'   \code{\link{spatialSimilarity}()}: for each gene, pixels are kept when
 #'   their value is above the gene's \code{minQuantile} quantile in \code{x} or
-#'   in \code{y}; zeros among them are replaced by 1e-4; \code{similarity} is
-#'   the share of kept pixels with
+#'   in \code{y}; zeros among them are replaced by 1e-4;
+#'   \code{percentSimilarity} is the proportion of kept pixels with
 #'   \eqn{|\log_2(y / x)| \le}{|log2(y / x)| <=} \code{foldChange}. It is
 #'   \code{NA} when fewer than a share \code{minPixels} of the pixels are kept.
 #'   A fold change needs values that are not negative (counts or normalized
@@ -131,8 +159,9 @@
 #'   direction come from their own random stream, which depends only on
 #'   \code{seed}, the gene's name, the direction and the permutation number.
 #'   The results therefore do not depend on \code{nThreads}, on the order of
-#'   the genes, or on which other genes are in the call (except \code{padj}),
-#'   and the global random number generator (\code{.Random.seed}) is left
+#'   the genes, or on which other genes are in the call (except
+#'   \code{pValuePermuteAdj}, which is adjusted over the tested genes), and
+#'   the global random number generator (\code{.Random.seed}) is left
 #'   unchanged. The permutations are drawn over the shared pixels in the
 #'   column order of \code{x} (the order of \code{y} does not matter), and
 #'   each direction has its own streams: reordering the pixels of \code{x}, or
@@ -218,8 +247,9 @@
 #'   as its expression threshold for the similarity. Default 0.05.
 #' @param minPixels The smallest share of the pixels that must pass the
 #'   threshold for the similarity to be computed. Default 0.1.
-#' @param adjustMethod The multiple-testing adjustment of \code{p} across
-#'   genes, one of \code{stats::p.adjust.methods}. Default \code{"BH"}.
+#' @param adjustMethod The multiple-testing adjustment of \code{pValuePermute}
+#'   across the tested genes, which gives \code{pValuePermuteAdj}; one of
+#'   \code{stats::p.adjust.methods}. Default \code{"BH"}.
 #' @param seed An integer seed for the permutations and the noise. Default 0.
 #' @param nThreads The number of threads. Default
 #'   \code{getOption("STcompare.nThreads", 1L)}, so it can be set once per
@@ -235,62 +265,124 @@
 #'   permutation in \code{attr(result, "details")}. Default \code{FALSE}.
 #'
 #' @return A data frame of class \code{"STcompareResult"} with one row per gene
-#'   (row names are the genes). Columns of a test that was not run are
-#'   absent.
+#'   (row names are the genes) and the columns below, in this order. The
+#'   columns of a test that was not run are absent. The column names are
+#'   those of the legacy functions, \code{\link{spatialCorrelationGeneExp}()}
+#'   and \code{\link{spatialSimilarity}()}, where the two report the same
+#'   quantity; the differences in meaning are stated for each column. In the
+#'   formulas, \eqn{L} is the number of permutations of the gene (the
+#'   \code{nPermutations} column), and \eqn{b_x}{bX} and \eqn{b_y}{bY} count
+#'   its null correlations whose absolute value is at least the observed
+#'   \eqn{|r|} when \code{x} and when \code{y} is permuted.
 #' \describe{
-#'   \item{\code{gene}}{The gene.}
-#'   \item{\code{nPixels}}{The number of shared pixels.}
-#'   \item{\code{r}}{Pearson's correlation of the gene in \code{x} and
-#'   \code{y}.}
-#'   \item{\code{pNaive}}{The p-value of \code{cor.test()}, which assumes
-#'   independent pixels; for reference only: under spatial autocorrelation it
-#'   is far too small.}
-#'   \item{\code{p}}{The permutation p-value (see Details).}
-#'   \item{\code{padj}}{\code{p} adjusted across the genes with
-#'   \code{adjustMethod} (skipped and failed genes are not counted).}
-#'   \item{\code{pX}, \code{pY}}{\eqn{(b + 1) / (L + 1)} for the direction
-#'   that permutes \code{x} and for the one that permutes \code{y}, at the
-#'   common number of permutations \eqn{L}. They are descriptive: when a gene
-#'   stops early, the direction that did not reach \code{exceedances} has an
-#'   inflated value. Use \code{p}.}
-#'   \item{\code{nPermutations}}{The number of permutations used (\eqn{L}).}
+#'   \item{\code{gene}}{The gene (also the row name).}
+#'   \item{\code{nPixels}}{The number of shared pixels, the same for every
+#'   gene.}
+#'   \item{\code{correlationCoef}}{Pearson's correlation \eqn{r} of the
+#'   gene's values in \code{x} and \code{y} over the shared pixels
+#'   (\code{cor()}). Reported for every gene with finite values, tested or
+#'   not. The same as in \code{spatialCorrelationGeneExp()}.}
+#'   \item{\code{pValueNaive}}{The analytical p-value of \code{cor.test()},
+#'   which assumes that the pixels are independent. For reference only: under
+#'   spatial autocorrelation it is far too small. The same as in
+#'   \code{spatialCorrelationGeneExp()}.}
+#'   \item{\code{pValuePermuteX}}{The sequential permutation p-value of the
+#'   direction that permutes \code{x},
+#'   \eqn{(b_x + 1) / (L + 1)}{(bX + 1) / (L + 1)}, at the common stopping
+#'   point \eqn{L} of the two directions. Not adjusted. Descriptive: when a
+#'   gene stops early, the direction that did not reach \code{exceedances}
+#'   has an inflated value. In \code{spatialCorrelationGeneExp()} this column
+#'   holds \eqn{(b_x + 1) / (B + 1)}{(bX + 1) / (B + 1)} for a fixed number
+#'   \eqn{B} of permutations, also unadjusted; its adjustment across genes
+#'   is that function's \code{pValuePermuteXAdj}.}
+#'   \item{\code{pValuePermuteY}}{The same for the direction that permutes
+#'   \code{y}, \eqn{(b_y + 1) / (L + 1)}{(bY + 1) / (L + 1)}. Not adjusted.}
+#'   \item{\code{pValuePermute}}{The permutation p-value of the gene, which
+#'   combines the two directions: \code{exceedances / L} if the gene stopped
+#'   early (\code{stop = "exceedances"}), otherwise
+#'   \eqn{(\max(b_x, b_y) + 1) / (L + 1)}{(max(bX, bY) + 1) / (L + 1)}. This
+#'   is the larger of the two directions' sequential p-values, which is valid
+#'   without assuming that the two directions are independent (see Details);
+#'   it equals \code{max(pValuePermuteX, pValuePermuteY)} for a gene that
+#'   reached \code{nPermutations} (\code{stop = "limit"}) and is slightly
+#'   smaller, \code{exceedances / L} instead of
+#'   \code{(exceedances + 1) / (L + 1)}, for a gene that stopped early. Not
+#'   adjusted; its smallest possible value is
+#'   \code{1 / (nPermutations + 1)}. The legacy functions have no such
+#'   column: they adjust each direction on its own (\code{pValuePermuteXAdj},
+#'   \code{pValuePermuteYAdj}).}
+#'   \item{\code{pValuePermuteAdj}}{\code{pValuePermute} adjusted across the
+#'   tested genes with \code{adjustMethod} (\code{stats::p.adjust()}; skipped
+#'   and failed genes are not counted). This is the column to use to call a
+#'   gene significant.}
+#'   \item{\code{nPermutations}}{The number of permutations \eqn{L} the gene
+#'   used in each direction: fewer than the \code{nPermutations} argument when
+#'   the gene stopped early, equal to it otherwise. The sum of this column is
+#'   the work of the call.}
 #'   \item{\code{stop}}{Why the permutations stopped: \code{"exceedances"}
-#'   (early), \code{"limit"} (\code{nPermutations} reached),
+#'   (early: a direction reached \code{exceedances} null correlations at least
+#'   as extreme as the observed one), \code{"limit"} (the \code{nPermutations}
+#'   argument was reached without that, so \code{pValuePermute} is
+#'   \eqn{(\max(b_x, b_y) + 1) / (L + 1)}{(max(bX, bY) + 1) / (L + 1)}),
 #'   \code{"skipped"} (not tested) or \code{"failed"}.}
-#'   \item{\code{deltaStarMedianX}, \code{deltaStarMedianY}}{The median
-#'   delta star of the permutations of \code{x} and of \code{y}.}
+#'   \item{\code{deltaStarMedianX}, \code{deltaStarMedianY}}{The median over
+#'   the permutations of delta star, the bandwidth of \code{delta} whose
+#'   surrogate variogram matched best, when \code{x} and when \code{y} is
+#'   permuted. The same quantities as in \code{spatialCorrelationGeneExp()}.}
 #'   \item{\code{deltaGridEdge}}{\code{TRUE} when, in either direction, more
 #'   than half of the permutations chose the smallest or the largest delta of
-#'   the grid: the best bandwidth may lie outside the grid. \code{NA} with
-#'   fewer than 3 deltas.}
-#'   \item{\code{similarity}}{The share of the kept pixels with
-#'   \eqn{|\log_2(y / x)| \le}{|log2(y / x)| <=} \code{foldChange}.}
-#'   \item{\code{dissimilarityX}}{The share with
-#'   \eqn{\log_2(y / x) < -}{log2(y / x) < -}\code{foldChange} (higher in
-#'   \code{x}).}
-#'   \item{\code{dissimilarityY}}{The share with
-#'   \eqn{\log_2(y / x) >}{log2(y / x) >} \code{foldChange} (higher in
-#'   \code{y}).}
-#'   \item{\code{nPixelsSimilarity}}{The number of kept pixels.}
-#'   \item{\code{thresholdX}, \code{thresholdY}}{The gene's expression
-#'   thresholds in \code{x} and \code{y}.}
+#'   the grid used (\code{attr(result, "params")$deltaGrid}): the best
+#'   bandwidth may lie outside the grid, so consider extending \code{delta}.
+#'   \code{NA} with fewer than 3 deltas.}
+#'   \item{\code{percentSimilarity}}{The proportion (between 0 and 1, despite
+#'   the name) of the kept pixels with
+#'   \eqn{|\log_2(y / x)| \le}{|log2(y / x)| <=} \code{foldChange}: the gene's
+#'   spatial similarity. The same as in \code{spatialSimilarity()}.}
+#'   \item{\code{percentDissimilarityX}}{The proportion of the kept pixels
+#'   with \eqn{\log_2(y / x) < -}{log2(y / x) < -}\code{foldChange}: higher in
+#'   \code{x}. The same as in \code{spatialSimilarity()}.}
+#'   \item{\code{percentDissimilarityY}}{The proportion of the kept pixels
+#'   with \eqn{\log_2(y / x) >}{log2(y / x) >} \code{foldChange}: higher in
+#'   \code{y}. The same as in \code{spatialSimilarity()}.}
+#'   \item{\code{numPixelInThresh}}{The number of kept pixels: those whose
+#'   value is above \code{t1} in \code{x} or above \code{t2} in \code{y}. The
+#'   same as in \code{spatialSimilarity()}.}
+#'   \item{\code{t1}, \code{t2}}{The gene's expression thresholds in \code{x}
+#'   and in \code{y}: its \code{minQuantile} quantile in each sample. The same
+#'   as in \code{spatialSimilarity()}.}
 #'   \item{\code{status}}{\code{"ok"}, \code{"skipped"} (not tested for
 #'   correlation: constant or rarely detected in a sample) or
 #'   \code{"failed"} (see Details).}
 #'   \item{\code{message}}{Why a gene was skipped or failed, or why its
 #'   similarity is \code{NA} (negative values); empty otherwise.}
 #' }
-#' The attributes hold \code{params} (the arguments after defaults, among
-#' them the \code{surrogate} mode used and \code{minDetectedPixels}, the
-#' number of detected pixels asked for; the sample labels, the assays, the
-#' number of pixels and the delta grid actually used, \code{deltaGrid}),
-#' \code{call}, \code{runtime} and, with
-#' \code{keepNulls = TRUE}, \code{details}: one list per gene with the null
-#' correlations (\code{nullX}, \code{nullY}) and delta stars
-#' (\code{deltaStarX}, \code{deltaStarY}) of its permutations.
+#' The result has four attributes:
+#' \describe{
+#'   \item{\code{params}}{A list of the settings used: every argument after
+#'   its default was applied (\code{tests}, \code{nPermutations},
+#'   \code{exceedances}, \code{delta}, \code{maxDistPrctile},
+#'   \code{minDetected}, \code{surrogate}, \code{foldChange},
+#'   \code{minQuantile}, \code{minPixels}, \code{adjustMethod}, \code{seed},
+#'   \code{nThreads}, \code{progress}, \code{verbose}, \code{keepNulls}),
+#'   plus \code{samples} (the two sample labels), \code{assay} (the assay
+#'   used in each sample), \code{nPixels} (the number of shared pixels),
+#'   \code{genes}, \code{deltaGrid} (the deltas actually used, after the
+#'   unusable ones were dropped) and \code{minDetectedPixels} (the number of
+#'   detected pixels a gene needed in each sample to be tested; \code{NA}
+#'   without the correlation test).}
+#'   \item{\code{call}}{The matched call.}
+#'   \item{\code{runtime}}{The run time, as \code{proc.time()} measures it.}
+#'   \item{\code{details}}{Only with \code{keepNulls = TRUE}: a list with one
+#'   element per gene, each a list of the null correlations (\code{nullX},
+#'   \code{nullY}) and the delta stars (\code{deltaStarX},
+#'   \code{deltaStarY}) of its permutations, in permutation order, when
+#'   \code{x} and when \code{y} is permuted (empty for genes that were not
+#'   tested).}
+#' }
 #' \code{print()}, \code{summary()} and \code{as.data.frame()} (which returns
-#' a plain data frame) have methods for it; a selection of rows keeps the
-#' class, and a selection of columns is a plain data frame.
+#' a plain data frame) have methods for it (\code{\link{STcompareResult}}); a
+#' selection of rows keeps the class and the attributes, and a selection of
+#' columns is a plain data frame.
 #'
 #' @references Viladomat J, Mazumder R, McInturff A, McCauley DJ, Hastie T
 #'   (2014). Assessing the significance of global and local correlations under
@@ -327,7 +419,8 @@
 #' ac <- compareSpatial(list(A = rast$A, C = rast$C), nPermutations = 999,
 #'                      nThreads = 2)
 #' summary(ac)
-#' as.data.frame(ac)[, c("gene", "r", "p", "nPermutations", "similarity")]
+#' as.data.frame(ac)[, c("gene", "correlationCoef", "pValuePermute",
+#'                       "pValuePermuteAdj", "nPermutations", "percentSimilarity")]
 compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
                            tests = c("correlation", "similarity"),
                            nPermutations = 10000, exceedances = 10,
@@ -407,8 +500,9 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
     grid <- cr$grid
     status <- ifelse(finite, cr$status, status)
     msg <- ifelse(finite, cr$message, msg)
-    cr$table$padj <- stats::p.adjust(cr$table$p, method = adjustMethod)
-    out <- cbind(out, cr$table[, c("r", "pNaive", "p", "padj", "pX", "pY", "nPermutations", "stop",
+    cr$table$pValuePermuteAdj <- stats::p.adjust(cr$table$pValuePermute, method = adjustMethod)
+    out <- cbind(out, cr$table[, c("correlationCoef", "pValueNaive", "pValuePermuteX", "pValuePermuteY",
+                                   "pValuePermute", "pValuePermuteAdj", "nPermutations", "stop",
                                    "deltaStarMedianX", "deltaStarMedianY", "deltaGridEdge")])
     details <- cr$details
   }
@@ -507,6 +601,9 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
     labels <- if (!is.null(nm) && all(nzchar(nm)) && !anyNA(nm) && !anyDuplicated(nm)) nm else c("x", "y")
     objs <- unname(x)
   } else {
+    if (is.list(x) && !inherits(x, "SpatialExperiment")) {
+      stop("give x and y as two SpatialExperiment objects, or a list of two as x with y = NULL")
+    }
     objs <- list(x, y)
     labels <- c("x", "y")
   }
@@ -639,7 +736,9 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
   s
 }
 
-# The correlation columns of compareSpatial() for every gene, the status ("ok", "skipped", "failed") and
+# The correlation columns of compareSpatial() for every gene (the legacy functions' names: correlationCoef,
+# pValueNaive, pValuePermuteX, pValuePermuteY, plus the combined pValuePermute; pValuePermuteAdj is added by
+# the caller), the status ("ok", "skipped", "failed") and
 # message of every gene, the details (keepNulls), the delta grid used, and which genes are constant. Genes
 # that are not finite (finite = FALSE; their status and message are set by the caller), constant in a
 # sample, or detected in fewer than min_px pixels of a sample are not given to the engine. A gene is
@@ -669,8 +768,9 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
   msg[rare] <- sprintf("detected in %d (%s) and %d (%s) of the %d shared pixels; minDetected asks for %d in each: not tested",
                        kX[rare], lab[1], kY[rare], lab[2], N, min_px)
   testable <- which(finite & !constant & !rare)
-  tab <- data.frame(r = ifelse(finite, naive$r, NA_real_), pNaive = ifelse(finite, naive$p, NA_real_),
-                    p = NA_real_, padj = NA_real_, pX = NA_real_, pY = NA_real_,
+  tab <- data.frame(correlationCoef = ifelse(finite, naive$r, NA_real_),
+                    pValueNaive = ifelse(finite, naive$p, NA_real_),
+                    pValuePermuteX = NA_real_, pValuePermuteY = NA_real_, pValuePermute = NA_real_,
                     nPermutations = NA_integer_, stop = ifelse(constant | rare, "skipped", "failed"),
                     deltaStarMedianX = NA_real_, deltaStarMedianY = NA_real_, deltaGridEdge = NA,
                     stringsAsFactors = FALSE)
@@ -734,9 +834,9 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
   edge_share <- if (K >= 3L) (dc[1L, ] + dc[K, ]) / colSums(dc) else rep(NA_real_, 2L * Gt)
   edge <- matrix(edge_share > 0.5, nrow = 2L)
   t_idx <- testable
-  tab$p[t_idx] <- .stc_p_combined(pmax(bX, bY), L, st == 1L)
-  tab$pX[t_idx] <- .stc_p_direction(bX, L)
-  tab$pY[t_idx] <- .stc_p_direction(bY, L)
+  tab$pValuePermute[t_idx] <- .stc_p_combined(pmax(bX, bY), L, st == 1L)
+  tab$pValuePermuteX[t_idx] <- .stc_p_direction(bX, L)
+  tab$pValuePermuteY[t_idx] <- .stc_p_direction(bY, L)
   tab$nPermutations[t_idx] <- L
   tab$stop[t_idx] <- c("active", "exceedances", "limit", "failed")[st + 1L]
   tab$deltaStarMedianX[t_idx] <- ifelse(ok, med[2L * seq_len(Gt) - 1L], NA_real_)
@@ -786,14 +886,14 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
                            "lie outside the grid; consider extending delta"),
                     length(edge), sum(out$status == "ok"), min(grid), max(grid)))
   }
-  floor_p <- which(out$stop %in% "limit" & out$p == 1 / (n_max + 1))
-  limited <- floor_p[!is.na(out$padj[floor_p]) & out$padj[floor_p] >= 0.05]
+  floor_p <- which(out$stop %in% "limit" & out$pValuePermute == 1 / (n_max + 1))
+  limited <- floor_p[!is.na(out$pValuePermuteAdj[floor_p]) & out$pValuePermuteAdj[floor_p] >= 0.05]
   if (length(limited)) {
-    message(sprintf(paste0("compareSpatial: %d gene%s reached nPermutations = %d without any exceedance, so p is ",
-                           "the smallest possible, 1 / (nPermutations + 1) = %.3g; with %d tested genes their ",
-                           "adjusted p-values (%s) are not below 0.05. A larger nPermutations would resolve them"),
+    message(sprintf(paste0("compareSpatial: %d gene%s reached nPermutations = %d without any exceedance, so their ",
+                           "pValuePermute is the smallest possible, 1 / (nPermutations + 1) = %.3g; with %d tested ",
+                           "genes their pValuePermuteAdj (%s) is not below 0.05. A larger nPermutations would resolve them"),
                     length(limited), if (length(limited) == 1L) "" else "s", n_max, 1 / (n_max + 1),
-                    sum(!is.na(out$p)), adjustMethod))
+                    sum(!is.na(out$pValuePermute)), adjustMethod))
   }
   invisible(NULL)
 }
@@ -920,12 +1020,13 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
 # at once: per gene, the thresholds are t1 and t2 or else the minQuantile quantiles (quantile() type 7) of
 # its values in X and in Y; pixels are kept when neither value is NA and the value in X is above its
 # threshold or the value in Y is above its threshold; zeros are replaced by 1e-4; with l = log2(y / x) on the
-# kept pixels, similarity is the share with -foldChange <= l <= foldChange, dissimilarityX the share with
-# l < -foldChange and dissimilarityY the share with l > foldChange. A NaN l (values of opposite signs) counts
-# in all three, as the original spatialSimilarity() counted it (spatialSimilarity() now stops on negative
-# values; compareSpatial() keeps this rule). The three are NA when fewer than minPixels * nrow(X) pixels are
-# kept. Returns a data.frame with similarity, dissimilarityX, dissimilarityY, nPixelsSimilarity (the number
-# of kept pixels), thresholdX and thresholdY; a column with NA has an NA threshold. With details = TRUE, its
+# kept pixels, percentSimilarity is the share with -foldChange <= l <= foldChange, percentDissimilarityX the
+# share with l < -foldChange and percentDissimilarityY the share with l > foldChange. A NaN l (values of
+# opposite signs) counts in all three, as the original spatialSimilarity() counted it (spatialSimilarity() now
+# stops on negative values; compareSpatial() keeps this rule). The three are NA when fewer than
+# minPixels * nrow(X) pixels are kept. Returns a data.frame with the columns of spatialSimilarity()'s table:
+# percentSimilarity, percentDissimilarityX, percentDissimilarityY, numPixelInThresh (the number of kept
+# pixels), t1 and t2 (the thresholds); a column with NA has an NA threshold. With details = TRUE, its
 # attribute "details" is a list of kept (per gene, the row indices of the kept pixels), log (per gene, l of
 # the kept pixels) and scored (TRUE for the genes with at least minPixels * nrow(X) kept pixels).
 .stc_similarity <- function(X, Y, minQuantile = 0.05, minPixels = 0.1, foldChange = 1, t1 = NULL, t2 = NULL,
@@ -967,8 +1068,8 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
       }
     }
   }
-  out <- data.frame(similarity = sim, dissimilarityX = dissX, dissimilarityY = dissY, nPixelsSimilarity = kept,
-                    thresholdX = thrX, thresholdY = thrY)
+  out <- data.frame(percentSimilarity = sim, percentDissimilarityX = dissX, percentDissimilarityY = dissY,
+                    numPixelInThresh = kept, t1 = thrX, t2 = thrY)
   if (details) attr(out, "details") <- list(kept = kept_rows, log = logs, scored = scored)
   out
 }
@@ -1000,17 +1101,24 @@ compareSpatial <- function(x, y = NULL, assay = 1, genes = NULL,
 #' Methods for compareSpatial() results
 #'
 #' \code{print()} shows a header (genes, pixels, samples and the test
-#' settings), the number of genes with an adjusted p-value below 0.05 by the
-#' sign of the correlation, how many genes stopped early or were skipped, and
-#' the first rows. \code{summary()} returns these counts (and more) as an
-#' object with its own \code{print()} method. \code{as.data.frame()} returns
-#' the table as a plain data frame, without the class and the attributes.
-#' Selecting rows with \code{[} keeps the class and the attributes; selecting
-#' columns gives a plain data frame.
+#' settings), the number of genes with \code{pValuePermuteAdj < 0.05} by the
+#' sign of \code{correlationCoef}, how many genes stopped early or were
+#' skipped, the median \code{percentSimilarity}, and the first rows.
+#' \code{summary()} returns these counts (and more: the distribution of
+#' \code{nPermutations}, the settings, the genes with \code{deltaGridEdge},
+#' \code{summary(percentSimilarity)}) as an object with its own
+#' \code{print()} method; \code{alpha} sets the threshold on
+#' \code{pValuePermuteAdj}. \code{as.data.frame()} returns the table as a
+#' plain data frame, without the class and the attributes. Selecting rows
+#' with \code{[} keeps the class and the attributes (\code{details} is
+#' subset to the selected genes); selecting columns gives a plain data
+#' frame. The columns are described in
+#' \code{\link{compareSpatial}()}.
 #'
 #' @param x,object A result of \code{\link{compareSpatial}()}.
 #' @param n The number of rows to print.
-#' @param alpha The significance level of the counts of \code{summary()}.
+#' @param alpha The threshold on \code{pValuePermuteAdj} below which
+#'   \code{summary()} counts a gene as significant.
 #' @param i,j,drop Rows and columns to select, as for data frames.
 #' @param row.names,optional,... Passed on or ignored, as for the generics.
 #'
@@ -1033,7 +1141,8 @@ NULL
 # printed and summarised as a data frame).
 .stc_is_result <- function(df) {
   nm <- names(df)
-  all(c("gene", "status") %in% nm) && (!"p" %in% nm || all(c("r", "padj", "nPermutations", "stop") %in% nm))
+  all(c("gene", "status") %in% nm) &&
+    (!"pValuePermute" %in% nm || all(c("correlationCoef", "pValuePermuteAdj", "nPermutations", "stop") %in% nm))
 }
 
 #' @rdname STcompareResult
@@ -1052,7 +1161,7 @@ print.STcompareResult <- function(x, n = 6L, ...) {
                 paste(unique(pr$assay), collapse = " / ")))
   }
   cat("\n")
-  if ("p" %in% names(df)) {
+  if ("pValuePermute" %in% names(df)) {
     if (!is.null(pr)) {
       g <- pr$deltaGrid
       cat(if (is.finite(pr$exceedances)) {
@@ -1065,19 +1174,20 @@ print.STcompareResult <- function(x, n = 6L, ...) {
     } else {
       cat("Correlation:\n")
     }
-    sig <- !is.na(df$padj) & df$padj < 0.05
-    cat(sprintf("  padj < 0.05: %d gene%s (%d with r > 0, %d with r < 0)\n", sum(sig), if (sum(sig) == 1L) "" else "s",
-                sum(sig & df$r > 0, na.rm = TRUE), sum(sig & df$r < 0, na.rm = TRUE)))
+    sig <- !is.na(df$pValuePermuteAdj) & df$pValuePermuteAdj < 0.05
+    cat(sprintf("  pValuePermuteAdj < 0.05: %d gene%s (%d with correlationCoef > 0, %d with correlationCoef < 0)\n",
+                sum(sig), if (sum(sig) == 1L) "" else "s",
+                sum(sig & df$correlationCoef > 0, na.rm = TRUE), sum(sig & df$correlationCoef < 0, na.rm = TRUE)))
     st <- table(factor(df$stop, c("exceedances", "limit", "skipped", "failed")))
     cat(sprintf("  stopped early: %d; reached nPermutations: %d; skipped: %d; failed: %d\n", st[[1]], st[[2]],
                 st[[3]], st[[4]]))
   }
-  if ("similarity" %in% names(df)) {
+  if ("percentSimilarity" %in% names(df)) {
     fc <- if (!is.null(pr)) pr$foldChange else NA
-    cat(sprintf("Similarity%s: median %s (%d gene%s with NA)\n",
+    cat(sprintf("Similarity%s: median percentSimilarity %s (%d gene%s with NA)\n",
                 if (!is.na(fc)) sprintf(" (|log2(y / x)| <= %g)", fc) else "",
-                format(stats::median(df$similarity, na.rm = TRUE), digits = 3),
-                sum(is.na(df$similarity)), if (sum(is.na(df$similarity)) == 1L) "" else "s"))
+                format(stats::median(df$percentSimilarity, na.rm = TRUE), digits = 3),
+                sum(is.na(df$percentSimilarity)), if (sum(is.na(df$percentSimilarity)) == 1L) "" else "s"))
   }
   nf <- sum(df$status == "failed", na.rm = TRUE)
   if (nf) cat(sprintf("Failed: %d gene%s (see the message column)\n", nf, if (nf == 1L) "" else "s"))
@@ -1099,10 +1209,10 @@ summary.STcompareResult <- function(object, alpha = 0.05, ...) {
             samples = if (!is.null(pr)) pr$samples else NULL,
             status = table(factor(df$status, c("ok", "skipped", "failed"))), alpha = alpha,
             runtime = attr(object, "runtime"))
-  if ("p" %in% names(df)) {
-    sig <- !is.na(df$padj) & df$padj < alpha
-    s$significant <- c(total = sum(sig), positive = sum(sig & df$r > 0, na.rm = TRUE),
-                       negative = sum(sig & df$r < 0, na.rm = TRUE))
+  if ("pValuePermute" %in% names(df)) {
+    sig <- !is.na(df$pValuePermuteAdj) & df$pValuePermuteAdj < alpha
+    s$significant <- c(total = sum(sig), positive = sum(sig & df$correlationCoef > 0, na.rm = TRUE),
+                       negative = sum(sig & df$correlationCoef < 0, na.rm = TRUE))
     s$stop <- table(factor(df$stop, c("exceedances", "limit", "skipped", "failed")))
     L <- as.double(df$nPermutations[!is.na(df$nPermutations)])
     s$permutations <- c(total = sum(L), median = if (length(L)) stats::median(L) else NA_real_,
@@ -1110,7 +1220,7 @@ summary.STcompareResult <- function(object, alpha = 0.05, ...) {
     s$deltaGridEdge <- sum(df$deltaGridEdge %in% TRUE)
     s$settings <- if (!is.null(pr)) pr[c("nPermutations", "exceedances", "deltaGrid", "surrogate", "adjustMethod", "seed")]
   }
-  if ("similarity" %in% names(df)) s$similarity <- summary(df$similarity)
+  if ("percentSimilarity" %in% names(df)) s$percentSimilarity <- summary(df$percentSimilarity)
   class(s) <- "summary.STcompareResult"
   s
 }
@@ -1123,11 +1233,12 @@ print.summary.STcompareResult <- function(x, ...) {
   if (!is.null(x$samples)) cat(sprintf(" (%s vs %s)", x$samples[1], x$samples[2]))
   cat(sprintf("; %d ok, %d skipped, %d failed\n", x$status[["ok"]], x$status[["skipped"]], x$status[["failed"]]))
   if (!is.null(x$significant)) {
-    cat(sprintf("Correlation, padj < %g: %d (%d with r > 0, %d with r < 0)\n", x$alpha, x$significant[["total"]],
+    cat(sprintf("Correlation, pValuePermuteAdj < %g: %d gene%s (%d with correlationCoef > 0, %d with correlationCoef < 0)\n",
+                x$alpha, x$significant[["total"]], if (x$significant[["total"]] == 1L) "" else "s",
                 x$significant[["positive"]], x$significant[["negative"]]))
     cat(sprintf("  stopped early: %d; reached nPermutations: %d; skipped: %d; failed: %d\n", x$stop[["exceedances"]],
                 x$stop[["limit"]], x$stop[["skipped"]], x$stop[["failed"]]))
-    cat(sprintf("  permutations per gene: median %s, max %s; %s in total\n", format(x$permutations[["median"]]),
+    cat(sprintf("  nPermutations per gene: median %s, max %s; %s in total\n", format(x$permutations[["median"]]),
                 format(x$permutations[["max"]]), format(x$permutations[["total"]], big.mark = ",")))
     if (!is.null(x$settings)) {
       g <- x$settings$deltaGrid
@@ -1139,9 +1250,9 @@ print.summary.STcompareResult <- function(x, ...) {
     if (x$deltaGridEdge) cat(sprintf("  delta star at the edge of the grid: %d gene%s\n", x$deltaGridEdge,
                                      if (x$deltaGridEdge == 1L) "" else "s"))
   }
-  if (!is.null(x$similarity)) {
-    cat("Similarity:\n")
-    print(x$similarity, digits = 3)
+  if (!is.null(x$percentSimilarity)) {
+    cat("Similarity, percentSimilarity:\n")
+    print(x$percentSimilarity, digits = 3)
   }
   if (!is.null(x$runtime)) cat(sprintf("Run time: %.1f s\n", x$runtime[["elapsed"]]))
   invisible(x)
@@ -1154,6 +1265,7 @@ print.summary.STcompareResult <- function(x, ...) {
   if (!is.data.frame(out)) return(out)
   if (!identical(names(out), names(x))) return(as.data.frame.STcompareResult(out))  # columns selected
   for (a in c("params", "call", "runtime")) attr(out, a) <- attr(x, a)                # rows selected
+  if (!is.null(attr(x, "details"))) attr(out, "details") <- attr(x, "details")[rownames(out)]
   out
 }
 

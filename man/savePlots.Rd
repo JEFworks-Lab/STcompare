@@ -62,3 +62,8 @@ plts <- savePlots("Gene", s, rastAB)
 plts
 
 }
+\seealso{
+\code{\link{plotGene}()}, the standardized figure of a gene in a
+  \code{\link{compareSpatial}()} result (the same panels, plus the native
+  resolution and the statistics).
+}

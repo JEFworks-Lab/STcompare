@@ -78,12 +78,27 @@ rast <- SEraster::rasterizeGeneExpression(speKidney, assay_name = "counts",
 # compare A and B: both tests, for every gene
 res <- compareSpatial(rast[c("A", "B")], nThreads = 2)
 res
+
+# the standard figure of a gene: the cells, the pixels, the similarity
+# classes and the matched pixels with the statistics
+plotGene(res, "Gene", rast$A, rast$B, native = speKidney[c("A", "B")])
 ```
 
-The result has one row per gene, with the correlation `r`, its permutation
-p-value `p` and the p-value adjusted across genes `padj`, the similarity, and
-diagnostics. [Getting started](https://jef.works/STcompare/articles/getting-started-with-STcompare.html)
-explains every column.
+The result has one row per gene, with the correlation `correlationCoef`, its
+permutation p-value `pValuePermute`, that p-value adjusted across genes
+`pValuePermuteAdj` (the one to call a gene significant), the similarity
+`percentSimilarity`, and diagnostics. The columns have the names of the legacy
+functions; `?compareSpatial` and
+[Getting started](https://jef.works/STcompare/articles/getting-started-with-STcompare.html)
+explain every one of them.
+
+`plotGene()` draws one figure for a gene, ready to save with
+`ggplot2::ggsave()`, and `plotOverview(res)` the overview of all the genes of
+a result:
+
+<p align="center">
+  <img src="man/figures/plotGene.png" width="700" alt="The standard figure of Gene for the simulated kidneys A and B: the cells of each kidney coloured by expression, the shared pixels coloured by expression, the pixels coloured by similarity class, and a scatter plot of the values at matched pixels with the correlation, the p-values and the similarity">
+</p>
 
 ## Tutorials and articles
 

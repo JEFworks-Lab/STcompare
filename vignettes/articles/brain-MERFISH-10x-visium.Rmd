@@ -300,23 +300,34 @@ chose the smallest (0.01) or the largest smoothing bandwidth of the grid. Their
 p-values are still valid, but the surrogates may match their spatial
 autocorrelation less well; a wider grid (`delta`) would test that.
 
+`plotOverview()` draws the correlation of every gene against its adjusted
+permutation p-value, with the significant genes coloured by the sign of their
+correlation (only the correlation was tested here, so the figure has this one
+panel). The genes along the top reached the floor of the permutations,
+1/1001.
+
+```{r overview, fig.width = 6, fig.height = 4, fig.alt = "The correlation of every gene between MERFISH and Visium against its adjusted p-value: the significant genes are all positively correlated."}
+plotOverview(res)
+```
+
 ```{r svg-summary}
 tab <- as.data.frame(res)
 tab$svg <- ifelse(tab$gene %in% svgGenes, "spatially variable",
                   "not spatially variable")
 table(tab$svg, tab$status)
 tab <- tab[tab$status == "ok", ]
-tab$significant <- tab$padj < 0.05
-table(tab$svg, ifelse(tab$significant, ifelse(tab$r > 0, "positive", "negative"),
+tab$significant <- tab$pValuePermuteAdj < 0.05
+table(tab$svg, ifelse(tab$significant,
+                      ifelse(tab$correlationCoef > 0, "positive", "negative"),
                       "not significant"))
 ```
 
-`r sum(tab$significant & tab$r > 0 & tab$svg == "spatially variable")` of
+`r sum(tab$significant & tab$correlationCoef > 0 & tab$svg == "spatially variable")` of
 `r sum(tab$svg == "spatially variable")`
-(`r round(100 * mean(tab$significant[tab$svg == "spatially variable"] & tab$r[tab$svg == "spatially variable"] > 0))`%)
+(`r round(100 * mean(tab$significant[tab$svg == "spatially variable"] & tab$correlationCoef[tab$svg == "spatially variable"] > 0))`%)
 tested spatially variable genes are significantly positively correlated between
 MERFISH and Visium, and
-`r if (any(tab$significant & tab$r < 0)) paste(sum(tab$significant & tab$r < 0), "are") else "none is"`
+`r if (any(tab$significant & tab$correlationCoef < 0)) paste(sum(tab$significant & tab$correlationCoef < 0), "are") else "none is"`
 significantly negatively correlated.
 `r sum(!tab$significant & tab$svg == "not spatially variable")` of
 `r sum(tab$svg == "not spatially variable")`
@@ -331,24 +342,40 @@ alignment.
 
 Two examples: the spatially variable gene with the strongest correlation, and
 the gene without a spatial pattern with the lowest correlation among those that
-are not significant. For each, the maps in both technologies and the values at
-the shared pixels:
+are not significant. `plotGene()` draws the standard figure of a gene from the
+result and the rasterized objects; with `native`, it also maps the gene in the
+MERFISH cells and the Visium spots (A, B), on the same log scale as the pixels
+(C, D), followed by the values at the shared pixels with the gene's statistics
+(E). The result has no similarity (only the correlation was tested), so the
+figure has no similarity panel and the scatter plot is plain. The light grey
+hexagons in C and D are pixels that one technology lacks (the Visium spots
+are sparser than the hexagons, so some hexagons hold no spot); the tests used
+only the shared pixels.
 
-```{r gene-examples, fig.height = 3, fig.alt = "For two genes, maps of their log-transformed expression measured by MERFISH and by Visium, and a scatter plot of the two at each shared pixel: the first gene has matching patterns, the second does not."}
-svgPositive <- tab[tab$svg == "spatially variable" & tab$significant & tab$r > 0, ]
-geneSig <- svgPositive$gene[which.max(svgPositive$r)]
+```{r gene-examples}
+svgPositive <- tab[tab$svg == "spatially variable" & tab$significant &
+                   tab$correlationCoef > 0, ]
+geneSig <- svgPositive$gene[which.max(svgPositive$correlationCoef)]
 nonSvgNotSig <- tab[tab$svg == "not spatially variable" & !tab$significant, ]
-geneNotSig <- nonSvgNotSig$gene[which.min(nonSvgNotSig$r)]
+geneNotSig <- nonSvgNotSig$gene[which.min(nonSvgNotSig$correlationCoef)]
+c(geneSig, geneNotSig)
 
-panels <- function(gene) {
-  plotPixels(rast$MERFISH[, shared], gene, "MERFISH") +
-    plotPixels(rast$Visium[, shared], gene, "Visium") +
-    (plotCorrelationGeneExp(rast, res, gene, assayName = "lognorm") +
-       theme(plot.title = element_text(size = 9))) +
-    plot_layout(widths = c(1, 1, 1.3))
-}
-panels(geneSig)
-panels(geneNotSig)
+# log10(CPM + 1) of the cells and spots, for the native maps (log1p() keeps a
+# sparse matrix sparse)
+assay(merfishSpe, "lognorm") <- log1p(assay(merfishSpe, "CPM")) / log(10)
+assay(visiumSpe, "lognorm") <- log1p(assay(visiumSpe, "CPM")) / log(10)
+```
+
+```{r gene-sig, fig.width = 11, fig.height = 6.5, fig.alt = "The standard figure of the most correlated spatially variable gene: its expression in the MERFISH cells and the Visium spots, on the shared pixels of both technologies, and the scatter plot of the values at matched pixels, which line up."}
+plotGene(res, geneSig, rast$MERFISH, rast$Visium,
+         native = list(merfishSpe, visiumSpe), nativeAssay = "lognorm",
+         nativeUnit = c("cells", "spots"))
+```
+
+```{r gene-not-sig, fig.width = 11, fig.height = 6.5, fig.alt = "The same figure for a gene without a spatial pattern: it is detected in scattered cells and spots, and the values at matched pixels are unrelated."}
+plotGene(res, geneNotSig, rast$MERFISH, rast$Visium,
+         native = list(merfishSpe, visiumSpe), nativeAssay = "lognorm",
+         nativeUnit = c("cells", "spots"))
 ```
 
 # Similarity of the levels
@@ -361,13 +388,13 @@ values is not a fold change. The similarity test needs no permutations.
 ```{r similarity}
 sim <- compareSpatial(rast, assay = "pixelval", genes = analysed,
                       tests = "similarity", verbose = FALSE)
-tab$similarity <- sim[tab$gene, "similarity"]
-summary(tab$similarity)
+tab$percentSimilarity <- sim[tab$gene, "percentSimilarity"]
+summary(tab$percentSimilarity)
 ```
 
 ```{r similarity-plot, fig.height = 3.5, warning = FALSE, fig.alt = "Similarity against correlation for the significantly positively correlated spatially variable genes: most similarities are low."}
 ggplot(subset(tab, svg == "spatially variable" & significant),
-       aes(r, similarity)) +
+       aes(correlationCoef, percentSimilarity)) +
   geom_point(alpha = 0.5, size = 1) +
   labs(x = "Correlation", y = "Similarity",
        title = "Significantly positively correlated spatially variable genes") +
@@ -376,7 +403,7 @@ ggplot(subset(tab, svg == "spatially variable" & significant),
 
 Even for genes whose patterns agree, the levels at matched pixels often differ
 more than two-fold (the median similarity of these genes is
-`r round(median(tab$similarity[tab$svg == "spatially variable" & tab$significant], na.rm = TRUE), 2)`):
+`r round(median(tab$percentSimilarity[tab$svg == "spatially variable" & tab$significant], na.rm = TRUE), 2)`):
 the two technologies capture each gene with a different efficiency, so the
 fraction of a pixel's counts that a gene gets differs between them even after
 normalization. Correlation, which ignores the levels,
@@ -443,20 +470,23 @@ The proportions are on a linear scale, so both tests apply:
 resTypes <- compareSpatial(rastTypes, nPermutations = 1000, nThreads = threads)
 tabTypes <- as.data.frame(resTypes)
 tabTypes$matched <- tabTypes$gene %in% best
-tabTypes[order(-tabTypes$matched, tabTypes$p),
-         c("gene", "matched", "r", "padj", "nPermutations", "similarity")]
+tabTypes[order(-tabTypes$matched, tabTypes$pValuePermute),
+         c("gene", "matched", "correlationCoef", "pValuePermuteAdj",
+           "nPermutations", "percentSimilarity")]
 ```
 
 ```{r celltype-count, include = FALSE}
 matched <- tabTypes[tabTypes$matched, ]
-positive <- !is.na(matched$padj) & matched$padj < 0.05 & matched$r > 0
+positive <- !is.na(matched$pValuePermuteAdj) & matched$pValuePermuteAdj < 0.05 &
+  matched$correlationCoef > 0
 matchedPositive <- sum(positive)
 others <- matched[!positive, ]
 one <- nrow(others) == 1L
 othersText <- if (nrow(others)) {
   sprintf("The other%s, %s, %s not (r = %s; status %s).",
           if (one) "" else "s", paste(others$gene, collapse = " and "),
-          if (one) "is" else "are", paste(round(others$r, 2), collapse = " and "),
+          if (one) "is" else "are",
+          paste(round(others$correlationCoef, 2), collapse = " and "),
           paste(others$status, collapse = " and "))
 } else ""
 merfishPixels <- Matrix::rowSums(
@@ -469,7 +499,8 @@ rarestText <- if (positive[matched$gene == rarest]) {
                 "gets a calibrated p-value instead of being skipped (see",
                 "[How STcompare works](https://jef.works/STcompare/articles/how-STcompare-works.html#rarely-detected-genes))."),
           rarest, merfishPixels[rarest], length(sharedTypes),
-          round(tabTypes[rarest, "r"], 2), signif(tabTypes[rarest, "padj"], 2))
+          round(tabTypes[rarest, "correlationCoef"], 2),
+          signif(tabTypes[rarest, "pValuePermuteAdj"], 2))
 } else ""
 ```
 
@@ -478,6 +509,22 @@ cell types with a mutual transcriptional match are significantly positively
 correlated between the technologies: their spatial patterns correspond, even
 though the patterns of many individual genes do not. `r othersText`
 `r rarestText`
+
+The proportions were compared with both tests, so the standard figure of a
+cell type has the similarity panel too. For the matched cell type with the
+strongest correlation:
+
+```{r celltype-plot, fig.width = 11, fig.height = 3.5, fig.alt = "The standard figure of the best correlated cell type: its proportion on the shared pixels in MERFISH and in Visium, the similarity classes of the pixels, and the scatter plot of the proportions at matched pixels."}
+bestType <- matched$gene[which.max(matched$correlationCoef)]
+plotGene(resTypes, bestType, rastTypes$MERFISH, rastTypes$Visium)
+```
+
+`r bestType` occupies the same region in both technologies
+(r = `r round(tabTypes[bestType, "correlationCoef"], 2)`), but its proportions at
+matched pixels are within two-fold in only
+`r round(100 * tabTypes[bestType, "percentSimilarity"])`% of the pixels where
+either technology finds it: the proportions of the MERFISH labels and of the
+Visium deconvolution differ even where they agree on the pattern.
 
 # Session information
 

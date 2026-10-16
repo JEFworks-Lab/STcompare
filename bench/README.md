@@ -51,7 +51,8 @@ Per gene, with the published table as the reference:
 | `deltaStarX/Y` | identical for every stored permutation |
 | `nullCorrelationsX/Y` | every stored null within 1e-9 × the largest published \|null\| of that gene and direction |
 | exceedances | identical counts of \|null\| > \|r\| (what the legacy code counted) and \|null\| ≥ \|r\| (the current definition) |
-| final p-values | ours equal `p.adjust((b + 1) / (B + 1), "BH")` recomputed from the **published** nulls across the genes of the analysis (relative tolerance 1e-12) |
+| raw p-values | our `pValuePermuteX/Y` (unadjusted since 2.0.0) equal `(b + 1) / (B + 1)` from the **published** nulls (relative tolerance 1e-12) |
+| adjusted p-values | our `pValuePermuteXAdj/YAdj` equal `p.adjust((b + 1) / (B + 1), "BH")` recomputed from the **published** nulls across the genes of the analysis (relative tolerance 1e-12). The published tables hold the adjusted values in `pValuePermuteX/Y` (the legacy functions had no raw columns), so published `pValuePermuteX` corresponds to our `pValuePermuteXAdj` |
 
 The stored p-values are not compared directly: they use the legacy definition `b / B` (strict `>`), and
 `kidneyCorrelationNoIter.RData` stores them unadjusted (the legacy `spatialCorrelationGeneExp()` called
@@ -129,7 +130,7 @@ reproduce these two published analyses there either (see `data-raw/README.md`, "
 Times `compareSpatial()` with its defaults (adaptive p-values with `exceedances = 10` and `nPermutations = 10000`,
 the extended delta grid, rank-remapped surrogates with no detection filter) and summarises the permutations per
 gene (the `nPermutations` column), how many genes stopped early or reached the limit, and how many have
-`padj < 0.05`. Datasets: the realistic test genes
+`pValuePermuteAdj < 0.05`. Datasets: the realistic test genes
 (`aki_fixture`: 35 genes on 311 pixels; `brain_fixture`: 30 genes on 2170 pixels) and, when the cache of
 `data-raw/` exists, the full inputs of the published AKI (1046 genes, control vs AKI, assay CPM) and brain
 (325 genes, MERFISH vs Visium, assay lognorm) analyses.

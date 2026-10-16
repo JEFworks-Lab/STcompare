@@ -103,8 +103,11 @@ on the seed only, and the global random number generator state
 \item{adjustMethod}{\code{character}: multiple-testing correction method
 passed to \code{stats::p.adjust()}. It is applied across all genes,
 separately to the \code{pValuePermuteX} column and to the
-\code{pValuePermuteY} column. Must be one of \code{p.adjust.methods}; use
-\code{"none"} for unadjusted p-values. Default is \code{"BH"}.}
+\code{pValuePermuteY} column, and gives the columns
+\code{pValuePermuteXAdj} and \code{pValuePermuteYAdj}; the unadjusted
+columns are kept. Must be one of \code{p.adjust.methods}; with
+\code{"none"} the adjusted columns equal the unadjusted ones. Default is
+\code{"BH"}.}
 }
 \value{
 The output is returned as a \code{data.frame}. The rownames are the
@@ -115,12 +118,18 @@ The output is returned as a \code{data.frame}. The rownames are the
   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
   observations}
   \item{\code{pValuePermuteX}}{the empirical p-value when creating a null from
-  permutations of observations in X, computed as \eqn{(b + 1) / (B + 1)} (see
-  \code{\link{spatialCorrelation}}) and then adjusted across genes with
-  \code{adjustMethod}}
+  permutations of observations in X, \eqn{(b + 1) / (B + 1)} (see
+  \code{\link{spatialCorrelation}}). Not adjusted for multiple testing}
   \item{\code{pValuePermuteY}}{the empirical p-value when creating a null from
-  permutations of observations in Y, adjusted across genes like
-  \code{pValuePermuteX}}
+  permutations of observations in Y, computed like \code{pValuePermuteX}.
+  Not adjusted}
+  \item{\code{pValuePermuteXAdj}}{\code{pValuePermuteX} adjusted across genes
+  with \code{adjustMethod} (\code{stats::p.adjust()}; genes with an
+  \code{NA} p-value are not counted)}
+  \item{\code{pValuePermuteYAdj}}{\code{pValuePermuteY} adjusted across genes
+  with \code{adjustMethod}, separately from \code{pValuePermuteXAdj}. The
+  published analyses called a gene significant when both adjusted p-values
+  were below 0.05}
   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
   minimizes the difference between the variogram of the permutation and the
   variogram of observations) across permutations of X}

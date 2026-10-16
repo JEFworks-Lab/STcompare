@@ -24,7 +24,8 @@
 
 \item{n}{The number of rows to print.}
 
-\item{alpha}{The significance level of the counts of \code{summary()}.}
+\item{alpha}{The threshold on \code{pValuePermuteAdj} below which
+\code{summary()} counts a gene as significant.}
 
 \item{i, j, drop}{Rows and columns to select, as for data frames.}
 
@@ -37,13 +38,19 @@
 }
 \description{
 \code{print()} shows a header (genes, pixels, samples and the test
-settings), the number of genes with an adjusted p-value below 0.05 by the
-sign of the correlation, how many genes stopped early or were skipped, and
-the first rows. \code{summary()} returns these counts (and more) as an
-object with its own \code{print()} method. \code{as.data.frame()} returns
-the table as a plain data frame, without the class and the attributes.
-Selecting rows with \code{[} keeps the class and the attributes; selecting
-columns gives a plain data frame.
+settings), the number of genes with \code{pValuePermuteAdj < 0.05} by the
+sign of \code{correlationCoef}, how many genes stopped early or were
+skipped, the median \code{percentSimilarity}, and the first rows.
+\code{summary()} returns these counts (and more: the distribution of
+\code{nPermutations}, the settings, the genes with \code{deltaGridEdge},
+\code{summary(percentSimilarity)}) as an object with its own
+\code{print()} method; \code{alpha} sets the threshold on
+\code{pValuePermuteAdj}. \code{as.data.frame()} returns the table as a
+plain data frame, without the class and the attributes. Selecting rows
+with \code{[} keeps the class and the attributes (\code{details} is
+subset to the selected genes); selecting columns gives a plain data
+frame. The columns are described in
+\code{\link{compareSpatial}()}.
 }
 \examples{
 data(simRanPatternRasts)

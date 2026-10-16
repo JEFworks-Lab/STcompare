@@ -220,17 +220,18 @@ spatialSimilarity <- function(
       if (d$scored[j]) pixels[d$kept[[j]][in_class(d$log[[j]])]] else NA
     }))
   }
-  output <- data.frame(gene = genes, percentSimilarity = s$similarity, percentDissimilarityX = s$dissimilarityX,
-                       percentDissimilarityY = s$dissimilarityY, stringsAsFactors = FALSE)
+  output <- data.frame(gene = genes, percentSimilarity = s$percentSimilarity,
+                       percentDissimilarityX = s$percentDissimilarityX,
+                       percentDissimilarityY = s$percentDissimilarityY, stringsAsFactors = FALSE)
   output$similarPixelID <- classify(function(l) l >= -foldChange & l <= foldChange)
   output$dissimilarPixelIDX <- classify(function(l) l < -foldChange)
   output$dissimilarPixelIDY <- classify(function(l) l > foldChange)
-  output$numPixelInThresh <- s$nPixelsSimilarity
+  output$numPixelInThresh <- s$numPixelInThresh
   output$pixelIDInThresh <- I(lapply(d$kept, function(k) pixels[k]))
-  output$numPixelOutThresh <- N - s$nPixelsSimilarity
+  output$numPixelOutThresh <- N - s$numPixelInThresh
   output$pixelIDOutThresh <- I(lapply(d$kept, function(k) pixels[!(seq_len(N) %in% k)]))
-  output$t1 <- s$thresholdX
-  output$t2 <- s$thresholdY
+  output$t1 <- s$t1
+  output$t2 <- s$t2
 
   logTransGenes <- data.frame(gene = genes[d$scored], stringsAsFactors = FALSE)
   logTransGenes$log <- I(d$log[d$scored])

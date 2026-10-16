@@ -32,11 +32,21 @@ A ggplot object: a scatterplot with the values of the gene in the
   \code{SummarizedExperiment::assay(speList[[1]], assayName)[geneName, ]},
   on the x-axis and values of the gene in the second SpatialExperiment on
   the y-axis. The title includes the gene name, the correlation coefficient
-  (rounded to 3 decimals), and the empirical p-value (3 significant digits):
-  \code{p_E}, the greater of \code{pValuePermuteX} and
-  \code{pValuePermuteY} (\code{NA} if either is \code{NA}) for the output
-  of the legacy functions, or \code{padj} for a \code{compareSpatial()}
-  result.
+  (rounded to 3 decimals), and a permutation p-value (3 significant digits):
+  \code{p_adj}, the adjusted permutation p-value \code{pValuePermuteAdj},
+  for a \code{compareSpatial()} result (recognised by that column);
+  \code{p_adj}, the greater of the two adjusted p-values
+  \code{pValuePermuteXAdj} and \code{pValuePermuteYAdj} (\code{NA} if
+  either is \code{NA}), for the output of
+  \code{\link{spatialCorrelationGeneExp}()} or
+  \code{\link{spatialCorrelationGeneExpIterPermutations}()}; or
+  \code{p_E}, the greater of the unadjusted \code{pValuePermuteX} and
+  \code{pValuePermuteY}, for a table without adjusted columns. A table
+  saved by \code{spatialCorrelationGeneExpIterPermutations()} before
+  version 2.0.0 has no adjusted columns, although its \code{pValuePermuteX}
+  and \code{pValuePermuteY} were adjusted, so it is shown with the
+  \code{p_E} label; recompute it to have the p-value labelled
+  \code{p_adj}.
 }
 \description{
 Scatter plot of a gene's values in two SpatialExperiment
@@ -73,4 +83,9 @@ expAC <- plotCorrelationGeneExp(rastGexpListAC, posCorrelation, "Gene")
 
 expAB
 expAC
+}
+\seealso{
+\code{\link{plotGene}()}, the standardized figure of a gene in a
+  \code{\link{compareSpatial}()} result, whose scatter plot is labelled with
+  every p-value of the gene.
 }

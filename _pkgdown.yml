@@ -3,6 +3,12 @@ url: https://jef.works/STcompare/
 template:
   bootstrap: 5
 
+# the standard figures of plotGene() and plotOverview() in the examples are laid out for about 10 inches
+figures:
+  fig.width: 10
+  fig.height: 6
+  fig.asp: ~
+
 navbar:
   structure:
     left: [tutorials, articles, reference, news]
@@ -65,15 +71,24 @@ reference:
   - spatialCorrelationGeneExpWithinSample
   - spatialCorrelation
   - viladomatCorrelation
-- title: Spatial similarity and plotting
+- title: Visualization
   desc: >
-    The similarity with the class of every pixel, and plots of single genes.
+    Standard figures of a compareSpatial() result: one gene with its maps,
+    similarity classes and statistics, and the overview of all genes. The
+    legacy functions plot single genes from the results of the legacy
+    functions.
   contents:
-  - spatialSimilarity
+  - plotGene
+  - plotOverview
   - linearRegression
   - pixelClass
   - plotCorrelationGeneExp
   - savePlots
+- title: Spatial similarity, legacy function
+  desc: >
+    The similarity with the class of every pixel.
+  contents:
+  - spatialSimilarity
 - title: Example data
   contents:
   - speKidney

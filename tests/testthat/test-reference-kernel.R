@@ -250,12 +250,18 @@ test_that("portable: spatialCorrelationGeneExp() forwards seed, deltas and maxDi
                            deltaX = c(0.1, 0.4), deltaY = 0.3, maxDistPrctile = 0.3)
   expect_identical(nrow(og), 1L)
   expect_identical(rownames(og), "Gene")
-  # a single gene: a multiple-testing adjustment across genes leaves its p-values unchanged
+  # the gene-wise table has the columns of spatialCorrelation() plus the two adjusted p-values after
+  # pValuePermuteY; a single gene: the adjustment across genes leaves its p-values unchanged
+  expect_identical(names(og), c("correlationCoef", "pValueNaive", "pValuePermuteX", "pValuePermuteY",
+                                "pValuePermuteXAdj", "pValuePermuteYAdj", "deltaStarMedianX", "deltaStarMedianY",
+                                "deltaStarX", "deltaStarY", "nullCorrelationsX", "nullCorrelationsY"))
+  expect_identical(og$pValuePermuteXAdj, og$pValuePermuteX)
+  expect_identical(og$pValuePermuteYAdj, og$pValuePermuteY)
   rownames(og) <- "cor"
-  expect_identical(og, os)
+  expect_identical(og[names(os)], os)
 })
 
-test_that("portable: spatialCorrelationGeneExp() adjusts p-values across genes with adjustMethod", {
+test_that("portable: spatialCorrelationGeneExp() returns raw pValuePermuteX/Y and adjusts them across genes into pValuePermuteXAdj/YAdj", {
   rk <- fx_speKidney_raster()
   sh <- intersect(rownames(SpatialExperiment::spatialCoords(rk$A)), rownames(SpatialExperiment::spatialCoords(rk$C)))
   a <- as.numeric(SummarizedExperiment::assay(rk$A)[1, sh])
@@ -275,13 +281,28 @@ test_that("portable: spatialCorrelationGeneExp() adjusts p-values across genes w
                                                     adjustMethod = method)
   raw <- run("none")
   expect_identical(rownames(raw), c("pos", "neg", "rev"))
+  runs <- list(none = raw, BH = run("BH"), bonferroni = run("bonferroni"))
   for (dir in c("X", "Y")) {
     col <- paste0("pValuePermute", dir)
     expect_equal(raw[[col]], mapply(stc_empirical_p, raw[[paste0("nullCorrelations", dir)]], raw$correlationCoef),
                  info = dir)
-    for (method in c("BH", "bonferroni")) {
-      expect_equal(run(method)[[col]], stats::p.adjust(raw[[col]], method = method), info = paste(dir, method))
+    for (method in names(runs)) {
+      o <- runs[[method]]
+      # pValuePermuteX/Y are the raw (b + 1) / (B + 1) whatever the method; the Adj columns are their adjustment
+      expect_identical(o[[col]], raw[[col]], info = paste(dir, method))
+      expect_equal(o[[paste0(col, "Adj")]], stats::p.adjust(raw[[col]], method = method), info = paste(dir, method))
     }
+  }
+  # with adjustMethod = "none" the adjusted columns equal the raw ones; the adjusted columns follow pValuePermuteY
+  expect_identical(raw$pValuePermuteXAdj, raw$pValuePermuteX)
+  expect_identical(match(c("pValuePermuteXAdj", "pValuePermuteYAdj"), names(raw)), match("pValuePermuteY", names(raw)) + 1:2)
+  # everything but the adjusted columns is the same whatever the method
+  keep <- setdiff(names(raw), c("pValuePermuteXAdj", "pValuePermuteYAdj"))
+  expect_identical(runs$BH[keep], raw[keep])
+  expect_identical(runs$bonferroni[keep], raw[keep])
+  # BH leaves the largest p-value of each direction unchanged and never lowers a p-value
+  for (dir in c("X", "Y")) {
+    expect_true(all(runs$BH[[paste0("pValuePermute", dir, "Adj")]] >= raw[[paste0("pValuePermute", dir)]]), info = dir)
   }
   # an invalid method fails before any permutation is computed
   expect_error(spatialCorrelationGeneExp(list(x, y), nPermutations = 3, verbose = FALSE, adjustMethod = "nope"),

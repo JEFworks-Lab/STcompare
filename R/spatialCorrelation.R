@@ -477,8 +477,11 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #' @param adjustMethod \code{character}: multiple-testing correction method
 #'   passed to \code{stats::p.adjust()}. It is applied across all genes,
 #'   separately to the \code{pValuePermuteX} column and to the
-#'   \code{pValuePermuteY} column. Must be one of \code{p.adjust.methods}; use
-#'   \code{"none"} for unadjusted p-values. Default is \code{"BH"}.
+#'   \code{pValuePermuteY} column, and gives the columns
+#'   \code{pValuePermuteXAdj} and \code{pValuePermuteYAdj}; the unadjusted
+#'   columns are kept. Must be one of \code{p.adjust.methods}; with
+#'   \code{"none"} the adjusted columns equal the unadjusted ones. Default is
+#'   \code{"BH"}.
 #'
 #' @return The output is returned as a \code{data.frame}. The rownames are the
 #'   rownames of the SpatialExperiments. The names of the columns and their
@@ -488,12 +491,18 @@ spatialCorrelation <- function(X, Y, pos, nPermutations = 100,
 #'   \item{\code{pValueNaive}}{the analytical p-value naively assuming independent
 #'   observations}
 #'   \item{\code{pValuePermuteX}}{the empirical p-value when creating a null from
-#'   permutations of observations in X, computed as \eqn{(b + 1) / (B + 1)} (see
-#'   \code{\link{spatialCorrelation}}) and then adjusted across genes with
-#'   \code{adjustMethod}}
+#'   permutations of observations in X, \eqn{(b + 1) / (B + 1)} (see
+#'   \code{\link{spatialCorrelation}}). Not adjusted for multiple testing}
 #'   \item{\code{pValuePermuteY}}{the empirical p-value when creating a null from
-#'   permutations of observations in Y, adjusted across genes like
-#'   \code{pValuePermuteX}}
+#'   permutations of observations in Y, computed like \code{pValuePermuteX}.
+#'   Not adjusted}
+#'   \item{\code{pValuePermuteXAdj}}{\code{pValuePermuteX} adjusted across genes
+#'   with \code{adjustMethod} (\code{stats::p.adjust()}; genes with an
+#'   \code{NA} p-value are not counted)}
+#'   \item{\code{pValuePermuteYAdj}}{\code{pValuePermuteY} adjusted across genes
+#'   with \code{adjustMethod}, separately from \code{pValuePermuteXAdj}. The
+#'   published analyses called a gene significant when both adjusted p-values
+#'   were below 0.05}
 #'   \item{\code{deltaStarMedianX}}{the median delta star (the delta which
 #'   minimizes the difference between the variogram of the permutation and the
 #'   variogram of observations) across permutations of X}
@@ -565,14 +574,25 @@ spatialCorrelationGeneExp <- function(input, nPermutations = 100,
   n_na <- .stc_warn_na_rows("spatialCorrelationGeneExp", paste0("gene ", d$genes), e, naive)
   out <- .stc_result_table(naive, e, isTRUE(returnPermutations), make.unique(d$genes, sep = ""))
 
-  # mht correct for pValuePermuteX and pValuePermuteY separately, across genes
-  out$pValuePermuteX <- stats::p.adjust(out$pValuePermuteX, method = adjustMethod)
-  out$pValuePermuteY <- stats::p.adjust(out$pValuePermuteY, method = adjustMethod)
+  # the adjustment across genes, separately for pValuePermuteX and pValuePermuteY (new columns)
+  out <- .stc_adjust_directions(out, adjustMethod)
   if (verbose) {
     message(sprintf("spatialCorrelationGeneExp: done in %s (%d of %d gene(s) with NA permutation p-values)",
                     .stc_elapsed(t0), n_na, G))
   }
   out
+}
+
+# The per-direction p-values of a gene-wise table adjusted across its rows (genes) with adjustMethod, each
+# direction on its own, as the columns pValuePermuteXAdj and pValuePermuteYAdj right after pValuePermuteY.
+# The unadjusted columns are kept. p.adjust() counts the non-NA p-values only (NA rows are not tests).
+.stc_adjust_directions <- function(out, adjustMethod) {
+  out$pValuePermuteXAdj <- stats::p.adjust(out$pValuePermuteX, method = adjustMethod)
+  out$pValuePermuteYAdj <- stats::p.adjust(out$pValuePermuteY, method = adjustMethod)
+  nm <- names(out)
+  i <- match("pValuePermuteY", nm)
+  rest <- setdiff(nm[-seq_len(i)], c("pValuePermuteXAdj", "pValuePermuteYAdj"))
+  out[c(nm[seq_len(i)], "pValuePermuteXAdj", "pValuePermuteYAdj", rest)]
 }
 
 #' Spatial correlation test between pairs of genes of one sample
@@ -805,12 +825,26 @@ spatialCorrelationGeneExpWithinSample <- function(input,
 #'   \code{SummarizedExperiment::assay(speList[[1]], assayName)[geneName, ]},
 #'   on the x-axis and values of the gene in the second SpatialExperiment on
 #'   the y-axis. The title includes the gene name, the correlation coefficient
-#'   (rounded to 3 decimals), and the empirical p-value (3 significant digits):
-#'   \code{p_E}, the greater of \code{pValuePermuteX} and
-#'   \code{pValuePermuteY} (\code{NA} if either is \code{NA}) for the output
-#'   of the legacy functions, or \code{padj} for a \code{compareSpatial()}
-#'   result.
+#'   (rounded to 3 decimals), and a permutation p-value (3 significant digits):
+#'   \code{p_adj}, the adjusted permutation p-value \code{pValuePermuteAdj},
+#'   for a \code{compareSpatial()} result (recognised by that column);
+#'   \code{p_adj}, the greater of the two adjusted p-values
+#'   \code{pValuePermuteXAdj} and \code{pValuePermuteYAdj} (\code{NA} if
+#'   either is \code{NA}), for the output of
+#'   \code{\link{spatialCorrelationGeneExp}()} or
+#'   \code{\link{spatialCorrelationGeneExpIterPermutations}()}; or
+#'   \code{p_E}, the greater of the unadjusted \code{pValuePermuteX} and
+#'   \code{pValuePermuteY}, for a table without adjusted columns. A table
+#'   saved by \code{spatialCorrelationGeneExpIterPermutations()} before
+#'   version 2.0.0 has no adjusted columns, although its \code{pValuePermuteX}
+#'   and \code{pValuePermuteY} were adjusted, so it is shown with the
+#'   \code{p_E} label; recompute it to have the p-value labelled
+#'   \code{p_adj}.
 #'
+#'
+#' @seealso \code{\link{plotGene}()}, the standardized figure of a gene in a
+#'   \code{\link{compareSpatial}()} result, whose scatter plot is labelled with
+#'   every p-value of the gene.
 #'
 #' @export
 #'
@@ -864,15 +898,19 @@ plotCorrelationGeneExp <- function(speList,
     assayNameChar <- SummarizedExperiment::assayNames(speList[[1]])[assayName]
   }
 
-  # the correlation and the p-value shown in the title: for the legacy functions, the greater of the two
-  # empirical p-values (NA if either is NA); for compareSpatial(), the adjusted permutation p-value
+  # the correlation and the p-value shown in the title: for compareSpatial() (which alone has the combined,
+  # adjusted pValuePermuteAdj), that p-value; for the legacy gene-wise functions, the greater of the two
+  # adjusted per-direction p-values pValuePermuteXAdj and pValuePermuteYAdj (NA if either is NA); for a table
+  # without adjusted columns, the greater of the two unadjusted p-values
   res <- spatialCorrelation[geneName, , drop = FALSE]
-  if (all(c("r", "padj") %in% names(res))) {
-    r <- res$r
-    p <- res$padj
-    pLabel <- "padj"
+  r <- res$correlationCoef
+  if ("pValuePermuteAdj" %in% names(res)) {
+    p <- res$pValuePermuteAdj
+    pLabel <- "p_adj"
+  } else if (all(c("pValuePermuteXAdj", "pValuePermuteYAdj") %in% names(res))) {
+    p <- max(res$pValuePermuteXAdj, res$pValuePermuteYAdj)
+    pLabel <- "p_adj"
   } else {
-    r <- res$correlationCoef
     p <- max(res$pValuePermuteX, res$pValuePermuteY)
     pLabel <- "p_E"
   }

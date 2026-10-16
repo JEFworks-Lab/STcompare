@@ -144,10 +144,10 @@ test_that("portable: in remap mode the results do not depend on threads, batches
   for (g in genes) {
     L <- kept[g, "nPermutations"]
     expect_false(identical(det[[g]]$nullX, attr(gauss, "details")[[g]]$nullX[seq_len(L)]), info = g)
-    bX <- rm_exceedances(det[[g]]$nullX, kept[g, "r"])
-    bY <- rm_exceedances(det[[g]]$nullY, kept[g, "r"])
-    expect_identical(kept[g, "pX"], (bX + 1) / (L + 1), info = g)
-    expect_identical(kept[g, "p"], if (kept[g, "stop"] == "exceedances") max(bX, bY) / L else (max(bX, bY) + 1) / (L + 1),
+    bX <- rm_exceedances(det[[g]]$nullX, kept[g, "correlationCoef"])
+    bY <- rm_exceedances(det[[g]]$nullY, kept[g, "correlationCoef"])
+    expect_identical(kept[g, "pValuePermuteX"], (bX + 1) / (L + 1), info = g)
+    expect_identical(kept[g, "pValuePermute"], if (kept[g, "stop"] == "exceedances") max(bX, bY) / L else (max(bX, bY) + 1) / (L + 1),
                      info = g)
   }
   expect_output(print(kept), "rank-remapped surrogates")
@@ -168,7 +168,7 @@ test_that("portable: minDetected = NULL means 0 pixels with remapped surrogates 
     expect_identical(res$status, c("ok", "skipped", "ok"), info = mode)
     expect_identical(res$message[2], "constant in x (zero variance): not tested", info = mode)
     expect_identical(attr(res, "params")$minDetectedPixels, 0L, info = mode)
-    expect_false(anyNA(res$p[c(1, 3)]), info = mode)
+    expect_false(anyNA(res$pValuePermute[c(1, 3)]), info = mode)
     expect_identical(res$nPermutations[c(1, 3)], c(20L, 20L), info = mode)
   }
   # the default of compareSpatial() is remap with no filter: the same as minDetected = 0 above
@@ -188,7 +188,7 @@ test_that("portable: minDetected = NULL means 0 pixels with remapped surrogates 
   expect_identical(prm$minDetectedPixels, 18L)
   expect_identical(gauss$status, c("ok", "skipped", "skipped"))
   expect_match(gauss$message[3], "^detected in 1 \\(x\\) and [0-9]+ \\(y\\) of the 311 shared pixels; minDetected asks for 18 in each: not tested$")
-  cols <- setdiff(names(gauss), "padj")  # (padj is adjusted over the tested genes: 1 here, 2 with minDetected = 0)
+  cols <- setdiff(names(gauss), "pValuePermuteAdj")  # (pValuePermuteAdj is adjusted over the tested genes: 1 here, 2 with minDetected = 0)
   expect_identical(rm_table(gauss)[1, cols], rm_table(run(minDetected = 0, surrogate = "gaussian"))[1, cols])
   # an explicit minDetected applies in both modes
   for (mode in c("gaussian", "remap")) {
@@ -210,14 +210,14 @@ test_that("portable: surrogate = \"gaussian\" gives the results of the version b
   ref <- rm_run(input, nPermutations = 60, exceedances = 3, delta = rm_grid, keepNulls = TRUE, surrogate = "gaussian")
   expect_identical(attr(ref, "params")$surrogate, "gaussian")
   expect_identical(ref$nPermutations, c(60L, 3L, 40L))  # as before the surrogate argument existed
-  expect_identical(ref$p[1], 1 / 61)
+  expect_identical(ref$pValuePermute[1], 1 / 61)
   expect_output(print(ref), "5 deltas from 0.05 to 0.9; gaussian surrogates\n")
   expect_output(print(summary(ref)), "gaussian surrogates")
   # the exceedances of gaussian surrogates follow the exact rule |null| >= |r|, without the tie tolerance
   det <- attr(ref, "details")
   for (g in genes) {
     L <- ref[g, "nPermutations"]
-    expect_identical(ref[g, "pX"], (sum(abs(det[[g]]$nullX) >= abs(ref[g, "r"])) + 1) / (L + 1), info = g)
+    expect_identical(ref[g, "pValuePermuteX"], (sum(abs(det[[g]]$nullX) >= abs(ref[g, "correlationCoef"])) + 1) / (L + 1), info = g)
   }
   # the default is remap, which gives other nulls and p-values
   dflt <- rm_run(input, nPermutations = 60, exceedances = 3, delta = rm_grid, keepNulls = TRUE)

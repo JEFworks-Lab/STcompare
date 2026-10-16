@@ -261,7 +261,7 @@ ggplot(data.frame(r = c(nulls$nullX, nulls$nullY),
                   direction = rep(c("surrogates of A", "surrogates of B"),
                                   each = length(nulls$nullX))), aes(r)) +
   geom_histogram(bins = 40, fill = "grey70") +
-  geom_vline(xintercept = ab$r, colour = "red") +
+  geom_vline(xintercept = ab$correlationCoef, colour = "red") +
   facet_wrap(~direction) +
   labs(x = "Null correlation", y = "Permutations") +
   theme_classic()
@@ -269,7 +269,8 @@ ggplot(data.frame(r = c(nulls$nullX, nulls$nullY),
 
 The observed correlation of A and B (red line) lies far outside both null
 distributions. The nulls are wide, because unrelated smooth patterns can
-correlate strongly, but `r round(ab$r, 2)` is out of their reach.
+correlate strongly, but `r round(ab$correlationCoef, 2)` is out of their
+reach.
 
 # Sequential p-values: stop early when the answer is clear
 
@@ -331,10 +332,10 @@ fixed <- lapply(examples, function(e) {
 running <- do.call(rbind, Map(function(res, label) {
   nl <- attr(res, "details")[[1]]
   rbind(data.frame(b = seq_along(nl$nullX), direction = "x permuted",
-                   exceedances = cumsum(abs(nl$nullX) >= abs(res$r)),
+                   exceedances = cumsum(abs(nl$nullX) >= abs(res$correlationCoef)),
                    example = label),
         data.frame(b = seq_along(nl$nullY), direction = "y permuted",
-                   exceedances = cumsum(abs(nl$nullY) >= abs(res$r)),
+                   exceedances = cumsum(abs(nl$nullY) >= abs(res$correlationCoef)),
                    example = label))
 }, fixed, names(fixed)))
 running$example <- factor(running$example, levels = names(examples))
@@ -363,10 +364,10 @@ after `r stops$L[2]`; kidneys A and C never exceed and run to the limit:
 
 ```{r sequential-table}
 data.frame(example = names(adaptive),
-           r = sapply(adaptive, function(res) round(res$r, 3)),
+           correlationCoef = sapply(adaptive, function(res) round(res$correlationCoef, 3)),
            nPermutations = sapply(adaptive, function(res) res$nPermutations),
            stop = sapply(adaptive, function(res) res$stop),
-           p = sapply(adaptive, function(res) signif(res$p, 3)),
+           pValuePermute = sapply(adaptive, function(res) signif(res$pValuePermute, 3)),
            row.names = NULL)
 ```
 
@@ -379,26 +380,30 @@ and the permutation number, the adaptive run computed exactly the first
 Surrogates of `x` keep the autocorrelation of `x` but not of `y`, and the
 reverse for surrogates of `y`. STcompare runs both directions on the same
 permutation numbers, in lockstep, and stops a gene as soon as either direction
-reaches \(h\) exceedances. The gene's p-value `p` is the larger of the two
-directions' sequential p-values:
+reaches \(h\) exceedances. The gene's p-value, `pValuePermute`, is the larger
+of the two directions' sequential p-values:
 
-- if one direction reached \(h\) exceedances at permutation \(L\), `p` is
-  \(h / L\) (the other direction, had it continued alone, could only have
-  given a smaller value);
-- otherwise `p` is \((\max(b_x, b_y) + 1) / (n + 1)\).
+- if one direction reached \(h\) exceedances at permutation \(L\),
+  `pValuePermute` is \(h / L\) (the other direction, had it continued alone,
+  could only have given a smaller value);
+- otherwise `pValuePermute` is \((\max(b_x, b_y) + 1) / (n + 1)\).
 
 The larger of two valid p-values is itself valid, whatever the dependence
-between them, so `p` needs no assumption about how the two directions relate.
-Taking the larger value formalizes the rule of the original analyses, which
-called a gene significant when both directions were. `pX` and `pY`,
-\((b + 1) / (L + 1)\) for each direction at the common \(L\), are descriptive:
-when a gene stops early, the direction that did not reach \(h\) has an
-inflated value.
+between them, so `pValuePermute` needs no assumption about how the two
+directions relate. Taking the larger value formalizes the rule of the original
+analyses, which called a gene significant when both directions were.
+`pValuePermuteX` and `pValuePermuteY`, \((b + 1) / (L + 1)\) for each direction
+at the common \(L\), are descriptive: they are not adjusted, and when a gene
+stops early, the direction that did not reach \(h\) has an inflated value.
+(The legacy `spatialCorrelationGeneExp()` returns the same two raw columns for a
+fixed number of permutations, each adjusted across genes in `pValuePermuteXAdj`
+and `pValuePermuteYAdj`, and no combined p-value.)
 
-Across the genes of a call, `padj` adjusts `p` for multiple testing
-(Benjamini-Hochberg by default). With \(G\) genes, the \(k\)-th smallest p-value
-must be at most \(\alpha k / G\), so the smallest possible p-value,
-\(1 / (n + 1)\), matters when few genes are significant among many: see
+Across the genes of a call, `pValuePermuteAdj` adjusts `pValuePermute` for
+multiple testing (Benjamini-Hochberg by default). With \(G\) genes, the
+\(k\)-th smallest p-value must be at most \(\alpha k / G\), so the smallest
+possible p-value, \(1 / (n + 1)\), matters when few genes are significant among
+many: see
 [Parameters, performance and reproducibility](parameters-performance-reproducibility.html).
 
 # Rarely detected genes
@@ -429,7 +434,7 @@ sparse <- list(withValues(sparseX), withValues(sparseY))
 gaussian <- compareSpatial(sparse, tests = "correlation", nPermutations = 999,
                            surrogate = "gaussian", minDetected = 0,
                            nThreads = 2, verbose = FALSE)
-as.data.frame(gaussian)[, c("r", "p", "nPermutations")]
+as.data.frame(gaussian)[, c("correlationCoef", "pValuePermute", "nPermutations")]
 ```
 
 None of the 999 gaussian surrogate pairs comes close to this correlation, so p
@@ -440,15 +445,15 @@ shows how often such a coincidence happens by chance:
 ```{r sparse-shuffle}
 set.seed(2)
 shuffled <- replicate(1e5, cor(sample(sparseX), sparseY))
-exact <- mean(abs(shuffled) >= abs(gaussian$r) * (1 - 1e-9))
+exact <- mean(abs(shuffled) >= abs(gaussian$correlationCoef) * (1 - 1e-9))
 exact
 ```
 
 (The tolerance counts the shuffles that give exactly the observed correlation,
 which `cor()` rounds differently for each arrangement of the values.) A
 correlation this large happens by chance about once in `r round(1 / exact)`
-shuffles, so the gaussian surrogates' p-value, `r signif(gaussian$p, 2)`, is
-`r round(exact / gaussian$p)` times too small; with the default
+shuffles, so the gaussian surrogates' p-value, `r signif(gaussian$pValuePermute, 2)`, is
+`r round(exact / gaussian$pValuePermute)` times too small; with the default
 `nPermutations = 10000` it would be `r round(exact * 10001)` times too small.
 Remapped surrogates have the gene's own values. For a gene without spatial
 structure the ranks of its surrogates are close to random, so its remapped
@@ -459,7 +464,7 @@ defaults give a p-value of the right size:
 ```{r sparse-remap}
 remapped <- compareSpatial(sparse, tests = "correlation", nThreads = 2,
                            verbose = FALSE)
-c(remapped = remapped$p, exact = exact)
+c(remapped = remapped$pValuePermute, exact = exact)
 ```
 
 ```{r sparse-remap-text, include = FALSE}
@@ -469,7 +474,8 @@ remapText <- if (remapped$stop == "exceedances") {
           L, L)
 } else {
   sprintf("reached the limit of %d permutations with %d exceedances, so its p-value is (%d + 1) / %d",
-          L, round(remapped$p * (L + 1)) - 1, round(remapped$p * (L + 1)) - 1, L + 1)
+          L, round(remapped$pValuePermute * (L + 1)) - 1,
+          round(remapped$pValuePermute * (L + 1)) - 1, L + 1)
 }
 ```
 
@@ -493,7 +499,7 @@ still mostly zero can get p-values that are somewhat too small.
 ```{r sparse-skipped}
 skipped <- compareSpatial(sparse, tests = "correlation", surrogate = "gaussian",
                           nThreads = 2, verbose = FALSE)
-as.data.frame(skipped)[, c("p", "status", "message")]
+as.data.frame(skipped)[, c("pValuePermute", "status", "message")]
 ```
 
 With remapped surrogates, the default, no such filter is needed. In
@@ -521,10 +527,11 @@ similarity compares the levels at matched pixels. For each gene:
 3. **Classify.** A pixel is similar if \(|l| \le\) `foldChange` (1 by default,
    within two-fold), higher in `x` if \(l <\) `-foldChange`, and higher in `y` if
    \(l >\) `foldChange`.
-4. **Score.** `similarity` is the share of similar pixels among the kept
-   pixels, and `dissimilarityX` and `dissimilarityY` the shares of the other two
-   classes. If fewer than a share `minPixels` (10%) of the pixels are kept, the
-   scores are `NA`.
+4. **Score.** `percentSimilarity` is the share of similar pixels among the
+   kept pixels, and `percentDissimilarityX` and `percentDissimilarityY` the
+   shares of the other two classes (all three are proportions between 0 and 1,
+   despite their names). If fewer than a share `minPixels` (10%) of the pixels
+   are kept, the scores are `NA`.
 
 These steps take a few lines of R for kidneys A and B, and give the value
 reported by `compareSpatial()`:
@@ -534,7 +541,7 @@ keep <- x > quantile(x, 0.05) | y > quantile(y, 0.05)
 x0 <- ifelse(x == 0, 1e-4, x)
 y0 <- ifelse(y == 0, 1e-4, y)
 l <- log2(y0[keep] / x0[keep])
-c(byHand = mean(abs(l) <= 1), compareSpatial = ab$similarity)
+c(byHand = mean(abs(l) <= 1), compareSpatial = ab$percentSimilarity)
 ```
 
 ```{r similarity-plot, fig.height = 3, fig.alt = "Histogram of the log2 ratios of B to A at the kept pixels; the shaded band between -1 and 1 holds the similar pixels."}
@@ -558,14 +565,17 @@ For each gene, `compareSpatial()`:
 1. takes the gene's values on the pixels shared by the two samples, and skips
    the correlation test if the gene is constant in a sample (or, with
    gaussian surrogates, detected in too few pixels);
-2. computes Pearson's `r` (and, for reference, the naive `pNaive`);
+2. computes Pearson's correlation, `correlationCoef` (and, for reference, the
+   naive `pValueNaive`);
 3. draws surrogates of each sample that keep its spatial autocorrelation
    (shuffle, smooth with each \(\delta\), match the variogram, keep delta star)
    and its values (remap), and correlates them with the other sample;
 4. stops when either direction has `exceedances` null correlations at least as
-   extreme as `r`, or at `nPermutations`, and reports the larger of the two
-   directions' sequential p-values as `p`;
-5. adjusts `p` across genes (`padj`);
+   extreme as the observed correlation, or at `nPermutations`, and reports the
+   larger of the two directions' sequential p-values as `pValuePermute`
+   (`pValuePermuteX` and `pValuePermuteY` hold \((b + 1) / (L + 1)\) for
+   each direction);
+5. adjusts `pValuePermute` across genes (`pValuePermuteAdj`);
 6. computes the similarity of the levels at the kept pixels.
 
 All genes share the expensive parts that depend only on the pixel coordinates

@@ -112,7 +112,7 @@ an article too. All URLs of the website are unchanged (`articles/<name>.html`), 
        samples, coloured by similarity class";
      - `pixelClass`: "Map the similarity class of every pixel";
      - `savePlots`: "Maps, pixel classes and scatter plot of genes, optionally saved as PDF".
-   - **`compareSpatial()` examples.** `ac[, c("gene", "r", ...)]` keeps the class `"STcompareResult"` and
+   - **`compareSpatial()` examples.** `ac[, c("gene", "correlationCoef", ...)]` keeps the class `"STcompareResult"` and
      prints a header with "Correlation:" and no settings. Either write `as.data.frame(ac)[, ...]`, as the
      vignettes do, or add a `[.STcompareResult` method that returns a plain data frame when columns are
      selected.
@@ -230,9 +230,10 @@ Write each list with a comment header, as in the shipped files.
      reproducibility" quote the agreement measured with the default settings of `compareSpatial()` (seed 0,
      10,000 permutations; `nPermutations = 1000` gives the same significant genes): 98% (AKI) and 86%
      (brain) of genes are classified the same, counting a gene as significant with the legacy function when
-     both of its adjusted p-values are below 0.05.
-     - AKI: 729 genes significant with both methods, 2 with the legacy method only (Rps3a1 and Rps15a, padj
-       0.076 and 0.056), 23 with `compareSpatial()` only (padj 0.02 to 0.05).
+     both of its adjusted p-values are below 0.05 (since 2026-10-16 these are the columns `pValuePermuteXAdj`
+     and `pValuePermuteYAdj`; the raw p-values are `pValuePermuteX` and `pValuePermuteY`).
+     - AKI: 729 genes significant with both methods, 2 with the legacy method only (Rps3a1 and Rps15a,
+       pValuePermuteAdj 0.076 and 0.056), 23 with `compareSpatial()` only (pValuePermuteAdj 0.02 to 0.05).
      - Brain: 128 with both (every published gene), 0 legacy only, 45 `compareSpatial()` only, all positively
        correlated (r = 0.06 to 0.24). The calibration study (`bench/calibration-results.md`, item 5) attributes
        them to the remapped surrogates: gaussian surrogates are conservative for skewed, zero-inflated genes
@@ -242,10 +243,10 @@ Write each list with a comment header, as in the shipped files.
 4. **Example genes in the brain case study.** The brain article takes the example genes from its own
    results, so they can differ from the published figure. They are the strongest positive SVG (Slc17a7) and
    the non-significant non-SVG with the lowest correlation (Gpr160 with the remapped surrogates); the gene
-   shown before the test is Slc17a6 (Baiap2, which the published analysis found significant, has padj 0.04
+   shown before the test is Slc17a6 (Baiap2, which the published analysis found significant, has pValuePermuteAdj 0.04
    with the remapped surrogates; it had 0.06 with gaussian ones).
 5. **A rare matched cell type.** Resolved by the remapped default (2026-10-05): CT-16 (in 28 of 2174 MERFISH
-   pixels) is tested in the brain article and is significant (r = 0.76, padj 0.0036 at 1000 permutations),
+   pixels) is tested in the brain article and is significant (r = 0.76, pValuePermuteAdj 0.0036 at 1000 permutations),
    as in the published analysis, so all 9 matched cell types are significantly positively correlated. With
    `surrogate = "gaussian"` the sqrt(N) filter (47 pixels) still skips it.
 

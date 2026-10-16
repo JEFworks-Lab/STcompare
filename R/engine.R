@@ -918,7 +918,8 @@
 }
 
 # The table of the gene-wise functions from cor.test() results and an engine result ("pair" or
-# "within" rows): numeric columns correlationCoef, pValueNaive, pValuePermuteX/Y, deltaStarMedianX/Y,
+# "within" rows): numeric columns correlationCoef, pValueNaive, pValuePermuteX/Y (unadjusted; the gene-wise
+# functions add pValuePermuteXAdj/YAdj with .stc_adjust_directions()), deltaStarMedianX/Y,
 # and AsIs list columns deltaStarX/Y (delta* of every permutation), nullCorrelationsX/Y (B x 1
 # matrices) and, with keep, permutationsX/Y (N x B matrices). An NA row has NA in every column computed
 # from permutations (NA elements in the list columns).

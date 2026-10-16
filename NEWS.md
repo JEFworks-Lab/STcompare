@@ -1,4 +1,33 @@
-# STcompare 0.1.0.9000
+# STcompare 2.0.0
+
+## Breaking changes
+
+* `spatialCorrelationGeneExp()` and `spatialCorrelationGeneExpIterPermutations()` return the unadjusted
+  (raw) empirical p-values in `pValuePermuteX` and `pValuePermuteY`, `(b + 1) / (B + 1)` for each direction,
+  and two new columns right after them, `pValuePermuteXAdj` and `pValuePermuteYAdj`, hold these p-values
+  adjusted across genes with `adjustMethod` (each direction on its own). Earlier versions had no raw columns:
+  `spatialCorrelationGeneExpIterPermutations()` returned the adjusted values under the names `pValuePermuteX`
+  and `pValuePermuteY`, while the released 0.1.0 `spatialCorrelationGeneExp()` called `p.adjust()` on one
+  gene at a time, so the values it returned under these names were in fact unadjusted (see "Changes to
+  results"). Code that called a gene significant when both p-values of the iterative function were below 0.05
+  must now read `pValuePermuteXAdj` and `pValuePermuteYAdj`; the published tables of the iterative analyses
+  in `bench/published/` keep the adjusted values under the old names (`kidneyCorrelationNoIter.RData`, from
+  `spatialCorrelationGeneExp()`, holds unadjusted values). The screening between the rounds of
+  `spatialCorrelationGeneExpIterPermutations()` has always used the raw p-values. A p-value column carries
+  the suffix `Adj` exactly when it is adjusted, in every function: `spatialCorrelation()`,
+  `viladomatCorrelation()` and `spatialCorrelationGeneExpWithinSample()` never adjust and keep their columns.
+  `plotCorrelationGeneExp()` shows the greater of the two adjusted p-values of a legacy result, now labelled
+  `p_adj`; a table saved before 2.0.0 has no `Adj` columns, so its `pValuePermuteX` and `pValuePermuteY` are
+  shown with the `p_E` label even when the iterative function had adjusted them. The nulls, delta stars,
+  `correlationCoef` and `pValueNaive` are unchanged.
+* The columns of the new `compareSpatial()` have the names of the legacy functions where the quantity is the
+  same (`correlationCoef`, `pValueNaive`, `pValuePermuteX`, `pValuePermuteY`, `percentSimilarity`, ...),
+  plus `pValuePermute` and `pValuePermuteAdj`; the pre-release development versions on GitHub used `r`,
+  `pNaive`, `pX`, `pY`, `p`, `padj`, `similarity`, `dissimilarityX`, `dissimilarityY`, `nPixelsSimilarity`,
+  `thresholdX` and `thresholdY`.
+* `matchingVariograms()` is removed (see "A compiled engine replaces the R implementation").
+* Empirical p-values are `(b + 1) / (B + 1)` instead of `b / B`, so they are never 0 (see "Changes to
+  results").
 
 ## New main function: `compareSpatial()`
 
@@ -8,6 +37,16 @@
   `"STcompareResult"`, with `print()`, `summary()` and `as.data.frame()` methods; the settings, the delta grid
   used, the call and the run time are attributes, and `keepNulls = TRUE` keeps the null correlations and
   delta stars of every permutation.
+* The columns have the names of the legacy functions where the quantity is the same, so that the two kinds of
+  result read alike: `correlationCoef`, `pValueNaive`, `pValuePermuteX` and `pValuePermuteY` as in
+  `spatialCorrelationGeneExp()`, and `percentSimilarity`, `percentDissimilarityX`, `percentDissimilarityY`,
+  `numPixelInThresh`, `t1` and `t2` as in `spatialSimilarity()`. The combined permutation p-value is
+  `pValuePermute`, and `pValuePermuteAdj` is its adjustment across genes, the column to use to call a gene
+  significant. The help page describes every column in order, says what each p-value is and where it differs
+  from the legacy functions (`pValuePermuteX` and `pValuePermuteY` are sequential p-values at the common
+  stopping point here, and fixed-B p-values in `spatialCorrelationGeneExp()`, which adjusts each direction on
+  its own, `pValuePermuteXAdj` and `pValuePermuteYAdj`, and has no combined p-value), documents the attributes,
+  and has a paragraph "Which p-value should I report?". `print()` and `summary()` name the columns they count.
 * Statistical changes compared with the legacy functions, which are unchanged:
   * Adaptive p-values (Besag and Clifford 1991): the two directions of a gene (x permuted, y permuted) run in
     lockstep until either has `exceedances = 10` null correlations at least as extreme as the observed one,
@@ -15,8 +54,9 @@
     permutations; a significant gene runs to `nPermutations`, so p-values down to 1 / 10001 are resolved.
   * One p-value per gene: `exceedances / L` if the gene stopped early after `L` permutations, otherwise
     `(max(bX, bY) + 1) / (L + 1)`. This is the larger of the two directions' sequential p-values and is valid
-    without assuming that the directions are independent. It is adjusted across genes (`adjustMethod = "BH"`).
-    `exceedances = Inf` gives a fixed number of permutations with `p = max(pX, pY)`.
+    without assuming that the directions are independent (`pValuePermute`). It is adjusted across genes
+    (`adjustMethod = "BH"`, `pValuePermuteAdj`). `exceedances = Inf` gives a fixed number of permutations with
+    `pValuePermute = max(pValuePermuteX, pValuePermuteY)`.
   * Independent random streams: the permutations and the noise of each gene, direction and permutation come
     from their own stream (xoshiro256**, keyed by the seed, the gene name and the direction), so the results
     do not depend on the number of threads, the gene order or the other genes in the call. The legacy
@@ -66,6 +106,33 @@
   The line fits the width of the console, and its final count of permutations is the total of the result.
   `nThreads` defaults to `getOption("STcompare.nThreads", 1L)`.
 * Selecting rows of a result with `[` keeps its class and settings; selecting columns gives a plain data frame.
+
+## Visualization
+
+* `plotGene(result, gene, x, y)` draws one standardized figure for one gene of a `compareSpatial()` result,
+  ready to print or to save with `ggplot2::ggsave()`: the gene's expression in the two samples at native
+  resolution (optional, from the objects before rasterization, `native = list(...)`), on the shared grid of
+  pixels (with the pixel geometry of SEraster, or tiles), the similarity class of every pixel (similar,
+  higher in either sample, below the threshold; the legend gives the share of each class, so the share of
+  similar pixels is `percentSimilarity`), and a scatter plot of the expression at matched pixels coloured by
+  class with the line y = x, the fold-change band and the thresholds (the figure's caption is the key),
+  subtitled with the gene's statistics: `correlationCoef`, `pValuePermute` (and the number of permutations),
+  `pValuePermuteAdj`, `pValueNaive` and `percentSimilarity`, with the reason when a statistic is `NA`. Every
+  map is a lettered panel with the sample name; the colour scales are viridis, the class colours are
+  distinguishable under colour-vision deficiencies, a pair of maps shares one colour scale
+  (`sharedScale = FALSE` gives each map its own), `transform = "log1p"` puts the maps and the scatter axes on
+  a log1p scale, pixels that one sample lacks are drawn in light grey in every map, and `nativeUnit` names
+  the points of the native maps ("cells" or "spots"). Every text, legend key and point is scaled from
+  `baseSize` (10 points by default; 7 for a journal figure 180 mm wide), and the figure is a patchwork
+  object, so it can be changed with patchwork and ggplot2. The function warns when the objects are not
+  those the result was computed on (another number of shared pixels, or `x` and `y` swapped).
+* `plotOverview(result)` draws one figure for all the genes of a result: `correlationCoef` against
+  `-log10(pValuePermuteAdj)` with the significant genes coloured by the sign of the correlation, a histogram
+  of `percentSimilarity`, and `correlationCoef` against `percentSimilarity`; `label` names genes to label
+  and `baseSize` scales the figure. Panels whose columns are absent (a result of one test) are left out.
+* The tutorials use these figures: Getting started explains the panels and how to save and customize a
+  figure, and the case studies show `plotOverview()` and `plotGene()` on the published analyses.
+* patchwork, which arranges the panels, is now imported (it was suggested).
 
 ## A compiled engine replaces the R implementation
 
@@ -139,8 +206,9 @@
     exceedances instead of 5.
 
 * `spatialCorrelationGeneExp()` now applies `adjustMethod` across all genes, separately to
-  `pValuePermuteX` and `pValuePermuteY`, as documented. Previously it was applied to one gene at a time,
-  which left every p-value unadjusted.
+  `pValuePermuteX` and `pValuePermuteY`, as documented, and returns the result in the new columns
+  `pValuePermuteXAdj` and `pValuePermuteYAdj` (see "Breaking changes"). Previously it was applied to one gene
+  at a time, which left every p-value unadjusted.
 
 ## Bug fixes and minor improvements
 
@@ -172,15 +240,15 @@
 * `savePlots()`:
   * without pixel geometries, panel 2 shows the second sample (it showed the first one again);
   * uses `assayName` for every panel (the expression panels of rasterized objects always showed the first assay);
-  * no longer attaches ggplot2, gridExtra and patchwork to the search path; patchwork is now a suggested
-    package, and gridExtra is not used;
+  * no longer attaches ggplot2, gridExtra and patchwork to the search path (patchwork is imported, and
+    gridExtra is not used);
   * the expression panels have the sample names as titles, and their colour bars the same size, in both
     branches.
 * `plotCorrelationGeneExp()`:
   * draws pixels with negative values (the axes started at 0, so they were dropped);
   * shows the greater of the two p-values, or `NA` if either is `NA` (it showed `pValuePermuteX` when
     `pValuePermuteY` was `NA`), rounded to 3 significant digits;
-  * also takes a `compareSpatial()` result, and shows its `padj`;
+  * also takes a `compareSpatial()` result, and shows its `pValuePermuteAdj` (labelled `p_adj`);
   * stops with a clear error for a gene that is not in the results, and no longer prints "Ignoring unknown
     labels".
 * `pixelClass()` no longer prints "Coordinate system already present". It needs the sf package (now
@@ -218,7 +286,7 @@
 * DESCRIPTION: R 4.5 is required, as SEraster is in Bioconductor from release 3.21, which requires R 4.5; the
   title is spelled correctly; `biocViews` lets `BiocManager::install()` and
   `remotes::install_github()` find the Bioconductor dependencies; `URL` and `BugReports` point to GitHub;
-  `SystemRequirements: C++17`; ggplot2 (>= 3.5.0) is required; patchwork and sf are suggested, class and
+  `SystemRequirements: C++17`; ggplot2 (>= 3.5.0) and patchwork are required; sf and Matrix are suggested, class and
   reshape2 (no longer used) are not, and `Config/Needs/website` lists the packages that only the case-study
   articles of the website need.
 

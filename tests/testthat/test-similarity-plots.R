@@ -103,22 +103,41 @@ test_that("portable: plotCorrelationGeneExp() draws negative values and shows a 
     SummarizedExperiment::assay(s, "centred") <- m - mean(m)
     s
   })
-  tab <- data.frame(correlationCoef = -0.94721, pValuePermuteX = 1 / 3, pValuePermuteY = 0.002, row.names = "Gene")
+  # a legacy gene-wise result: the greater of the two adjusted p-values (pValuePermuteXAdj, pValuePermuteYAdj),
+  # labelled p_adj; the raw columns are not shown
+  tab <- data.frame(correlationCoef = -0.94721, pValuePermuteX = 0.01, pValuePermuteY = 0.002,
+                    pValuePermuteXAdj = 1 / 3, pValuePermuteYAdj = 0.004, row.names = "Gene")
   p <- plotCorrelationGeneExp(ab, tab, "Gene", assayName = "centred")
   d <- ggplot2::layer_data(p)
   expect_identical(sum(stats::complete.cases(d[, c("x", "y")])), N)
   expect_lt(min(d$x), 0)
-  expect_identical(p$labels$title, "Gene  r =  -0.947  p_E =  0.333")
+  expect_identical(p$labels$title, "Gene  r =  -0.947  p_adj =  0.333")
   expect_identical(p$labels$x, "centred in A")
-  # the greater of the two p-values, NA if either is NA
-  for (col in c("pValuePermuteX", "pValuePermuteY")) {
+  # the greater of the two adjusted p-values, NA if either is NA
+  for (col in c("pValuePermuteXAdj", "pValuePermuteYAdj")) {
     t2 <- tab
+    t2[[col]] <- NA
+    expect_match(plotCorrelationGeneExp(ab, t2, "Gene")$labels$title, "p_adj =  NA$")
+  }
+  # a table without adjusted columns: the greater of the two raw p-values, labelled p_E
+  raw <- tab[c("correlationCoef", "pValuePermuteX", "pValuePermuteY")]
+  expect_identical(plotCorrelationGeneExp(ab, raw, "Gene")$labels$title, "Gene  r =  -0.947  p_E =  0.01")
+  for (col in c("pValuePermuteX", "pValuePermuteY")) {
+    t2 <- raw
     t2[[col]] <- NA
     expect_match(plotCorrelationGeneExp(ab, t2, "Gene")$labels$title, "p_E =  NA$")
   }
-  # a compareSpatial() result: r and padj
-  res <- data.frame(gene = "Gene", r = 0.5, p = 0.001, padj = 0.0123456, row.names = "Gene")
-  expect_identical(plotCorrelationGeneExp(ab, res, "Gene")$labels$title, "Gene  r =  0.5  padj =  0.0123")
+  # a real spatialCorrelationGeneExp() result on the kidney raster: the title shows max(pValuePermuteXAdj, pValuePermuteYAdj)
+  rk <- fx_speKidney_raster()
+  local_default_rng()
+  og <- spatialCorrelationGeneExp(list(rk$A, rk$B), nPermutations = 3, verbose = FALSE)
+  expect_identical(plotCorrelationGeneExp(list(rk$A, rk$B), og, "Gene")$labels$title,
+                   sprintf("Gene  r =  %s  p_adj =  %s", round(og$correlationCoef, 3),
+                           signif(max(og$pValuePermuteXAdj, og$pValuePermuteYAdj), 3)))
+  # a compareSpatial() result (recognised by pValuePermuteAdj): correlationCoef and the adjusted p-value
+  res <- data.frame(gene = "Gene", correlationCoef = 0.5, pValuePermuteX = 0.001, pValuePermuteY = 0.3,
+                    pValuePermute = 0.3, pValuePermuteAdj = 0.0123456, row.names = "Gene")
+  expect_identical(plotCorrelationGeneExp(ab, res, "Gene")$labels$title, "Gene  r =  0.5  p_adj =  0.0123")
   expect_error(plotCorrelationGeneExp(ab, tab, "Other"), "gene Other is not a row of spatialCorrelation")
 })
 
