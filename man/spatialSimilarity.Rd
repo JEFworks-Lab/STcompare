@@ -17,61 +17,84 @@ spatialSimilarity(
 )
 }
 \arguments{
-\item{input}{List of two SpatialExperiment objects. The first element
-corresponds to the first spatial experiment (`x`), and the second to the
-second spatial experiment (`y`). Similarity is computed as the proportion
-of pixels satisfying: `-b <= log2(y/x) <= b` for each gene, where `b = 1`
-as default}
+\item{input}{List of two SpatialExperiment objects (only the first two
+elements are used). The first element corresponds to the first spatial
+experiment (\code{x}), and the second to the second spatial experiment
+(\code{y}). Similarity is computed as the proportion of pixels satisfying
+\code{-b <= log2(y/x) <= b} for each gene, where \code{b = foldChange}
+(default 1).}
 
 \item{t1}{\code{numeric}: Gene expression threshold for the first spatial
-experiment (`x`). Only pixels with values greater than t1 or t2 are used
-to calculate similarity score. Default is \code{NULL}. If no value is
-supplied for \code{t1}, then each gene will have a threshold set as by
-\code{minQuantile}.}
+experiment (\code{x}), a single number used for every gene. Only pixels
+with values greater than \code{t1} in \code{x} or greater than \code{t2}
+in \code{y} are used to calculate the similarity score. Default is
+\code{NULL}: each gene's threshold is then its \code{minQuantile}
+quantile in \code{x}.}
 
 \item{t2}{\code{numeric}: Gene expression threshold for the second spatial
-experiment (`y`). Only pixels with values greater than t1 or t2 are used
-to calculate similarity score. Default is \code{NULL}. If no value is
-supplied for \code{t2}, then each gene will have a threshold set as by
-\code{minQuantile}.}
+experiment (\code{y}), like \code{t1}. Default is \code{NULL}: each gene's
+threshold is then its \code{minQuantile} quantile in \code{y}.}
 
-\item{minQuantile}{\code{numeric}: Gene expression minimum quantile threshold
-to use if \code{t1} and \code{t2} are not supplied.  Default is
-\code{0.05}.}
+\item{minQuantile}{\code{numeric}: The quantile (between 0 and 1) of each
+gene's values in each experiment used as its threshold when \code{t1} or
+\code{t2} is not supplied. Default is \code{0.05}.}
 
-\item{minPixels}{\code{numeric}: Pixels minimum threshold. If less than this
-percentage of pixels meet the gene expression minimum threshold, then a
-spatial similarity score is not calculated for this gene and the function
-returns `NA`. Default is \code{0.1}.}
+\item{minPixels}{\code{numeric}: The smallest proportion (between 0 and 1)
+of the shared pixels that must pass the thresholds. If fewer pixels pass,
+a spatial similarity score is not calculated for the gene (\code{NA}).
+Default is \code{0.1}.}
 
-\item{foldChange}{\code{numeric}: Fold-change threshold defining similarity
-in gene expression across spatial locations. Default is \code{1}.}
+\item{foldChange}{\code{numeric}: The similarity band on the log2 scale:
+pixels with \eqn{|\log_2(y / x)| \le}{|log2(y / x)| <=} \code{foldChange}
+are similar. Default is \code{1}, that is, within two-fold.}
 
 \item{assayName}{A character string or numeric specifying the assay in the
 Spatial Experiment to use. Default is \code{NULL}. If no value is supplied
-for \code{assayName}, then the first assay is used as a default}
+for \code{assayName}, then the first assay is used as a default. The assay
+used is recorded in the result, and \code{\link{linearRegression}()},
+\code{\link{pixelClass}()} and \code{\link{savePlots}()} use it by
+default.}
+
+\item{verbose}{\code{logical}: if \code{TRUE}, print a message with the
+number of genes and shared pixels compared. Default is \code{FALSE}.}
 }
 \value{
-A list containing: \item{similarityTable}{A data frame with the
-  following columns:}
-  \itemize{
-    \item{\strong{gene}}{Gene name.}
-    \item{\strong{percentSimilarity}}{Percentage of similar pixels for the gene.}
-    \item{\strong{percentDissimilarityX}}{Percentage of pixels for which log2(y/x) < -foldChange.}
-    \item{\strong{percentDissimilarityY}}{Percentage of pixels for which log2(y/x) > foldChange.}
-    \item{\strong{similarPixelID}}{List of pixel IDs classified as similar.}
-    \item{\strong{dissimilarPixelIDX}}{List of pixel IDs for log2(y/x) < -foldChange.}
-    \item{\strong{dissimilarPixelIDY}}{List of pixel IDs for log2(y/x) > foldChange.}
-    \item{\strong{numPixelInThresh}}{Number of pixels above the threshold in both experiments.}
-    \item{\strong{pixelIDInThresh}}{List of pixel IDs above the threshold.}
-    \item{\strong{numPixelOutThresh}}{Number of pixels below the threshold.}
-    \item{\strong{pixelIDOutThresh}}{List of pixel IDs below the threshold.}
-    \item{\strong{t1}}{Threshold value for this gene in first spatial experiment.}
-    \item{\strong{t2}}{Threshold value for this gene in second spatial experiment.}
+A list containing:
+\describe{
+  \item{\code{similarityTable}}{A data frame with one row per gene and the
+  following columns:
+  \describe{
+    \item{\code{gene}}{Gene name.}
+    \item{\code{percentSimilarity}}{Proportion (between 0 and 1) of the
+    kept pixels that are similar: the similarity score S.}
+    \item{\code{percentDissimilarityX}}{Proportion of the kept pixels for
+    which \code{log2(y/x) < -foldChange} (higher in the first experiment).}
+    \item{\code{percentDissimilarityY}}{Proportion of the kept pixels for
+    which \code{log2(y/x) > foldChange} (higher in the second experiment).}
+    \item{\code{similarPixelID}}{List of pixel IDs classified as similar.}
+    \item{\code{dissimilarPixelIDX}}{List of pixel IDs for
+    \code{log2(y/x) < -foldChange}.}
+    \item{\code{dissimilarPixelIDY}}{List of pixel IDs for
+    \code{log2(y/x) > foldChange}.}
+    \item{\code{numPixelInThresh}}{Number of pixels kept: above the
+    threshold in either experiment.}
+    \item{\code{pixelIDInThresh}}{List of the kept pixel IDs.}
+    \item{\code{numPixelOutThresh}}{Number of pixels removed: at or below
+    the threshold in both experiments.}
+    \item{\code{pixelIDOutThresh}}{List of the removed pixel IDs.}
+    \item{\code{t1}}{Threshold value for this gene in first spatial experiment.}
+    \item{\code{t2}}{Threshold value for this gene in second spatial experiment.}
   }
-  \item{pixelLogTransformation}{A data frame containing log-transformed
-  fold-change values for each gene.} \item{parameters}{A list of input
-  parameters used in the computation.}
+  For a gene with fewer than \code{minPixels} kept pixels, the three
+  proportions and the three lists of classified pixels are \code{NA}.}
+  \item{\code{pixelLogTransformation}}{A data frame with one row per gene
+  that has a similarity score: \code{gene}, and \code{log}, a list with the
+  \code{log2(y/x)} values of its kept pixels (in the order of
+  \code{pixelIDInThresh}).}
+  \item{\code{parameters}}{A list with \code{foldChange}, \code{minPixels},
+  the \code{input} objects, and the \code{assayName} (the assay used),
+  \code{minQuantile}, \code{t1} and \code{t2} arguments.}
+}
 }
 \description{
 This function calculates the spatial similarity of gene expression patterns
@@ -79,13 +102,48 @@ between two SpatialExperiment objects based on thresholding and fold-change
 criteria. Similarity is defined as the proportion of pixels where the fold
 change in gene expression falls within a specified range.
 }
+\details{
+The genes compared are those in both objects (row names), and the
+  pixels compared are those whose names (column names) are in both objects:
+  rasterize the two samples in one call, such as
+  \code{SEraster::rasterizeGeneExpression(list(x, y), ...)}, so that a pixel
+  name means the same location in both.
+
+  For each gene, a pixel is kept when its value in the first object is
+  above \code{t1} or its value in the second object is above \code{t2}
+  (strictly), so the pixels removed are those at or below the threshold in
+  both objects. Zeros among the kept pixels are replaced by 1e-4. With
+  \eqn{l = \log_2(y / x)}{l = log2(y / x)} for a kept pixel, where \eqn{x}
+  and \eqn{y} are its values in the first and the second object, the pixel
+  is similar when \eqn{-b \le l \le b}{-b <= l <= b} for
+  \eqn{b} = \code{foldChange} (the default 1 means within two-fold, both
+  ends included), higher in the first object when \eqn{l < -b}, and higher
+  in the second object when \eqn{l > b}. If fewer than a share
+  \code{minPixels} of the shared pixels are kept, the gene gets no
+  similarity (\code{NA}).
+
+  The values must be finite and not negative, such as counts or normalized
+  expression on a linear scale: a fold change is not defined for negative
+  values, and genes with negative, missing or infinite values on the shared
+  pixels stop the function with an error that names them. All genes are
+  computed at once by the helper that also computes the similarity columns
+  of \code{\link{compareSpatial}()}, which gives the same numbers.
+}
 \examples{
 data(speKidney)
 ##### Rasterize to get pixels at matched spatial locations #####
 rastKidney <- SEraster::rasterizeGeneExpression(speKidney,
                assay_name = 'counts', resolution = 0.2, fun = "mean",
-               BPPARAM = BiocParallel::MulticoreParam(), square = FALSE)
+               square = FALSE)
 
 s <- spatialSimilarity(list(rastKidney$A, rastKidney$C))
+s$similarityTable[, c("gene", "percentSimilarity", "percentDissimilarityX",
+                      "percentDissimilarityY", "numPixelInThresh")]
 
+}
+\seealso{
+\code{\link{compareSpatial}()}, which computes the similarity
+  together with the spatial correlation test; \code{\link{linearRegression}()},
+  \code{\link{pixelClass}()} and \code{\link{savePlots}()} to plot the
+  result.
 }

@@ -5,8 +5,9 @@
 \alias{speKidney}
 \title{Simulated Kidney SpatialExperiment Data}
 \format{
-A named list with three elements: \code{A}, \code{B}, and \code{C}.
-Each element is a \code{SpatialExperiment} object with:
+A named list with three elements, in this order: \code{A}, \code{C}
+and \code{B}. Select them by name. Each element is a \code{SpatialExperiment}
+object with:
 \describe{
   \item{assays}{A single \code{counts} matrix (1 × N), where N is the number of cells.}
   \item{rownames}{One gene: \code{"Gene"}.}
