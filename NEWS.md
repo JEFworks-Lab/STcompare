@@ -1,6 +1,6 @@
 # STcompare 2.0.0
 
-## Breaking changes
+## Changes
 
 * `spatialCorrelationGeneExp()` and `spatialCorrelationGeneExpIterPermutations()` return the unadjusted
   (raw) empirical p-values in `pValuePermuteX` and `pValuePermuteY`, `(b + 1) / (B + 1)` for each direction,
@@ -208,7 +208,7 @@
 
 * `spatialCorrelationGeneExp()` now applies `adjustMethod` across all genes, separately to
   `pValuePermuteX` and `pValuePermuteY`, as documented, and returns the result in the new columns
-  `pValuePermuteXAdj` and `pValuePermuteYAdj` (see "Breaking changes"). Previously it was applied to one gene
+  `pValuePermuteXAdj` and `pValuePermuteYAdj` (see "Changes"). Previously it was applied to one gene
   at a time, which left every p-value unadjusted.
 
 ## Bug fixes and minor improvements

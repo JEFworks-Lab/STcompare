@@ -5,12 +5,12 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Getting Started with STcompare • STcompare</title>
+<title>Getting started with STcompare • STcompare</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
-<link href="../deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Getting Started with STcompare">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Getting started with STcompare">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">STcompare</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -29,21 +29,33 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../articles/Install.html">Install</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-tutorials" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Tutorials</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-tutorials">
-<li><a class="dropdown-item" href="../articles/getting-started-with-STcompare.html">Getting Started with STcompare</a></li>
-    <li><a class="dropdown-item" href="../articles/acute-kidney-injury-10x-visium-rasterized.html">Acute Kidney Injury 10x Visium</a></li>
-    <li><a class="dropdown-item" href="../articles/brain-MERFISH-10x-visium.html">Comparison of MERFISH and Visium for Mouse Brain</a></li>
+<li><a class="dropdown-item" href="../articles/getting-started-with-STcompare.html">Getting started with STcompare</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Case studies</h6></li>
+    <li><a class="dropdown-item" href="../articles/acute-kidney-injury-10x-visium-rasterized.html">Acute kidney injury (10x Visium)</a></li>
+    <li><a class="dropdown-item" href="../articles/brain-MERFISH-10x-visium.html">Comparison of MERFISH and Visium for mouse brain</a></li>
   </ul>
 </li>
-<li class="nav-item"><a class="nav-link" href="../reference/index.html">Functions</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
+<li><a class="dropdown-item" href="../articles/how-STcompare-works.html">How STcompare works</a></li>
+    <li><a class="dropdown-item" href="../articles/parameters-performance-reproducibility.html">Parameters, performance and reproducibility</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/Install.html">Installation</a></li>
+  </ul>
+</li>
+<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/JEFworks-Lab/STcompare/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -57,7 +69,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>Getting Started with STcompare</h1>
+      <h1>Getting started with STcompare</h1>
                         <h4 data-toc-skip class="author">Vivien
 Jiang</h4>
                         <h4 data-toc-skip class="author">Kalen
@@ -65,7 +77,7 @@ Clifton</h4>
                         <h4 data-toc-skip class="author">Jean Fan</h4>
             
       
-
+      <small class="dont-index">Source: <a href="https://github.com/JEFworks-Lab/STcompare/blob/HEAD/vignettes/getting-started-with-STcompare.Rmd" class="external-link"><code>vignettes/getting-started-with-STcompare.Rmd</code></a></small>
       <div class="d-none name"><code>getting-started-with-STcompare.Rmd</code></div>
     </div>
 
@@ -74,92 +86,71 @@ Clifton</h4>
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>Spatial transcriptomic (ST) technologies enable the investigation of
-how tissue organization relates to cellular function by profiling the
-spatial location of cells within a tissue and the gene expression
-profiles associated with those locations. As ST technologies are
-increasingly applied in the context of disease characterization and
-translational research, identifying genes that spatially change in their
-expression patterns in diseased tissues as compared to healthy controls
-could reveal localized molecular variation associated with pathological
-processes, offering insights into disease mechanisms as well as aiding
-in the discovery of diagnostic biomarkers.</p>
-<p>Attempts at such comparative analysis of ST datasets can be performed
-using traditional non-spatial bulk or single cell transcriptomics
-analysis approaches such as differential gene expression (DGE) analysis,
-comparing the mean expression of genes between two datasets by
-fold-change. However, this type of DGE analysis does not consider the
-spatial information. As such, a gene can be identified as not
-differentially expressed across two datasets by having the same mean
-gene expression, but the gene can still have two distinct spatial
-patterns of expression. On the other hand, a gene can be identified as
-differentially expressed across the two datasets by having very
-different mean gene expression but have spatial expression patterns that
-are highly similar. By not considering spatial information, traditional
-DGE analysis fails to characterize such cases. To demonstrate these
-cases, we simulated ST datasets where one pair of genes has different
-radial expression patterns but the same mean expression, while the other
-pair has same radial expression patterns but different mean
-expression.</p>
-<p>Clifton K, Jiang V, Singh S, Matsuura R, Rabb H, Fan J., STcompare:
-Comparative spatial transcriptomics data analysis to characterize
-differentially spatially patterned genes. bioRxiv 2025.11.21.689847.
-doi: <a href="https://doi.org/10.1101/2025.11.21.689847" class="external-link uri">https://doi.org/10.1101/2025.11.21.689847</a></p>
-</div>
-<div class="section level2">
-<h2 id="install">Install<a class="anchor" aria-label="anchor" href="#install"></a>
-</h2>
+<p>Spatial transcriptomics (ST) measures gene expression at known
+locations in a tissue. When two tissues are compared, for example a
+diseased section and a healthy control, the usual differential
+expression analysis compares the mean expression of each gene and
+ignores where the gene is expressed. A gene can then look unchanged
+although its spatial pattern changed, or look changed although its
+pattern is the same and only its level differs.</p>
+<p>STcompare compares two structurally matched tissues location by
+location. For every gene it answers two questions:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Question</th>
+<th>Test</th>
+<th>Output</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>Is the gene’s spatial <strong>pattern</strong> the same in both
+samples?</td>
+<td>Spatial correlation: Pearson’s correlation of the two samples over
+matched pixels, with a permutation p-value that accounts for spatial
+autocorrelation</td>
+<td>
+<code>correlationCoef</code>, <code>pValuePermute</code>,
+<code>pValuePermuteAdj</code>
+</td>
+</tr>
+<tr class="even">
+<td>Is the gene’s expression <strong>level</strong> the same at matched
+locations?</td>
+<td>Spatial similarity: the share of matched pixels where the two values
+are within a fold change of each other</td>
+<td>
+<code>percentSimilarity</code> (descriptive, no p-value)</td>
+</tr>
+</tbody>
+</table>
+<p>The two tests are complementary: a gene can have the same pattern at
+a different level (high correlation, low similarity), or the same level
+with a different pattern.</p>
+<p>This tutorial uses small simulated data that ships with the package
+and runs in under a minute. The method is described in Clifton et
+al. (2026), <a href="https://doi.org/10.1093/bioinformatics/btag644" class="external-link">doi:10.1093/bioinformatics/btag644</a>.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">require</a></span><span class="op">(</span><span class="va"><a href="https://remotes.r-lib.org" class="external-link">remotes</a></span><span class="op">)</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">'JEFworks-Lab/STcompare'</span><span class="op">)</span></span></code></pre></div>
-<p>In this tutorial we will walk through applying
-<code>STcompare</code>’s two differential spatial comparison tests to
-simulated kidney datasets:</p>
-<ol style="list-style-type: decimal">
-<li><p><strong>Spatial Correlation:</strong> Person correlation assumes
-that each sample is independent and identically distributed random
-variables. However, in terms of gene expression, the gene expression of
-one cell influences the gene expression of the neighboring cells.
-Spatial Correlation computes the empirical p-value instead to consider
-the dependent relationship. We will show why the p-value null
-distribution correction is needed in the Spatial Correlation
-test.</p></li>
-<li><p><strong>Spatial Fold Change:</strong> Computes a Similarity score
-for each gene in the comparison, compares the change in expression at
-matched locations.</p></li>
-</ol>
-</div>
-<div class="section level2">
-<h2 id="load-libraries">Load Libraries<a class="anchor" aria-label="anchor" href="#load-libraries"></a>
-</h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jef.works/STcompare/">STcompare</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/drighelli/SpatialExperiment" class="external-link">SpatialExperiment</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/JEFworks-Lab/SEraster" class="external-link">SEraster</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com" class="external-link">patchwork</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://sjmgarnier.github.io/viridis/" class="external-link">viridis</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hadley/reshape" class="external-link">reshape2</a></span><span class="op">)</span></span></code></pre></div>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com" class="external-link">patchwork</a></span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="simulated-pattern-kidney">Simulated Pattern Kidney<a class="anchor" aria-label="anchor" href="#simulated-pattern-kidney"></a>
+<h2 id="simulated-kidneys">Simulated kidneys<a class="anchor" aria-label="anchor" href="#simulated-kidneys"></a>
 </h2>
-<p>Here we load the simulated kidney data <code>speKidney</code> that we
-will use to demonstrate <code>spatialCorrelation</code> and
-<code>spatialSimilarity</code></p>
-<p><code>speKidney</code> is a list of three
-<code>SpatialExperiment</code> objects representing three simulated
-single-cell kidney datasets named A, B, and C. A <a href="%22https://www.bioconductor.org/packages/release/bioc/html/SpatialExperiment.html%22" class="external-link"><code>SpatialExperiment</code></a>
-object store spatial transcriptomics data, combining gene expression
-matrices with the spatial coordinates of each spatial location. Each
-element of <code>speKidney</code> contains <code>assays</code>:
-gene-by-cell expression matrices and <code>spatialCoords</code>: x–y
-spatial coordinates for each spatial location.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"speKidney"</span><span class="op">)</span> </span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">speKidney</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $A</span></span>
+<p><code>speKidney</code> is a list of three simulated single-cell
+datasets, <code>A</code>, <code>B</code> and <code>C</code>, each a
+<code>SpatialExperiment</code> with one gene called <code>Gene</code>,
+its counts in the assay <code>counts</code>, and the x-y coordinates of
+the cells in <code><a href="https://rdrr.io/pkg/SpatialExperiment/man/SpatialExperiment-methods.html" class="external-link">spatialCoords()</a></code>.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">speKidney</span><span class="op">)</span></span>
+<span><span class="va">speKidney</span><span class="op">$</span><span class="va">A</span></span>
 <span><span class="co">#&gt; class: SpatialExperiment </span></span>
 <span><span class="co">#&gt; dim: 1 1229 </span></span>
 <span><span class="co">#&gt; metadata(0):</span></span>
@@ -172,171 +163,57 @@ spatial coordinates for each spatial location.</p>
 <span><span class="co">#&gt; mainExpName: NULL</span></span>
 <span><span class="co">#&gt; altExpNames(0):</span></span>
 <span><span class="co">#&gt; spatialCoords names(2) : x y</span></span>
-<span><span class="co">#&gt; imgData names(0):</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $C</span></span>
-<span><span class="co">#&gt; class: SpatialExperiment </span></span>
-<span><span class="co">#&gt; dim: 1 1297 </span></span>
-<span><span class="co">#&gt; metadata(0):</span></span>
-<span><span class="co">#&gt; assays(1): counts</span></span>
-<span><span class="co">#&gt; rownames(1): Gene</span></span>
-<span><span class="co">#&gt; rowData names(0):</span></span>
-<span><span class="co">#&gt; colnames(1297): cell1 cell2 ... cell1296 cell1297</span></span>
-<span><span class="co">#&gt; colData names(1): sample_id</span></span>
-<span><span class="co">#&gt; reducedDimNames(0):</span></span>
-<span><span class="co">#&gt; mainExpName: NULL</span></span>
-<span><span class="co">#&gt; altExpNames(0):</span></span>
-<span><span class="co">#&gt; spatialCoords names(2) : x y</span></span>
-<span><span class="co">#&gt; imgData names(0):</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $B</span></span>
-<span><span class="co">#&gt; class: SpatialExperiment </span></span>
-<span><span class="co">#&gt; dim: 1 1242 </span></span>
-<span><span class="co">#&gt; metadata(0):</span></span>
-<span><span class="co">#&gt; assays(1): counts</span></span>
-<span><span class="co">#&gt; rownames(1): Gene</span></span>
-<span><span class="co">#&gt; rowData names(0):</span></span>
-<span><span class="co">#&gt; colnames(1242): cell1 cell2 ... cell1241 cell1242</span></span>
-<span><span class="co">#&gt; colData names(1): sample_id</span></span>
-<span><span class="co">#&gt; reducedDimNames(0):</span></span>
-<span><span class="co">#&gt; mainExpName: NULL</span></span>
-<span><span class="co">#&gt; altExpNames(0):</span></span>
-<span><span class="co">#&gt; spatialCoords names(2) : x y</span></span>
 <span><span class="co">#&gt; imgData names(0):</span></span></code></pre></div>
-<p>Looking at the row dimensions and names, we can see that each dataset
-contains one gene called <code>Gene</code>. Looking at the column
-dimensions and names, we can see that the three samples vary slightly in
-the number of spatial locations, i.e. cells.</p>
-<p>Next we plot the spatial patterns of gene expression for each
-dataset.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cells</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">s</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/SpatialExperiment/man/SpatialExperiment-methods.html" class="external-link">spatialCoords</a></span><span class="op">(</span><span class="va">speKidney</span><span class="op">[[</span><span class="va">s</span><span class="op">]</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>             expression <span class="op">=</span> <span class="fu">assay</span><span class="op">(</span><span class="va">speKidney</span><span class="op">[[</span><span class="va">s</span><span class="op">]</span><span class="op">]</span>, <span class="st">"counts"</span><span class="op">)</span><span class="op">[</span><span class="st">"Gene"</span>, <span class="op">]</span>,</span>
+<span>             sample <span class="op">=</span> <span class="va">s</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">cells</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span>, colour <span class="op">=</span> <span class="va">expression</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">0.4</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/facet_wrap.html" class="external-link">facet_wrap</a></span><span class="op">(</span><span class="op">~</span><span class="va">sample</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_colour_viridis_c</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_void</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p><img src="getting-started-with-STcompare_files/figure-html/cells-1.png" class="r-plt" alt="Maps of the cells of the simulated kidneys A, B and C, coloured by the expression of Gene: A and C share a pattern and B has the opposite pattern." width="100%"></p>
+<p>A and B have the same expression levels but opposite patterns, and A
+and C have the same pattern at different levels. Comparing the
+distributions of the expression values, which is what a mean-based
+comparison does, misses both differences:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># This function takes the Spatial Experiment Object and creates a plot </span></span>
-<span><span class="co"># of the spatial patterns of gene expression. </span></span>
-<span><span class="va">plotSpatialPatterns</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">spatialExperimentObj</span>, <span class="va">name</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/BiocGenerics/man/cbind.html" class="external-link">cbind</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/pkg/BiocGenerics/man/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/SpatialExperiment/man/SpatialExperiment-methods.html" class="external-link">spatialCoords</a></span><span class="op">(</span><span class="va">spatialExperimentObj</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/pkg/BiocGenerics/man/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="fu">colData</span><span class="op">(</span><span class="va">spatialExperimentObj</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="op">)</span></span>
-<span>  </span>
-<span>  <span class="va">df</span><span class="op">$</span><span class="va">Gene</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">assay</span><span class="op">(</span><span class="va">spatialExperimentObj</span>, <span class="st">"counts"</span><span class="op">)</span><span class="op">[</span><span class="st">"Gene"</span>, <span class="op">]</span><span class="op">)</span></span>
-<span>  </span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">y</span>, color <span class="op">=</span> <span class="va">Gene</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_bw</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span></span>
-<span>      panel.grid.major <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_blank</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>      panel.grid.minor <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_blank</a></span><span class="op">(</span><span class="op">)</span></span>
-<span>    <span class="op">)</span> <span class="op">+</span> </span>
-<span>    <span class="fu"><a href="https://sjmgarnier.github.io/viridis/reference/scale_viridis.html" class="external-link">scale_color_viridis</a></span><span class="op">(</span>option <span class="op">=</span> <span class="st">"D"</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
-<span>      x <span class="op">=</span> <span class="st">"x"</span>,</span>
-<span>      y <span class="op">=</span> <span class="st">"y"</span>,</span>
-<span>      color <span class="op">=</span> <span class="st">"Gene"</span>,</span>
-<span>      title <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/BiocGenerics/man/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Simulated Kidney"</span>, <span class="va">name</span><span class="op">)</span></span>
-<span>    <span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span><span class="va">pA</span> <span class="op">&lt;-</span> <span class="fu">plotSpatialPatterns</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">A</span>, <span class="st">"A"</span><span class="op">)</span></span>
-<span><span class="va">pB</span> <span class="op">&lt;-</span> <span class="fu">plotSpatialPatterns</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">B</span>, <span class="st">"B"</span><span class="op">)</span></span>
-<span><span class="va">pC</span> <span class="op">&lt;-</span> <span class="fu">plotSpatialPatterns</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">C</span>, <span class="st">"C"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">pA</span> <span class="op">+</span> <span class="va">pB</span> <span class="op">+</span> <span class="va">pC</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/spatialExpression-1.png" width="576"></p>
-<p>Upon plotting the gene expression spatial patterns for each dataset,
-we can see that A and B share gene expression magnitude but differ in
-spatial pattern, and A and C share spatial pattern but differ in gene
-expression magnitude.</p>
+<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">cells</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">sample</span>, <span class="va">expression</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_boxplot.html" class="external-link">geom_boxplot</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Sample"</span>, y <span class="op">=</span> <span class="st">"Expression"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_classic</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p><img src="getting-started-with-STcompare_files/figure-html/boxplot-1.png" class="r-plt" alt="Box plots of the expression of Gene in A, B and C: A and B have the same distribution, and C is higher." width="60%"></p>
+<p>A and B are indistinguishable by their means, and A and C differ only
+by a fold change. STcompare’s two tests separate these cases.</p>
 </div>
 <div class="section level2">
-<h2 id="mean-comparision-is-not-sufficient">Mean comparision is not sufficient<a class="anchor" aria-label="anchor" href="#mean-comparision-is-not-sufficient"></a>
+<h2 id="prepare-the-input">Prepare the input<a class="anchor" aria-label="anchor" href="#prepare-the-input"></a>
 </h2>
-<p>Traditionally, these simulated kidneys would be compared using
-differential gene expression (DGE) analysis such as comparing the
-average of the mean expression.</p>
+<p>STcompare compares the same locations in two samples, so the samples
+must first be put on a common grid:</p>
+<ol style="list-style-type: decimal">
+<li>
+<strong>Align</strong> the tissues, so that the same coordinates
+point to the same structure in both samples. <a href="https://jef.works/STalign/" class="external-link">STalign</a> does this for sections
+that are not already aligned; the simulated kidneys are.</li>
+<li>
+<strong>Rasterize</strong> both samples <strong>together</strong>,
+in one call of <code><a href="https://rdrr.io/pkg/SEraster/man/rasterizeGeneExpression.html" class="external-link">SEraster::rasterizeGeneExpression()</a></code>. This
+aggregates cells or spots into pixels of a shared grid, so that a pixel
+name means the same location in every sample. Samples rasterized in
+separate calls generally do not share their grid, and
+<code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> refuses pixels whose coordinates
+differ.</li>
+</ol>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># Convert the counts for each kidney (A, B, C) into one dataframe.</span></span>
-<span><span class="co"># Each kidney’s expression counts are extracted from the "counts" assay and stored as a numeric vector.</span></span>
-<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">assay</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">A</span>, <span class="st">"counts"</span><span class="op">)</span><span class="op">)</span>, </span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">assay</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">B</span>, <span class="st">"counts"</span><span class="op">)</span><span class="op">)</span>, </span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">assay</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">C</span>, <span class="st">"counts"</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="op">)</span>,</span>
-<span>  </span>
-<span>  <span class="co"># Create a "sample" column showing which kidney each pixel belongs to.</span></span>
-<span>  <span class="co"># The `rep()` call ensures that the correct number of labels (A/B/C) is assigned</span></span>
-<span>  <span class="co"># based on the length of each counts vector.</span></span>
-<span>  sample <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"C"</span><span class="op">)</span>,</span>
-<span>    times <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">assay</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">A</span>, <span class="st">"counts"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, </span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">assay</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">B</span>, <span class="st">"counts"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, </span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu">assay</span><span class="op">(</span><span class="va">speKidney</span><span class="op">$</span><span class="va">C</span>, <span class="st">"counts"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span>    <span class="op">)</span></span>
-<span>  <span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Plot a boxplot comparing the distribution of pixel intensities across the 3 kidneys.</span></span>
-<span><span class="co"># This represents a traditional magnitude-only comparison, </span></span>
-<span><span class="co"># which cannot distinguish pattern similarity/differences.</span></span>
-<span><span class="va">compare_box_plot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">sample</span>, y <span class="op">=</span> <span class="va">value</span>, fill <span class="op">=</span> <span class="va">sample</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_boxplot.html" class="external-link">geom_boxplot</a></span><span class="op">(</span>outlier.shape <span class="op">=</span> <span class="fl">16</span>, outlier.size <span class="op">=</span> <span class="fl">1.5</span>, alpha <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Sample"</span>, y <span class="op">=</span> <span class="st">"Pixel Intensity"</span>, title <span class="op">=</span> <span class="st">"Expression Magnitude Across Samples"</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">14</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span></span>
-<span><span class="va">compare_box_plot</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/box_plot-1.png" width="576"></p>
-<p>Comparing the mean between A and B does not capture the spatial gene
-expression difference. Comparing the means between A and C tells us the
-expression magnitudes have a fold difference, but it does not capture
-how the gene expression patterns in A and C are similarly spatially
-organized.</p>
-<ol style="list-style-type: decimal">
-<li>We will use <code>spatialCorrelationGeneExp</code> test to quantify
-the correlation in gene expression pattern between (A and B) and (A and
-C). Where we expect (A and B) will have a significant negative
-correlation and we expect (A and C) will have a significant positive
-correlation.</li>
-<li>And we will use <code>SpatialSimilarity</code> test to quantify the
-difference in gene expression magnitude at matched spatial locations not
-reflected by DGE between (A and B)</li>
-</ol>
-</div>
-<div class="section level2">
-<h2 id="using-stcompare">Using STcompare<a class="anchor" aria-label="anchor" href="#using-stcompare"></a>
-</h2>
-<div class="section level3">
-<h3 id="input-formatting">Input formatting<a class="anchor" aria-label="anchor" href="#input-formatting"></a>
-</h3>
-<ol style="list-style-type: decimal">
-<li><p><strong>Tissue Alignment</strong><br>
-For <code>STcompare</code> to produce meaningful comparisons, the
-tissues must first be spatially aligned so that corresponding structures
-are matched across samples. The <code>STalign</code> package can be used
-to align two tissues. <a href="%22https://jef.works/STalign/notebooks/merfish-merfish-alignment.html%22" class="external-link">STalign
-Tutorial</a></p></li>
-<li><p><strong>Rasterization</strong><br><code>STcompare</code> takes a list of <a href="%22https://bioconductor.org/packages/release/bioc/html/SpatialExperiment.html%22" class="external-link"><code>SpatialExperiment</code></a>
-objects and requires them to have matched spatial locations. Use
-<code>SEraster</code> to rasterize multiple samples onto the same
-coordinate system, allowing <code>STcompare</code> to pairwise compare
-across any number of samples. <a href="%22https://jef.works/SEraster/articles/formatting-SpatialExperiment-for-SEraster.html%22" class="external-link">SEraster
-formatting tutorial</a></p></li>
-</ol>
-<p>Since our simulated data is already aligned we first use
-<code>SEraster</code> to rasterize this list of simulated kidneys,
-stored as <code>SpatialExperiment</code> objects, onto the same
-coordinate plane.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">rastKidney</span> <span class="op">&lt;-</span> <span class="fu">SEraster</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/rasterizeGeneExpression.html" class="external-link">rasterizeGeneExpression</a></span><span class="op">(</span><span class="va">speKidney</span>,</span>
-<span>                assay_name <span class="op">=</span> <span class="st">'counts'</span>, resolution <span class="op">=</span> <span class="fl">0.2</span>,</span>
-<span>                square <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># After rasterization, the output is a SpatialExperiment object, but the spatial units are now raster pixels rather than individual cells or spots. The assay has been converted to pixelval, and additional metadata (num_cell, cellID_list, geometry) records which original cells contributed to each pixel.</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">rastKidney</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $A</span></span>
+<code class="sourceCode R"><span><span class="va">rast</span> <span class="op">&lt;-</span> <span class="fu">SEraster</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/rasterizeGeneExpression.html" class="external-link">rasterizeGeneExpression</a></span><span class="op">(</span><span class="va">speKidney</span>, assay_name <span class="op">=</span> <span class="st">"counts"</span>,</span>
+<span>                                          resolution <span class="op">=</span> <span class="fl">0.2</span>, fun <span class="op">=</span> <span class="st">"mean"</span>,</span>
+<span>                                          square <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">rast</span><span class="op">$</span><span class="va">A</span></span>
 <span><span class="co">#&gt; class: SpatialExperiment </span></span>
 <span><span class="co">#&gt; dim: 1 282 </span></span>
 <span><span class="co">#&gt; metadata(0):</span></span>
@@ -349,403 +226,611 @@ coordinate plane.</p>
 <span><span class="co">#&gt; mainExpName: NULL</span></span>
 <span><span class="co">#&gt; altExpNames(0):</span></span>
 <span><span class="co">#&gt; spatialCoords names(2) : x y</span></span>
-<span><span class="co">#&gt; imgData names(0):</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $C</span></span>
-<span><span class="co">#&gt; class: SpatialExperiment </span></span>
-<span><span class="co">#&gt; dim: 1 287 </span></span>
-<span><span class="co">#&gt; metadata(0):</span></span>
-<span><span class="co">#&gt; assays(1): pixelval</span></span>
-<span><span class="co">#&gt; rownames(1): Gene</span></span>
-<span><span class="co">#&gt; rowData names(0):</span></span>
-<span><span class="co">#&gt; colnames(287): pixel51 pixel52 ... pixel417 pixel431</span></span>
-<span><span class="co">#&gt; colData names(6): num_cell cellID_list ... geometry sample_id</span></span>
-<span><span class="co">#&gt; reducedDimNames(0):</span></span>
-<span><span class="co">#&gt; mainExpName: NULL</span></span>
-<span><span class="co">#&gt; altExpNames(0):</span></span>
-<span><span class="co">#&gt; spatialCoords names(2) : x y</span></span>
-<span><span class="co">#&gt; imgData names(0):</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $B</span></span>
-<span><span class="co">#&gt; class: SpatialExperiment </span></span>
-<span><span class="co">#&gt; dim: 1 279 </span></span>
-<span><span class="co">#&gt; metadata(0):</span></span>
-<span><span class="co">#&gt; assays(1): pixelval</span></span>
-<span><span class="co">#&gt; rownames(1): Gene</span></span>
-<span><span class="co">#&gt; rowData names(0):</span></span>
-<span><span class="co">#&gt; colnames(279): pixel53 pixel65 ... pixel416 pixel417</span></span>
-<span><span class="co">#&gt; colData names(6): num_cell cellID_list ... geometry sample_id</span></span>
-<span><span class="co">#&gt; reducedDimNames(0):</span></span>
-<span><span class="co">#&gt; mainExpName: NULL</span></span>
-<span><span class="co">#&gt; altExpNames(0):</span></span>
-<span><span class="co">#&gt; spatialCoords names(2) : x y</span></span>
-<span><span class="co">#&gt; imgData names(0):</span></span>
-<span></span>
-<span><span class="co"># These are the plots to visualize what the kidneys looks like </span></span>
-<span><span class="va">pA</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/plotRaster.html" class="external-link">plotRaster</a></span><span class="op">(</span><span class="va">rastKidney</span><span class="op">$</span><span class="va">A</span>, plotTitle <span class="op">=</span> <span class="st">"Rasterized Kidney A"</span><span class="op">)</span></span>
-<span><span class="va">pB</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/plotRaster.html" class="external-link">plotRaster</a></span><span class="op">(</span><span class="va">rastKidney</span><span class="op">$</span><span class="va">B</span>, plotTitle <span class="op">=</span> <span class="st">"Rasterized Kidney B"</span><span class="op">)</span></span>
-<span><span class="va">pC</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/plotRaster.html" class="external-link">plotRaster</a></span><span class="op">(</span><span class="va">rastKidney</span><span class="op">$</span><span class="va">C</span>, plotTitle <span class="op">=</span> <span class="st">"Rasterized Kidney C"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">pA</span> <span class="op">+</span> <span class="va">pB</span> <span class="op">+</span> <span class="va">pC</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/rasterization-1.png" width="576"></p>
+<span><span class="co">#&gt; imgData names(0):</span></span></code></pre></div>
+<p>The result is a list of <code>SpatialExperiment</code> objects, one
+per sample, whose columns are hexagonal pixels and whose assay
+<code>pixelval</code> holds the mean expression of the cells in each
+pixel. Pixels are shared where both samples have cells.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">SEraster</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/plotRaster.html" class="external-link">plotRaster</a></span><span class="op">(</span><span class="va">rast</span><span class="op">$</span><span class="va">A</span>, plotTitle <span class="op">=</span> <span class="st">"A"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">SEraster</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/plotRaster.html" class="external-link">plotRaster</a></span><span class="op">(</span><span class="va">rast</span><span class="op">$</span><span class="va">B</span>, plotTitle <span class="op">=</span> <span class="st">"B"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">SEraster</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/plotRaster.html" class="external-link">plotRaster</a></span><span class="op">(</span><span class="va">rast</span><span class="op">$</span><span class="va">C</span>, plotTitle <span class="op">=</span> <span class="st">"C"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="getting-started-with-STcompare_files/figure-html/rasterplot-1.png" class="r-plt" alt="The three kidneys rasterized onto one grid of hexagonal pixels, coloured by the mean expression of Gene." width="100%"></p>
 </div>
-<div class="section level3">
-<h3 id="spatial-correlation">Spatial correlation<a class="anchor" aria-label="anchor" href="#spatial-correlation"></a>
-</h3>
-<p>Now, we will use <code>spatialCorrelationGeneExp</code> to understand
-correlation of expression across pixels.</p>
-<p>As input <code>spatialCorrelationGeneExp</code> takes a list of two
-<code>SpatialExperiment</code> objects. First, we will compare A and
-B.</p>
+<div class="section level2">
+<h2 id="compare-two-samples">Compare two samples<a class="anchor" aria-label="anchor" href="#compare-two-samples"></a>
+</h2>
+<p><code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> runs both tests for every gene in both
+samples. It takes two <code>SpatialExperiment</code> objects, or a named
+list of two, whose names label the samples in the output. Here we
+compare A with B.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># From the list of rasterized kidneys, rastKidney, we will take a subset of rastKidney </span></span>
-<span><span class="co"># rastGexpListAB is a list of two kidneys, A and B </span></span>
-<span><span class="va">rastGexpListAB</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">rastKidney</span><span class="op">$</span><span class="va">A</span>, B <span class="op">=</span> <span class="va">rastKidney</span><span class="op">$</span><span class="va">B</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># spatialCorrelationGeneExp takes input of a list of two SpatialExperiment objects -- rastGexpListAB</span></span>
-<span><span class="co"># nThreads, the default is 1, should be set to the number of cores available to allow for parallel computing </span></span>
-<span><span class="va">scAB</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatialCorrelationGeneExp.html">spatialCorrelationGeneExp</a></span><span class="op">(</span><span class="va">rastGexpListAB</span>, nThreads <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># correlationCoef is showing a negative linear relationship </span></span>
-<span><span class="co"># Both the naive and the permuted p-values (pValuePermuteY and pValuePermuteX) are showing that the correlation is significant </span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">scAB</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY</span></span>
-<span><span class="co">#&gt; Gene      -0.9472813 5.652003e-136              0              0</span></span>
-<span><span class="co">#&gt;      deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY</span></span>
-<span><span class="co">#&gt; Gene              0.2              0.2 0.2, 0.2.... 0.2, 0.2....</span></span>
-<span><span class="co">#&gt;      nullCorrelationsX nullCorrelationsY</span></span>
-<span><span class="co">#&gt; Gene      -0.16074....      -0.08458....</span></span></code></pre></div>
-<p>As output <code>spatialCorrelationGeneExp</code> returns:</p>
-<ul>
-<li>
-<code>correlationCoef</code> Pearson’s correlation coefficient shows
-the strength and direction of a linear relationship between the two
-objects</li>
-<li>
-<code>pValueNaive</code> is the analytical p-value naively assuming
-independent observations, often time not accurate</li>
-<li>
-<code>pValuePermuteX</code> is the p-value when creating an
-empirical null from permutations of observations in X</li>
-<li>
-<code>pValuePermuteY</code> is the p-value when creating an
-empirical null from permutations of observations in Y – we recommend
-using the higher of <code>pValuePermuteY</code> or
-<code>pValuePermuteX</code>, as a more accurate p-value than
-<code>pValueNaive</code>
-</li>
-<li>
-<code>deltaStarMedianX</code> the median delta star (the delta which
-minimizes the difference between the variogram of the permutation and
-the variogram of observations) across permutations of X</li>
-<li>
-<code>deltaStarMedianY</code> the median delta star across
-permutations of Y</li>
-<li>
-<code>deltaStarX</code> is list of delta star for all permutations
-of X</li>
-<li>
-<code>deltaStarY</code> is list of delta star for all permutations
-of Y</li>
-<li>
-<code>nullCorrelationsX</code> is a list of correlation coefficients
-for Y and all permutations of X</li>
-<li>
-<code>nullCorrelationsY</code> is a list of correlation coefficients
-for X and all permutations of Y</li>
-</ul>
-<p>Because <code>correlationCoef = -0.9472813</code> and
-<code>pValuePermuteX</code> and <code>pValuePermuteY</code> &lt; 0.05,
-we can conclude that gene expression at matched pixel locations is
-negatively correlated in A and B as expected.</p>
-<p>We can also visualize our results with
-<code>plotCorrelationGeneExp</code>. In the title we include the
-empirical p-value <code>p_E</code> as the higher of
-<code>pValuePermuteY</code> or <code>pValuePermuteX</code>.</p>
+<code class="sourceCode R"><span><span class="va">ab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compareSpatial.html">compareSpatial</a></span><span class="op">(</span><span class="va">rast</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span><span class="op">]</span>, nThreads <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt; compareSpatial: 1 gene on 273 shared pixels in 1.4 s (10.0k permutations in total, 2 threads)</span></span>
+<span><span class="va">ab</span></span>
+<span><span class="co">#&gt; STcompareResult: 1 gene on 273 shared pixels; A vs B (assay pixelval)</span></span>
+<span><span class="co">#&gt; Correlation: adaptive permutation p-values (stop at 10 exceedances, at most 10000 permutations); 11 deltas from 0.01 to 0.9; rank-remapped surrogates</span></span>
+<span><span class="co">#&gt;   pValuePermuteAdj &lt; 0.05: 1 gene (0 with correlationCoef &gt; 0, 1 with correlationCoef &lt; 0)</span></span>
+<span><span class="co">#&gt;   stopped early: 0; reached nPermutations: 1; skipped: 0; failed: 0</span></span>
+<span><span class="co">#&gt; Similarity (|log2(y / x)| &lt;= 1): median percentSimilarity 0.535 (0 genes with NA)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;  gene nPixels correlationCoef pValueNaive pValuePermuteX pValuePermuteY</span></span>
+<span><span class="co">#&gt;  Gene     273          -0.947   5.65e-136          1e-04          1e-04</span></span>
+<span><span class="co">#&gt;  pValuePermute pValuePermuteAdj nPermutations  stop deltaStarMedianX</span></span>
+<span><span class="co">#&gt;          1e-04            1e-04         10000 limit              0.2</span></span>
+<span><span class="co">#&gt;  deltaStarMedianY deltaGridEdge percentSimilarity percentDissimilarityX</span></span>
+<span><span class="co">#&gt;               0.2         FALSE             0.535                 0.267</span></span>
+<span><span class="co">#&gt;  percentDissimilarityY numPixelInThresh   t1   t2 status message</span></span>
+<span><span class="co">#&gt;                  0.198              273 9.87 7.67     ok</span></span></code></pre></div>
+<p>The printed header summarises the settings and the counts; the table
+has one row per gene. <code>nThreads</code> sets the number of threads;
+the results do not depend on it, and
+<code>options(STcompare.nThreads = 8)</code> sets it for a whole
+session. In an interactive session, <code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> also
+shows a progress line with an estimate of the remaining time while the
+permutations run.</p>
+<p>A and B are strongly negatively correlated
+(<code>correlationCoef</code> = -0.947): none of the 10000 null
+correlations was as extreme, so the permutation p-value
+<code>pValuePermute</code> is the smallest possible value, 1/10001. 53%
+of their matched pixels are within two-fold of each other
+(<code>percentSimilarity</code>). Now A and C:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># visualization of the negative correlation </span></span>
-<span><span class="co"># plotCorrelationGeneExp needs the list of rasterized SpatialExperiment objects, the table from spatialCorrelationGeneExp of the same objects, </span></span>
-<span><span class="co"># and the gene name you are trying to plot. In the case, the gene name is "Gene". </span></span>
-<span><span class="va">expAB</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plotCorrelationGeneExp.html">plotCorrelationGeneExp</a></span><span class="op">(</span><span class="va">rastGexpListAB</span>, <span class="va">scAB</span>, <span class="st">"Gene"</span><span class="op">)</span></span>
-<span><span class="va">expAB</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/spatialCorrelationABplot-1.png" width="576"></p>
-<p>We can repeat the analysis for A and C.</p>
+<code class="sourceCode R"><span><span class="va">ac</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compareSpatial.html">compareSpatial</a></span><span class="op">(</span><span class="va">rast</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"C"</span><span class="op">)</span><span class="op">]</span>, nThreads <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt; compareSpatial: 1 gene on 277 shared pixels in 1.4 s (10.0k permutations in total, 2 threads)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">ac</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gene"</span>, <span class="st">"correlationCoef"</span>, <span class="st">"pValuePermute"</span>,</span>
+<span>                      <span class="st">"pValuePermuteAdj"</span>, <span class="st">"nPermutations"</span>, <span class="st">"percentSimilarity"</span>,</span>
+<span>                      <span class="st">"percentDissimilarityX"</span>, <span class="st">"percentDissimilarityY"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;      gene correlationCoef pValuePermute pValuePermuteAdj nPermutations</span></span>
+<span><span class="co">#&gt; Gene Gene       0.9431531     9.999e-05        9.999e-05         10000</span></span>
+<span><span class="co">#&gt;      percentSimilarity percentDissimilarityX percentDissimilarityY</span></span>
+<span><span class="co">#&gt; Gene                 0                     0                     1</span></span></code></pre></div>
+<p>A and C are positively correlated (<code>correlationCoef</code> =
+0.943), yet none of their pixels are within two-fold: in 100% of the
+pixels kept for the similarity, C is more than twice as high as A.</p>
+<div class="section level3">
+<h3 id="reading-the-result">Reading the result<a class="anchor" aria-label="anchor" href="#reading-the-result"></a>
+</h3>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Column</th>
+<th>Meaning</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>
+<code>gene</code>, <code>nPixels</code>
+</td>
+<td>The gene and the number of shared pixels.</td>
+</tr>
+<tr class="even">
+<td><code>correlationCoef</code></td>
+<td>Pearson’s correlation of the gene’s values in the two samples over
+the shared pixels.</td>
+</tr>
+<tr class="odd">
+<td><code>pValueNaive</code></td>
+<td>The p-value of <code><a href="https://rdrr.io/r/stats/cor.test.html" class="external-link">cor.test()</a></code>, which assumes that pixels
+are independent. Neighbouring pixels are not independent, so this value
+is far too small; it is shown for reference only (see below).</td>
+</tr>
+<tr class="even">
+<td>
+<code>pValuePermuteX</code>, <code>pValuePermuteY</code>
+</td>
+<td>The permutation p-value of each direction: surrogates of the first
+sample (X) correlated with the second, and surrogates of the second (Y)
+correlated with the first; each is (b + 1) / (L + 1) for b null
+correlations at least as extreme as the observed one among the gene’s L
+permutations. Not adjusted, and descriptive: when a gene stops early,
+the direction that did not reach <code>exceedances</code> has an
+inflated value.</td>
+</tr>
+<tr class="odd">
+<td><code>pValuePermute</code></td>
+<td>The permutation p-value of the gene: the larger of the two
+directions’ sequential p-values (<code>exceedances</code> / L for the
+direction that stopped the gene, (b + 1) / (L + 1) at the limit), which
+is valid whatever the dependence between the two directions. It equals
+the larger of <code>pValuePermuteX</code> and
+<code>pValuePermuteY</code> for a gene that reached
+<code>nPermutations</code>, and is slightly smaller for a gene that
+stopped early. It accounts for the spatial autocorrelation of both
+samples: the null correlations come from surrogates of one sample that
+keep its spatial autocorrelation but are unrelated to the other sample.
+Not adjusted; its smallest possible value is 1 /
+(<code>nPermutations</code> + 1).</td>
+</tr>
+<tr class="even">
+<td><code>pValuePermuteAdj</code></td>
+<td>
+<code>pValuePermute</code> adjusted for multiple testing across the
+genes of the call (Benjamini-Hochberg by default,
+<code>adjustMethod</code>). Use this column to call a gene
+significant.</td>
+</tr>
+<tr class="odd">
+<td>
+<code>nPermutations</code>, <code>stop</code>
+</td>
+<td>How many permutations the gene used, and why it stopped:
+<code>"exceedances"</code> when it stopped early because its p-value is
+clearly not small, <code>"limit"</code> when it reached the
+<code>nPermutations</code> argument.</td>
+</tr>
+<tr class="even">
+<td>
+<code>deltaStarMedianX</code>, <code>deltaStarMedianY</code>
+</td>
+<td>The median smoothing bandwidth (delta star) chosen for the
+surrogates of each sample.</td>
+</tr>
+<tr class="odd">
+<td><code>deltaGridEdge</code></td>
+<td>
+<code>TRUE</code> when most surrogates chose the smallest or the
+largest bandwidth of the grid, a hint to extend the <code>delta</code>
+argument.</td>
+</tr>
+<tr class="even">
+<td><code>percentSimilarity</code></td>
+<td>The share (a proportion between 0 and 1, despite the name) of the
+kept pixels whose values are within a fold change of each other, |log2(y
+/ x)| &lt;= <code>foldChange</code> (1, two-fold, by default).</td>
+</tr>
+<tr class="odd">
+<td>
+<code>percentDissimilarityX</code>,
+<code>percentDissimilarityY</code>
+</td>
+<td>The shares of kept pixels more than <code>foldChange</code> higher
+in the first sample (X) and in the second (Y), also proportions. The
+three shares add up to 1. The similarity compares fold changes, so it
+needs values that are not negative: it is <code>NA</code> for genes with
+negative values.</td>
+</tr>
+<tr class="even">
+<td>
+<code>numPixelInThresh</code>, <code>t1</code>, <code>t2</code>
+</td>
+<td>The number of pixels kept for the similarity: those above the gene’s
+expression threshold in either sample, <code>t1</code> in the first and
+<code>t2</code> in the second (its 5% quantile by default,
+<code>minQuantile</code>).</td>
+</tr>
+<tr class="odd">
+<td>
+<code>status</code>, <code>message</code>
+</td>
+<td>
+<code>"ok"</code>; <code>"skipped"</code>, with the reason, for a
+gene that is not tested for correlation because it is constant in a
+sample (or, with <code>surrogate = "gaussian"</code>, detected in few
+pixels of a sample; see <code>minDetected</code> in
+<code><a href="../reference/compareSpatial.html">?compareSpatial</a></code>); or <code>"failed"</code>, with the
+reason, for a gene that could not be tested (for example because of
+missing values).</td>
+</tr>
+</tbody>
+</table>
+<p>The columns have the names of the legacy functions
+<code><a href="../reference/spatialCorrelationGeneExp.html">spatialCorrelationGeneExp()</a></code> and
+<code><a href="../reference/spatialSimilarity.html">spatialSimilarity()</a></code> where both report the same quantity,
+and a p-value column carries the suffix <code>Adj</code> exactly when it
+is adjusted across genes: <code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> adjusts its
+combined p-value (<code>pValuePermuteAdj</code>), and the legacy
+function adjusts each direction on its own
+(<code>pValuePermuteXAdj</code>, <code>pValuePermuteYAdj</code>; see <a href="#migrating-from-the-legacy-functions">Migrating from the legacy
+functions</a>). <code><a href="../reference/compareSpatial.html">?compareSpatial</a></code> documents every column.</p>
+<p><code><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame()</a></code> turns the result into a plain data
+frame, and <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> gives the counts:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># From the list of rasterized kidneys, rastKidney, we will take a subset of rastKidney </span></span>
-<span><span class="co"># rastGexpListAC is a list of two kidneys, A and C</span></span>
-<span><span class="va">rastGexpListAC</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">rastKidney</span><span class="op">$</span><span class="va">A</span>, C <span class="op">=</span> <span class="va">rastKidney</span><span class="op">$</span><span class="va">C</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># correlationCoef is showing a positive linear relationship </span></span>
-<span><span class="co"># Both the naive and the permuted p-values (pValuePermuteY and pValuePermuteX) are showing that the correlation is significant </span></span>
-<span><span class="va">scAC</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatialCorrelationGeneExp.html">spatialCorrelationGeneExp</a></span><span class="op">(</span><span class="va">rastGexpListAC</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">scAC</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      correlationCoef   pValueNaive pValuePermuteX pValuePermuteY</span></span>
-<span><span class="co">#&gt; Gene       0.9431531 1.409195e-133              0              0</span></span>
-<span><span class="co">#&gt;      deltaStarMedianX deltaStarMedianY   deltaStarX   deltaStarY</span></span>
-<span><span class="co">#&gt; Gene              0.2              0.2 0.2, 0.4.... 0.2, 0.2....</span></span>
-<span><span class="co">#&gt;      nullCorrelationsX nullCorrelationsY</span></span>
-<span><span class="co">#&gt; Gene      -0.00632....      0.052321....</span></span>
-<span></span>
-<span><span class="co"># visualization of the positive correlation</span></span>
-<span><span class="co"># plotCorrelationGeneExp needs the list of rasterized SpatialExperiment objects, the table from spatialCorrelationGeneExp of the same objects, </span></span>
-<span><span class="co"># and the gene name you are trying to plot. In the case, the gene name is "Gene".</span></span>
-<span><span class="va">expAC</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plotCorrelationGeneExp.html">plotCorrelationGeneExp</a></span><span class="op">(</span><span class="va">rastGexpListAC</span>, <span class="va">scAC</span>, <span class="st">"Gene"</span><span class="op">)</span></span>
-<span><span class="va">expAC</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/spatialCorrelationAC-1.png" width="576"></p>
-<p>Because <code>correlationCoef = 0.9431531</code> and
-<code>pValuePermuteX</code> and <code>pValuePermuteY</code> &lt; 0.05,
-we can conclude that gene expression at matched pixel locations is
-positively correlated in A and C.</p>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">ac</span><span class="op">)</span></span>
+<span><span class="co">#&gt; compareSpatial: 1 gene on 277 shared pixels (A vs C); 1 ok, 0 skipped, 0 failed</span></span>
+<span><span class="co">#&gt; Correlation, pValuePermuteAdj &lt; 0.05: 1 gene (1 with correlationCoef &gt; 0, 0 with correlationCoef &lt; 0)</span></span>
+<span><span class="co">#&gt;   stopped early: 0; reached nPermutations: 1; skipped: 0; failed: 0</span></span>
+<span><span class="co">#&gt;   nPermutations per gene: median 10000, max 10000; 10,000 in total</span></span>
+<span><span class="co">#&gt;   settings: nPermutations = 10000, exceedances = 10, 11 deltas (0.01 to 0.9), rank-remapped surrogates, BH adjustment, seed 0</span></span>
+<span><span class="co">#&gt; Similarity, percentSimilarity:</span></span>
+<span><span class="co">#&gt;    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. </span></span>
+<span><span class="co">#&gt;       0       0       0       0       0       0 </span></span>
+<span><span class="co">#&gt; Run time: 1.4 s</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="why-we-generate-empirical-p-values-through-permutations">Why we generate empirical p-values through permutations<a class="anchor" aria-label="anchor" href="#why-we-generate-empirical-p-values-through-permutations"></a>
+<h3 id="adaptive-permutations-genes-that-are-clearly-not-significant-stop-early">Adaptive permutations: genes that are clearly not significant stop
+early<a class="anchor" aria-label="anchor" href="#adaptive-permutations-genes-that-are-clearly-not-significant-stop-early"></a>
 </h3>
-<p>Next, we will demonstrate how using the analytical p-value, which
-naively assumes spatial locations are independent observations, when
-interpreting Pearson’s correlation coefficients results in a high false
-positive rate when the datasets that are compared have spatial
-autocorrelation.</p>
-<p><code>simRanPatternRasts</code> is a list of 100 simulated
-<code>SpatialExperiment</code> objects representing kidney-shaped
-datasets, each containing one independently generated spatially
-patterned (i.e spatially autocorrelated) gene with no correlation
-between datasets. Each dataset consists of N = 5000 simulated cells
-distributed within a kidney-shaped region, with spatial coordinates and
-expression values generated from Gaussian random fields. All of the
-objects in <code>simRanPatternRasts</code> are already rasterized onto
-the same coordinate plane.</p>
-<p>Using the kidney 1 and kidney 7 in the
-<code>simRanPatternRasts</code> dataset, we plot the spatial gene
-expression patterns and run <code>spatialCorrelationGeneExp</code>
-expecting the two datasets to have no significant correlation.</p>
+<p>The permutation p-value is computed from up to
+<code>nPermutations</code> (10,000 by default) surrogate pairs, but a
+gene stops as soon as <code>exceedances</code> (10 by default) null
+correlations are at least as extreme as the observed one. A gene whose
+patterns are unrelated stops after a few dozen permutations, while a
+significant gene runs to the limit, which sets the smallest possible
+p-value, <code>1 / (nPermutations + 1)</code>. For example, two
+independently simulated patterns from
+<code>simRanPatternRasts</code>:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># using plotRaster from the SEraster package to visualize kidney 1 and 7</span></span>
-<span><span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/plotRaster.html" class="external-link">plotRaster</a></span><span class="op">(</span><span class="va">simRanPatternRasts</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, plotTitle <span class="op">=</span> <span class="st">"simRanPatternRasts Kidney 1"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/show_ran_kid-1.png" width="576"></p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/SEraster/man/plotRaster.html" class="external-link">plotRaster</a></span><span class="op">(</span><span class="va">simRanPatternRasts</span><span class="op">[[</span><span class="fl">7</span><span class="op">]</span><span class="op">]</span>, plotTitle <span class="op">=</span> <span class="st">"simRanPatternRasts Kidney 7"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/show_ran_kid-2.png" width="576"></p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># taking a subset of simRanPatternRasts</span></span>
-<span><span class="co"># rastGexpList is a list of rasterize SpatialExperiment objects kidney 1 and kidney 7 </span></span>
-<span><span class="va">rastGexpList</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>kidney_1 <span class="op">=</span> <span class="va">simRanPatternRasts</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, kidney_7 <span class="op">=</span> <span class="va">simRanPatternRasts</span><span class="op">[[</span><span class="fl">7</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># finding the correlation and the p-value of kidney 1 and kidney 7 </span></span>
-<span><span class="va">sc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatialCorrelationGeneExp.html">spatialCorrelationGeneExp</a></span><span class="op">(</span><span class="va">rastGexpList</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># the naive p-value is showing that the correlation is significant </span></span>
-<span><span class="co"># while both of the permuted p-values are showing not significant p-values </span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">sc</span><span class="op">)</span> </span>
-<span><span class="co">#&gt;   correlationCoef  pValueNaive pValuePermuteX pValuePermuteY deltaStarMedianX</span></span>
-<span><span class="co">#&gt; 1      -0.2189486 0.0002533931            0.3           0.28              0.1</span></span>
-<span><span class="co">#&gt;   deltaStarMedianY   deltaStarX   deltaStarY nullCorrelationsX</span></span>
-<span><span class="co">#&gt; 1              0.3 0.1, 0.3.... 0.3, 0.4....      0.120499....</span></span>
-<span><span class="co">#&gt;   nullCorrelationsY</span></span>
-<span><span class="co">#&gt; 1      0.119433....</span></span>
-<span></span>
-<span><span class="co"># the plot further shows that there isn't a correlation between kidney 1 and kidney 7</span></span>
-<span><span class="fu"><a href="../reference/plotCorrelationGeneExp.html">plotCorrelationGeneExp</a></span><span class="op">(</span><span class="va">rastGexpList</span>, <span class="va">sc</span>, <span class="st">"1"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/show_ran_kid-3.png" width="576"></p>
-<p>We see that the naive p-value is in the significant range (p-value
-&lt; 0.05). However, based on the way the kidneys are simulated
-(simulated to have no correlation), this should not be the case, which
-is reflected in the permuted p-values. Unlike the naive p-value, the
-permuted p-values do not show significant correlation.</p>
-<p>Additionally, for each pairwise kidney SpatialExperiment object in
-the list of 100 random simulations, the corrected p-value can be
-computed using <code>spatialCorrelationGeneExpIterPermutation</code> for
-each pair. To reduce runtime for the tutorial, we provide the output
-from running this function as
-<code>simRanPatternResults.RData</code>.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># Full script to generate the precomputed vignette results available at:</span></span>
-<span><span class="co"># system.file("scripts", "simRanPatternSpatialCorrelation.R", package = "STcompare")</span></span>
-<span></span>
-<span><span class="co"># load data generated from the script </span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/load.html" class="external-link">load</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"simRanPatternResults.RData"</span>, package <span class="op">=</span> <span class="st">"STcompare"</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Var1 and Var2 is every pairwise combination between the 100 kidneys </span></span>
-<span><span class="co"># cors is the correlation coefficient of that pair </span></span>
-<span><span class="co"># corspv is the naive p-value for that pair </span></span>
-<span><span class="co"># corspv_correct is the permuted p-value for that pair (chosen to be the higher of pValuePermuteY and pValuePermuteX)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">cors_df</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   Var1 Var2        cors       corspv corspv_corrected</span></span>
-<span><span class="co">#&gt; 2    2    1 -0.04158115 0.4922707721             0.85</span></span>
-<span><span class="co">#&gt; 3    3    1  0.09066560 0.1343915793             0.54</span></span>
-<span><span class="co">#&gt; 4    4    1  0.05189013 0.3931009641             0.74</span></span>
-<span><span class="co">#&gt; 5    5    1  0.11116927 0.0651509396             0.54</span></span>
-<span><span class="co">#&gt; 6    6    1  0.10915193 0.0722938990             0.54</span></span>
-<span><span class="co">#&gt; 7    7    1 -0.21894862 0.0002533931             0.28</span></span>
-<span></span>
-<span><span class="va">cors_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/na.fail.html" class="external-link">na.omit</a></span><span class="op">(</span><span class="va">cors_df</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># apply BH correction for the naive p-value </span></span>
-<span><span class="va">cors_df</span><span class="op">$</span><span class="va">corspv_bh</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></span><span class="op">(</span><span class="va">cors_df</span><span class="op">$</span><span class="va">corspv</span>, method <span class="op">=</span> <span class="st">"BH"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Avoid log(0)</span></span>
-<span><span class="va">cors_df</span><span class="op">$</span><span class="va">corspv_bh</span><span class="op">[</span><span class="va">cors_df</span><span class="op">$</span><span class="va">corspv_bh</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1e-10</span></span>
-<span><span class="va">cors_df</span><span class="op">$</span><span class="va">corspv_corrected</span><span class="op">[</span><span class="va">cors_df</span><span class="op">$</span><span class="va">corspv_corrected</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1e-10</span></span>
-<span></span>
-<span><span class="co"># -log10</span></span>
-<span><span class="va">cors_df</span><span class="op">$</span><span class="va">log_bh</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log10</a></span><span class="op">(</span><span class="va">cors_df</span><span class="op">$</span><span class="va">corspv_bh</span><span class="op">)</span></span>
-<span><span class="va">cors_df</span><span class="op">$</span><span class="va">log_corrected</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log10</a></span><span class="op">(</span><span class="va">cors_df</span><span class="op">$</span><span class="va">corspv_corrected</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">plot_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  analytical_pval  <span class="op">=</span> <span class="va">cors_df</span><span class="op">$</span><span class="va">log_bh</span>,</span>
-<span>  emperical_pval <span class="op">=</span> <span class="va">cors_df</span><span class="op">$</span><span class="va">log_corrected</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">plot_df_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/reshape2/man/melt.html" class="external-link">melt</a></span><span class="op">(</span><span class="va">plot_df</span>, variable.name <span class="op">=</span> <span class="st">"type"</span>, value.name <span class="op">=</span> <span class="st">"neglog10_pval"</span><span class="op">)</span></span>
-<span></span>
-<span></span>
-<span><span class="va">plt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">plot_df_long</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">type</span>, y <span class="op">=</span> <span class="va">neglog10_pval</span>, color <span class="op">=</span> <span class="va">type</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_boxplot.html" class="external-link">geom_boxplot</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html" class="external-link">geom_hline</a></span><span class="op">(</span></span>
-<span>    yintercept <span class="op">=</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log10</a></span><span class="op">(</span><span class="fl">0.05</span><span class="op">)</span>,</span>
-<span>    linetype <span class="op">=</span> <span class="st">"dashed"</span>,</span>
-<span>    linewidth <span class="op">=</span> <span class="fl">0.5</span></span>
-<span>  <span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_classic</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
-<span>    x <span class="op">=</span> <span class="st">"P-value type"</span>,</span>
-<span>    y <span class="op">=</span> <span class="st">"-log10(p-value)"</span>,</span>
-<span>    title <span class="op">=</span> <span class="st">"BH-corrected Analytical p-value (pA) vs BH-corrected Emperical p-value (pE)"</span></span>
-<span>  <span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span></span>
-<span>    legend.position <span class="op">=</span> <span class="st">"none"</span>,</span>
-<span>    axis.text.x <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">12</span><span class="op">)</span>,</span>
-<span>    axis.text.y <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">12</span><span class="op">)</span>,</span>
-<span>    axis.title <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">14</span><span class="op">)</span>,</span>
-<span>    plot.title <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">15</span><span class="op">)</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="va">plt</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/load-results-1.png" width="576"></p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span></span>
-<span><span class="co"># percentage of signficant pairs based on the BH corrected niave p-value</span></span>
-<span><span class="va">niave_sig</span> <span class="op">&lt;-</span> <span class="va">plot_df</span><span class="op">[</span><span class="va">plot_df</span><span class="op">$</span><span class="va">analytical_pval</span> <span class="op">&gt;</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log10</a></span><span class="op">(</span><span class="fl">0.05</span><span class="op">)</span>, <span class="op">]</span></span>
-<span><span class="va">niave_sig_per</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">niave_sig</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">plot_df</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
-<span><span class="va">niave_sig_per</span></span>
-<span><span class="co">#&gt; [1] 0.4280808</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">niave_sig</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
-<span><span class="co">#&gt; [1] 4238</span></span>
-<span></span>
-<span><span class="va">emperical_sig</span> <span class="op">&lt;-</span> <span class="va">plot_df</span><span class="op">[</span><span class="va">plot_df</span><span class="op">$</span><span class="va">emperical_pval</span> <span class="op">&gt;</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log10</a></span><span class="op">(</span><span class="fl">0.05</span><span class="op">)</span>, <span class="op">]</span></span>
-<span><span class="va">emperical_per</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">emperical_sig</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">plot_df</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
-<span><span class="va">emperical_per</span></span>
-<span><span class="co">#&gt; [1] 0.03878788</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">emperical_sig</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
-<span><span class="co">#&gt; [1] 384</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">plot_df</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 9900    2</span></span></code></pre></div>
-<p>Based on the boxplot, the dotted line represent the significance
-(p-value &lt; 0.05). The median for the niave p-value is higher than the
-corrected one and there are pairs that are above the significance line
-in the niave p-value plot than in the emperical p-value. Without p-value
-correction, we observe that ~43% of these analytical p-values are less
-than 0.05, while after correcting for p-value only ~4% of the empirical
-p-values are less than 0.05.</p>
-</div>
-<div class="section level3">
-<h3 id="spatial-fold-change">Spatial fold change<a class="anchor" aria-label="anchor" href="#spatial-fold-change"></a>
-</h3>
-<p>Now, we use <code>spatialSimilarity</code> to understand the
-magnitude changes across matched spatial locations.</p>
-<p>Here, we find the spatialSimilarity pairwise between (A and B) and (A
-and C) in <code>rastKidney</code>.</p>
-<p>First, we will compare A and B. Let <em>x</em> be the expression of
-pixel in A and <em>y</em> be the expression of that same pixel in B.
-Then a pixel is defined as similar if <em>|log2(y/x)| &lt; b</em>. As
-default we set <em>b = 1</em> so that pixels are similar if there is a
-less than two-fold change.</p>
-<p>Then the similarity score <em>S</em> is the proportion of similar
-pixels over the total number of pixels.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># spatialSimilarity also takes in a list of 2 SpatialExperiment objects you want to compare between </span></span>
-<span><span class="co"># t1 and t2 are the thresholding value for the first and second object in the list. </span></span>
-<span><span class="co"># The threshold is used to remove pixels that have no or little expression for a given gene in the pixel.</span></span>
-<span><span class="co"># Failure to remove those those pixels will result in a trivial similarity score due to noise. </span></span>
-<span><span class="co"># If t1 and t2 aren't provided, minQuantile is used to threshold based on the quantile of expression. </span></span>
-<span><span class="co"># The default for minQuantile is 0.05, meaning by default the pixels at the bottom 5% are removed. </span></span>
-<span><span class="co"># minPixels is the percentage of pixels left after thresholding. The default is 0.1. </span></span>
-<span><span class="co"># When there is not enough pixels left, the similarity score will also be trivial.</span></span>
-<span><span class="co"># foldChange is the number of fold that are considered similar. The default is 1 fold. </span></span>
-<span></span>
-<span><span class="co"># compare kidney A and B </span></span>
-<span><span class="va">sAB</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatialSimilarity.html">spatialSimilarity</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">rastKidney</span><span class="op">$</span><span class="va">A</span>, B <span class="op">=</span> <span class="va">rastKidney</span><span class="op">$</span><span class="va">B</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># compare kidney A and C </span></span>
-<span><span class="va">sAC</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatialSimilarity.html">spatialSimilarity</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>A <span class="op">=</span> <span class="va">rastKidney</span><span class="op">$</span><span class="va">A</span>, C <span class="op">=</span> <span class="va">rastKidney</span><span class="op">$</span><span class="va">C</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<p>To visualize the results of comparing A and C with
-<code>spatialSimilarity</code> we use the <code>linearRegression</code>
-and <code>pixelClass</code> functions.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># To get the linear regression and the pixel classification plots, </span></span>
-<span><span class="co"># the inputs are the spatialSimilarity output and the gene name </span></span>
-<span></span>
-<span><span class="co"># The Linear regression shows the areas in which gene expression </span></span>
-<span><span class="co"># each pixels falls, the pixel is either: higher in B, similar, higher in A  </span></span>
-<span><span class="va">lrAB</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/linearRegression.html">linearRegression</a></span><span class="op">(</span>input<span class="op">=</span><span class="va">sAB</span>, gene <span class="op">=</span> <span class="st">"Gene"</span><span class="op">)</span></span>
-<span><span class="va">lrAB</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/lr_pc_AB-1.png" width="576"></p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># Similar to the linear regression plot, the pixel classification plot takes </span></span>
-<span><span class="co"># the plot of the rasterized kidney and classifies each pixel with the pixels </span></span>
-<span><span class="co"># that are below the threshold are gray </span></span>
-<span><span class="va">pcAB</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pixelClass.html">pixelClass</a></span><span class="op">(</span>input<span class="op">=</span><span class="va">sAB</span>, gene<span class="op">=</span><span class="st">"Gene"</span><span class="op">)</span></span>
-<span><span class="va">pcAB</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/lr_pc_AB-2.png" width="576"></p>
-<p>For gene <code>Gene</code> in the comparison between A and B, we see
-that A and B has a similarity score of S=0.535. This means that 53.5% of
-the intersecting pixels between A and B are within a two-fold change</p>
-<p>We can also visualize the results of comparing A and C.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># all the pixels have higher expression in C than in A, </span></span>
-<span><span class="co"># and are outside of the similar expression boundaries</span></span>
-<span></span>
-<span><span class="va">lrAC</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/linearRegression.html">linearRegression</a></span><span class="op">(</span>input<span class="op">=</span><span class="va">sAC</span>, gene <span class="op">=</span> <span class="st">"Gene"</span><span class="op">)</span></span>
-<span><span class="va">lrAC</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/lr_pc_AC-1.png" width="576"></p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="va">pcAC</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pixelClass.html">pixelClass</a></span><span class="op">(</span>input<span class="op">=</span><span class="va">sAC</span>, gene<span class="op">=</span><span class="st">"Gene"</span><span class="op">)</span></span>
-<span><span class="va">pcAC</span></span></code></pre></div>
-<p><img src="getting-started-with-STcompare-figures/lr_pc_AC-2.png" width="576"></p>
-<p>All the pixels have over 2-fold increase in C relative to the same
-pixels in A.</p>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">simRanPatternRasts</span><span class="op">)</span></span>
+<span><span class="va">indep</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compareSpatial.html">compareSpatial</a></span><span class="op">(</span><span class="va">simRanPatternRasts</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="va">simRanPatternRasts</span><span class="op">[[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span>,</span>
+<span>                        nThreads <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt; compareSpatial: 1 gene on 275 shared pixels in 0.1 s (11 permutations in total, 2 threads)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">indep</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"correlationCoef"</span>, <span class="st">"pValuePermute"</span>, <span class="st">"nPermutations"</span>,</span>
+<span>                         <span class="st">"stop"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;   correlationCoef pValuePermute nPermutations        stop</span></span>
+<span><span class="co">#&gt; 1     -0.04158115     0.9090909            11 exceedances</span></span></code></pre></div>
+<p>This gene stopped after 11 permutations, with
+<code>pValuePermute</code> = 0.91, while A and B used all 10000. The
+article <a href="how-STcompare-works.html">How STcompare works</a>
+explains why the p-value stays valid when genes stop at different
+times.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="conclusion">Conclusion<a class="anchor" aria-label="anchor" href="#conclusion"></a>
+<h2 id="visualizing-results">Visualizing results<a class="anchor" aria-label="anchor" href="#visualizing-results"></a>
 </h2>
-<p>In spatial data, changes in expression pattern and magnitude can be
-independent observations.</p>
+<p><code><a href="../reference/plotGene.html">plotGene()</a></code> draws one standard figure for a gene of a
+result: the gene at native resolution in both samples, on the shared
+pixels, the similarity class of every pixel, and the expression at
+matched pixels with the gene’s statistics. It takes the result, the gene
+and the two rasterized objects that <code><a href="../reference/compareSpatial.html">compareSpatial()</a></code>
+compared, in the same order; <code>native</code> gives the objects
+before rasterization, in the same order, for the native-resolution
+maps.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plotGene.html">plotGene</a></span><span class="op">(</span><span class="va">ab</span>, <span class="st">"Gene"</span>, <span class="va">rast</span><span class="op">$</span><span class="va">A</span>, <span class="va">rast</span><span class="op">$</span><span class="va">B</span>, native <span class="op">=</span> <span class="va">speKidney</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
+<p><img src="getting-started-with-STcompare_files/figure-html/plot-ab-1.png" class="r-plt" alt="The standard figure of Gene for A and B: the cells of A and B coloured by expression, the shared pixels coloured by expression, the pixels coloured by similarity class, and a scatter plot of the values at matched pixels with the statistics." width="100%"></p>
+<p>The panels, lettered for a figure legend, one letter for each pair of
+maps:</p>
 <ul>
-<li>A and B are negatively correlated but have similar magnitude at
-matched spatial locations</li>
-<li>A and C are positively correlated but do not have similar magnitude
-at matched spatial locations</li>
+<li>
+<strong>A</strong>: the cells of A and B coloured by the counts of
+the gene (the first assay of the <code>native</code> objects;
+<code>nativeAssay</code> chooses another).</li>
+<li>
+<strong>B</strong>: the shared pixels coloured by the values that
+the tests compared, here the mean counts <code>pixelval</code>. The two
+maps of a pair share one colour scale, so that the colours of the two
+samples are comparable (<code>sharedScale = FALSE</code> gives each map
+its own). Pixels that one sample lacks, which the tests did not use, are
+light grey in every map.</li>
+<li>
+<strong>C</strong>: the similarity class of every pixel: within
+two-fold in both samples (blue), more than two-fold higher in A (orange)
+or in B (pink), or below the expression threshold in both (grey). The
+legend gives the share of each class among the pixels above the
+threshold, so the share of similar pixels is
+<code>percentSimilarity</code>.</li>
+<li>
+<strong>D</strong>: the values at matched pixels, A horizontally and
+B vertically, in the same colours; the solid line is y = x, the dashed
+lines bound the two-fold band and the dotted lines are the thresholds
+<code>t1</code> and <code>t2</code> (the figure’s caption is the key).
+The subtitle gives the gene’s row of the result:
+<code>correlationCoef</code> (r), <code>pValuePermute</code> (p, marked
+“minimum” when it is the smallest value the permutations can give),
+<code>pValuePermuteAdj</code>, <code>pValueNaive</code>, the number of
+permutations and <code>percentSimilarity</code>.</li>
 </ul>
-<p>We demonstrate that <code>STcompare</code> can be used to identify
-these differences that would otherwise not have been detected using mean
-gene expression magnitude comparison. We also demonstrate that
-<code>STcompare</code> generates empirical p-values, providing p-value
-correction that is needed to take into account that gene expression in
-each pixel is not independent from that of its neighbors’.</p>
+<p>The anti-correlation of A and B is the falling band of points in D,
+and C shows where the levels differ: around the edge of the kidney A is
+higher (orange), in its centre B is higher (pink). For A and C, the
+pattern is the same, so the points in D line up with a positive slope,
+but C is more than two-fold higher at every pixel, so every point lies
+above the band and every pixel is pink:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plotGene.html">plotGene</a></span><span class="op">(</span><span class="va">ac</span>, <span class="st">"Gene"</span>, <span class="va">rast</span><span class="op">$</span><span class="va">A</span>, <span class="va">rast</span><span class="op">$</span><span class="va">C</span>, native <span class="op">=</span> <span class="va">speKidney</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"C"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
+<p><img src="getting-started-with-STcompare_files/figure-html/plot-ac-1.png" class="r-plt" alt="The standard figure of Gene for A and C: the same pattern in both, every pixel more than two-fold higher in C." width="100%"></p>
+<p>Without <code>native</code>, the figure has one row: the pixel maps
+(A), the similarity classes (B) and the matched pixels (C).
+<code>panels</code> selects panels, <code>transform = "log1p"</code>
+draws the maps and the scatter axes on a log scale (useful for counts
+that span orders of magnitude), and <code><a href="../reference/plotGene.html">?plotGene</a></code> describes
+every option. For a result with many genes,
+<code>plotOverview(result)</code> draws the overview of all of them: the
+correlation of every gene against its adjusted p-value, the distribution
+of the similarity, and the two against each other, with the significant
+genes coloured. The <a href="https://jef.works/STcompare/articles/acute-kidney-injury-10x-visium-rasterized.html">case
+studies</a> show it.</p>
+<div class="section level3">
+<h3 id="saving-and-customizing-a-figure">Saving and customizing a figure<a class="anchor" aria-label="anchor" href="#saving-and-customizing-a-figure"></a>
+</h3>
+<p>The figure is a <a href="https://patchwork.data-imaginist.com/" class="external-link">patchwork</a> of ggplot2
+panels, so <code><a href="https://ggplot2.tidyverse.org/reference/ggsave.html" class="external-link">ggplot2::ggsave()</a></code> writes it in any format, with
+the size in inches. With the default text size
+(<code>baseSize = 10</code> points), a height of 6.5 suits the two-row
+figure with the native maps and 3.5 the one row without them. The maps
+keep the shape of the tissue, so the tissue sets the width the figure
+needs, and a wider canvas only adds blank space at the sides: these
+kidneys, taller than wide, fill 7 by 6.5 and 8.5 by 3.5, while a square
+tissue needs about 10 by 6.5 and 11 by 3.5.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fig</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plotGene.html">plotGene</a></span><span class="op">(</span><span class="va">ab</span>, <span class="st">"Gene"</span>, <span class="va">rast</span><span class="op">$</span><span class="va">A</span>, <span class="va">rast</span><span class="op">$</span><span class="va">B</span>, native <span class="op">=</span> <span class="va">speKidney</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggsave.html" class="external-link">ggsave</a></span><span class="op">(</span><span class="st">"Gene-A-vs-B.pdf"</span>, <span class="va">fig</span>, width <span class="op">=</span> <span class="fl">7</span>, height <span class="op">=</span> <span class="fl">6.5</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggsave.html" class="external-link">ggsave</a></span><span class="op">(</span><span class="st">"Gene-A-vs-B.png"</span>, <span class="va">fig</span>, width <span class="op">=</span> <span class="fl">7</span>, height <span class="op">=</span> <span class="fl">6.5</span>, dpi <span class="op">=</span> <span class="fl">300</span><span class="op">)</span></span></code></pre></div>
+<p>Every text, legend key and point of the figure is scaled from
+<code>baseSize</code>, so a journal figure needs only a smaller base
+size: <code>baseSize = 7</code> for the full width of a page (180 mm;
+these kidneys fill 125 mm of it at a height of 115 mm), and
+<code>baseSize = 6</code> with <code>ncol = 2</code> for a single column
+(90 mm).</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fig</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plotGene.html">plotGene</a></span><span class="op">(</span><span class="va">ab</span>, <span class="st">"Gene"</span>, <span class="va">rast</span><span class="op">$</span><span class="va">A</span>, <span class="va">rast</span><span class="op">$</span><span class="va">B</span>, native <span class="op">=</span> <span class="va">speKidney</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>                baseSize <span class="op">=</span> <span class="fl">7</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggsave.html" class="external-link">ggsave</a></span><span class="op">(</span><span class="st">"Gene-A-vs-B-125mm.pdf"</span>, <span class="va">fig</span>, width <span class="op">=</span> <span class="fl">125</span>, height <span class="op">=</span> <span class="fl">115</span>, units <span class="op">=</span> <span class="st">"mm"</span><span class="op">)</span></span></code></pre></div>
+<p>Patchwork’s <code>&amp;</code> operator applies a ggplot2 theme to
+every panel, and <code>+</code> changes the figure’s annotation; for
+example, to draw only the similarity panels in a larger serif font,
+without the panel letters:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plotGene.html">plotGene</a></span><span class="op">(</span><span class="va">ab</span>, <span class="st">"Gene"</span>, <span class="va">rast</span><span class="op">$</span><span class="va">A</span>, <span class="va">rast</span><span class="op">$</span><span class="va">B</span>, panels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"similarity"</span>, <span class="st">"scatter"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://patchwork.data-imaginist.com/reference/plot_annotation.html" class="external-link">plot_annotation</a></span><span class="op">(</span>tag_levels <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">&amp;</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>text <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>family <span class="op">=</span> <span class="st">"serif"</span>, size <span class="op">=</span> <span class="fl">12</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="getting-started-with-STcompare_files/figure-html/customize-1.png" class="r-plt" alt="The similarity map and the scatter plot of Gene for A and B, in a serif font and without panel letters." width="100%"></p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="why-permutation-p-values-a-calibration-check">Why permutation p-values? A calibration check<a class="anchor" aria-label="anchor" href="#why-permutation-p-values-a-calibration-check"></a>
+</h2>
+<p>Neighbouring pixels have similar values: the patterns are spatially
+autocorrelated. Two unrelated but smooth patterns can therefore have a
+sizeable correlation by chance, much more often than
+<code><a href="https://rdrr.io/r/stats/cor.test.html" class="external-link">cor.test()</a></code> expects from independent observations.
+<code>simRanPatternRasts</code> holds 100 independently simulated,
+spatially autocorrelated patterns rasterized onto one grid, so any two
+of them are unrelated. We compare 50 disjoint pairs, (1, 2), (3, 4), and
+so on, with a different seed for each pair, and collect the results.</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pairs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">simRanPatternRasts</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">calibration</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">pairs</span><span class="op">)</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">k</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compareSpatial.html">compareSpatial</a></span><span class="op">(</span><span class="va">simRanPatternRasts</span><span class="op">[[</span><span class="va">pairs</span><span class="op">[</span><span class="fl">1</span>, <span class="va">k</span><span class="op">]</span><span class="op">]</span><span class="op">]</span>,</span>
+<span>                        <span class="va">simRanPatternRasts</span><span class="op">[[</span><span class="va">pairs</span><span class="op">[</span><span class="fl">2</span>, <span class="va">k</span><span class="op">]</span><span class="op">]</span><span class="op">]</span>,</span>
+<span>                        tests <span class="op">=</span> <span class="st">"correlation"</span>, nPermutations <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>                        seed <span class="op">=</span> <span class="va">k</span>, nThreads <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">calibration</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 50</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">calibration</span><span class="op">$</span><span class="va">nPermutations</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. </span></span>
+<span><span class="co">#&gt;   10.00   11.00   18.50   66.76   32.75 1000.00</span></span></code></pre></div>
+<p>Most pairs stopped after a few dozen permutations, so the 50 tests
+take a few seconds. The null hypothesis is true for every pair, so a
+calibrated test gives p &lt; 0.05 for about 5% of them:</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>naive <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">calibration</span><span class="op">$</span><span class="va">pValueNaive</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span>,</span>
+<span>  permutation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">calibration</span><span class="op">$</span><span class="va">pValuePermute</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;       naive permutation </span></span>
+<span><span class="co">#&gt;          24           4</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>naive <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></span><span class="op">(</span><span class="va">calibration</span><span class="op">$</span><span class="va">pValueNaive</span>, <span class="st">"BH"</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span>,</span>
+<span>  permutation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/p.adjust.html" class="external-link">p.adjust</a></span><span class="op">(</span><span class="va">calibration</span><span class="op">$</span><span class="va">pValuePermute</span>, <span class="st">"BH"</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;       naive permutation </span></span>
+<span><span class="co">#&gt;          20           0</span></span></code></pre></div>
+<p>24 of 50 naive p-values are below 0.05, and 20 pairs remain
+“significant” after the Benjamini-Hochberg adjustment. The permutation
+test gives 4 of 50, in line with the 2.5 expected by chance: the
+one-sided binomial p-value of seeing at least that many is 0.24, against
+&lt;2e-16 for the naive test. After the adjustment, the permutation test
+gives 0.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pvalues</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>test <span class="op">=</span> <span class="st">"naive (cor.test)"</span>, p <span class="op">=</span> <span class="va">calibration</span><span class="op">$</span><span class="va">pValueNaive</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>test <span class="op">=</span> <span class="st">"permutation (compareSpatial)"</span>,</span>
+<span>             p <span class="op">=</span> <span class="va">calibration</span><span class="op">$</span><span class="va">pValuePermute</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">pvalues</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">p</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_histogram.html" class="external-link">geom_histogram</a></span><span class="op">(</span>breaks <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.05</span><span class="op">)</span>, colour <span class="op">=</span> <span class="st">"white"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html" class="external-link">geom_hline</a></span><span class="op">(</span>yintercept <span class="op">=</span> <span class="fl">50</span> <span class="op">*</span> <span class="fl">0.05</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/facet_wrap.html" class="external-link">facet_wrap</a></span><span class="op">(</span><span class="op">~</span><span class="va">test</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"p-value of 50 unrelated pairs"</span>, y <span class="op">=</span> <span class="st">"Pairs"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_classic</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p><img src="getting-started-with-STcompare_files/figure-html/calibration-plot-1.png" class="r-plt" alt="Histograms of the p-values of 50 unrelated pairs: the naive p-values pile up near 0, the permutation p-values do not." width="100%"></p>
+<p>Under the null hypothesis, p-values are uniformly distributed (dashed
+line). The naive p-values pile up near 0; the permutation p-values do
+not. Many permutation p-values are close to 1: a pair whose patterns are
+clearly unrelated reaches 10 exceedances within its first few
+permutations and stops with p = 10 / L, for example 1 after 10
+permutations.</p>
+</div>
+<div class="section level2">
+<h2 id="migrating-from-the-legacy-functions">Migrating from the legacy functions<a class="anchor" aria-label="anchor" href="#migrating-from-the-legacy-functions"></a>
+</h2>
+<p>The functions of earlier versions are still available, unchanged in
+their interface. They are computed by the same compiled engine and
+reproduce the published analyses exactly. <code><a href="../reference/compareSpatial.html">compareSpatial()</a></code>
+is the recommended entry point for new analyses.</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Earlier function</th>
+<th><code><a href="../reference/compareSpatial.html">compareSpatial()</a></code></th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>spatialCorrelationGeneExp(list(A = a, B = b))</code></td>
+<td><code>compareSpatial(list(A = a, B = b), tests = "correlation")</code></td>
+</tr>
+<tr class="even">
+<td>
+<code><a href="../reference/spatialCorrelationGeneExpIterPermutations.html">spatialCorrelationGeneExpIterPermutations()</a></code> (100, then
+1000 permutations for promising genes)</td>
+<td>adaptive permutations, the default (<code>exceedances = 10</code>,
+<code>nPermutations = 10000</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>spatialSimilarity(list(a, b))</code></td>
+<td><code>compareSpatial(a, b, tests = "similarity")</code></td>
+</tr>
+<tr class="even">
+<td>
+<code>correlationCoef</code>, <code>pValueNaive</code>
+</td>
+<td>the same</td>
+</tr>
+<tr class="odd">
+<td>
+<code>pValuePermuteX</code>, <code>pValuePermuteY</code>: the raw
+p-value of each direction; <code>pValuePermuteXAdj</code>,
+<code>pValuePermuteYAdj</code>: each adjusted across genes; significant
+when both adjusted values are below 0.05 (before version 2.0.0 there
+were no <code>Adj</code> columns:
+<code><a href="../reference/spatialCorrelationGeneExpIterPermutations.html">spatialCorrelationGeneExpIterPermutations()</a></code> returned the
+adjusted values as <code>pValuePermuteX</code> and
+<code>pValuePermuteY</code>, and
+<code><a href="../reference/spatialCorrelationGeneExp.html">spatialCorrelationGeneExp()</a></code>, which adjusted one gene at a
+time, returned unadjusted values under these names)</td>
+<td>
+<code>pValuePermuteX</code>, <code>pValuePermuteY</code>: the raw
+p-value of each direction; <code>pValuePermute</code> = the gene’s
+p-value, the larger of the two directions’ sequential p-values;
+<code>pValuePermuteAdj</code> = <code>pValuePermute</code> adjusted
+across genes; significant when <code>pValuePermuteAdj</code> &lt;
+0.05</td>
+</tr>
+<tr class="even">
+<td>
+<code>deltaStarMedianX</code>, <code>deltaStarMedianY</code>
+</td>
+<td>the same</td>
+</tr>
+<tr class="odd">
+<td>
+<code>percentSimilarity</code>, <code>percentDissimilarityX</code>,
+<code>percentDissimilarityY</code>
+</td>
+<td>the same</td>
+</tr>
+<tr class="even">
+<td>
+<code>numPixelInThresh</code>, <code>t1</code>, <code>t2</code>
+</td>
+<td>the same</td>
+</tr>
+</tbody>
+</table>
+<p>The differences in the results:</p>
+<ul>
+<li>
+<code>correlationCoef</code>, <code>pValueNaive</code> and the
+similarity scores are identical.</li>
+<li>The permutation p-values differ: <code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> draws
+independent permutations for each gene and direction (the earlier
+functions share one set across genes), stops early for genes that are
+clearly not significant, gives its surrogates the gene’s own values
+(<code>surrogate = "remap"</code>; the earlier functions’ surrogates
+have nearly normal values, <code>surrogate = "gaussian"</code>), and
+adjusts one combined p-value per gene. On the published kidney analysis
+the two approaches agree on the significance of 98% of the genes; on the
+brain analysis <code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> finds 45 more genes among
+325, which the remapped surrogates have the power to detect (see <a href="parameters-performance-reproducibility.html">Parameters,
+performance and reproducibility</a>).</li>
+<li>
+<code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> tests every gene that is not constant
+in a sample, including genes detected in a few pixels, for which the
+remapped surrogates give calibrated p-values. With
+<code>surrogate = "gaussian"</code> such genes are skipped
+(<code>minDetected</code>), because gaussian surrogates give them
+p-values that are far too small.</li>
+<li>
+<code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> checks that the shared pixels have the
+same coordinates, uses the genes present in both samples, and reports
+genes that are skipped or cannot be tested in its <code>status</code>
+and <code>message</code> columns instead of stopping.</li>
+</ul>
+<p>The plotting functions of earlier versions are also unchanged:
+<code><a href="../reference/plotCorrelationGeneExp.html">plotCorrelationGeneExp()</a></code> draws the scatter plot of a gene
+from the rasterized objects and a correlation result, and
+<code><a href="../reference/linearRegression.html">linearRegression()</a></code> and <code><a href="../reference/pixelClass.html">pixelClass()</a></code> draw the
+scatter plot and the map of the similarity classes from a
+<code><a href="../reference/spatialSimilarity.html">spatialSimilarity()</a></code> result, which <code><a href="../reference/savePlots.html">savePlots()</a></code>
+writes to files. <code><a href="../reference/plotGene.html">plotGene()</a></code> draws all of this, and more,
+from one <code><a href="../reference/compareSpatial.html">compareSpatial()</a></code> result.</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">simAB</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatialSimilarity.html">spatialSimilarity</a></span><span class="op">(</span><span class="va">rast</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plotCorrelationGeneExp.html">plotCorrelationGeneExp</a></span><span class="op">(</span><span class="va">rast</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span><span class="op">]</span>, <span class="va">ab</span>, <span class="st">"Gene"</span><span class="op">)</span> <span class="op">/</span></span>
+<span>  <span class="op">(</span><span class="fu"><a href="../reference/linearRegression.html">linearRegression</a></span><span class="op">(</span><span class="va">simAB</span>, <span class="st">"Gene"</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="../reference/pixelClass.html">pixelClass</a></span><span class="op">(</span><span class="va">simAB</span>, <span class="st">"Gene"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="getting-started-with-STcompare_files/figure-html/legacy-plots-1.png" class="r-plt" alt="The legacy plots of Gene for A and B: the scatter plot of plotCorrelationGeneExp() above, and the scatter plot and the map of the similarity classes of linearRegression() and pixelClass() below." width="100%"></p>
+</div>
+<div class="section level2">
+<h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
+</h2>
+<ul>
+<li>
+<a href="how-STcompare-works.html">How STcompare works</a>: the
+tests step by step.</li>
+<li>
+<a href="parameters-performance-reproducibility.html">Parameters,
+performance and reproducibility</a>: choosing the resolution, the
+smoothing grid and the number of permutations; threads and run times;
+seeds.</li>
+<li>Two case studies run the published analyses on real data in a minute
+or two: <a href="https://jef.works/STcompare/articles/acute-kidney-injury-10x-visium-rasterized.html">acute
+kidney injury (10x Visium)</a> and <a href="https://jef.works/STcompare/articles/brain-MERFISH-10x-visium.html">MERFISH
+vs Visium in the mouse brain</a>.</li>
+</ul>
+</div>
+<div class="section level2">
+<h2 id="session-information">Session information<a class="anchor" aria-label="anchor" href="#session-information"></a>
+</h2>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="co">#&gt; R version 4.6.1 (2026-06-24)</span></span>
+<span><span class="co">#&gt; Platform: aarch64-apple-darwin23</span></span>
+<span><span class="co">#&gt; Running under: macOS Sonoma 14.5</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Matrix products: default</span></span>
+<span><span class="co">#&gt; BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib </span></span>
+<span><span class="co">#&gt; LAPACK: /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; locale:</span></span>
+<span><span class="co">#&gt; [1] en_US/en_US/en_US/C/en_US/en_US</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; time zone: America/New_York</span></span>
+<span><span class="co">#&gt; tzcode source: internal</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; attached base packages:</span></span>
+<span><span class="co">#&gt; [1] stats4    stats     graphics  grDevices utils     datasets  methods  </span></span>
+<span><span class="co">#&gt; [8] base     </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; other attached packages:</span></span>
+<span><span class="co">#&gt;  [1] patchwork_1.3.2             ggplot2_4.0.3              </span></span>
+<span><span class="co">#&gt;  [3] SpatialExperiment_1.22.0    SingleCellExperiment_1.34.0</span></span>
+<span><span class="co">#&gt;  [5] SummarizedExperiment_1.42.0 Biobase_2.72.0             </span></span>
+<span><span class="co">#&gt;  [7] GenomicRanges_1.64.0        Seqinfo_1.2.0              </span></span>
+<span><span class="co">#&gt;  [9] IRanges_2.46.0              S4Vectors_0.50.3           </span></span>
+<span><span class="co">#&gt; [11] BiocGenerics_0.58.1         generics_0.1.4             </span></span>
+<span><span class="co">#&gt; [13] MatrixGenerics_1.24.0       matrixStats_1.5.0          </span></span>
+<span><span class="co">#&gt; [15] STcompare_2.0.0            </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
+<span><span class="co">#&gt;  [1] gtable_0.3.6        rjson_0.2.23        xfun_0.62          </span></span>
+<span><span class="co">#&gt;  [4] bslib_0.12.0        htmlwidgets_1.6.4   lattice_0.23-1     </span></span>
+<span><span class="co">#&gt;  [7] vctrs_0.7.3         tools_4.6.1         parallel_4.6.1     </span></span>
+<span><span class="co">#&gt; [10] proxy_0.4-29        tibble_3.3.1        pkgconfig_2.0.3    </span></span>
+<span><span class="co">#&gt; [13] KernSmooth_2.23-27  Matrix_1.7-6        rearrr_0.3.5       </span></span>
+<span><span class="co">#&gt; [16] RColorBrewer_1.1-3  S7_0.2.2            desc_1.4.3         </span></span>
+<span><span class="co">#&gt; [19] lifecycle_1.0.5     compiler_4.6.1      farver_2.1.2       </span></span>
+<span><span class="co">#&gt; [22] textshaping_1.0.5   codetools_0.2-20    class_7.3-24       </span></span>
+<span><span class="co">#&gt; [25] htmltools_0.5.9     sass_0.4.10         yaml_2.3.12        </span></span>
+<span><span class="co">#&gt; [28] pillar_1.11.1       pkgdown_2.2.1       jquerylib_0.1.4    </span></span>
+<span><span class="co">#&gt; [31] classInt_0.4-11     BiocParallel_1.46.0 cachem_1.1.0       </span></span>
+<span><span class="co">#&gt; [34] DelayedArray_0.38.2 viridis_0.6.5       magick_2.9.1       </span></span>
+<span><span class="co">#&gt; [37] abind_1.4-8         tidyselect_1.2.1    digest_0.6.39      </span></span>
+<span><span class="co">#&gt; [40] sf_1.1-3            dplyr_1.2.1         labeling_0.4.3     </span></span>
+<span><span class="co">#&gt; [43] fastmap_1.2.0       grid_4.6.1          cli_3.6.6          </span></span>
+<span><span class="co">#&gt; [46] SparseArray_1.12.3  magrittr_2.0.5      S4Arrays_1.12.1    </span></span>
+<span><span class="co">#&gt; [49] e1071_1.7-17        withr_3.0.3         scales_1.4.0       </span></span>
+<span><span class="co">#&gt; [52] rmarkdown_2.32      XVector_0.52.0      otel_0.2.0         </span></span>
+<span><span class="co">#&gt; [55] gridExtra_2.3.1     ragg_1.5.2          evaluate_1.0.5     </span></span>
+<span><span class="co">#&gt; [58] knitr_1.52          viridisLite_0.4.3   SEraster_1.4.0     </span></span>
+<span><span class="co">#&gt; [61] rlang_1.3.0         Rcpp_1.1.2          DBI_1.3.0          </span></span>
+<span><span class="co">#&gt; [64] glue_1.8.1          jsonlite_2.0.0      R6_2.6.1           </span></span>
+<span><span class="co">#&gt; [67] units_1.0-1         systemfonts_1.3.2   fs_2.1.0</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -754,11 +839,11 @@ each pixel is not independent from that of its neighbors’.</p>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Kalen Clifton, Vivien Jiang, Jean Fan.</p>
+  <p>Developed by Kalen Clifton, Vivien Jiang, Kamil Slowikowski, Jean Fan.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>
